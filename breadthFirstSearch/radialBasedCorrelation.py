@@ -156,11 +156,11 @@ def motifExtraction(SMILES, indexSMILES ,radius):
                     #print("network" , network)
                     contactListMAST.append(network)
                     smilesEdgesMAST.append(smilesEdges)
-                smilesEdgesMAST = list(set(num for sublist in smilesEdgesMAST for num in sublist))
                 contactListMAST = list(set(num for sublist in contactListMAST for num in sublist))
-                smilesEdgesMAST = smallestDistance(g, smilesEdgesMAST , radius , CC)
-
+            
                 if not bypass:
+                    smilesEdgesMAST = list(set(num for sublist in smilesEdgesMAST for num in sublist))
+                    smilesEdgesMAST = smallestDistance(g, smilesEdgesMAST , radius , CC)
                     #correct the 2 contact Lists and turn to motifs 
                     molec = removeProblemAroms(molec, contactListMAST ,  smilesEdgesMAST)
                     editMolec = Chem.EditableMol(molec)
@@ -186,9 +186,16 @@ def motifExtraction(SMILES, indexSMILES ,radius):
 #Post Processing of motifs
 def smallestDistance(graph, edgeList , cutDist, atoms):
     edgesMAST = []
-    for atom in atoms:
-        #index of atom, check if distance of all in edgeList is greater than or equal to cutDist
-
+    for edgeAtom in edgeList:
+        proximityList = []
+        for atom in atoms:
+            atom1atom2Paths = list(nx.all_simple_paths(graph, source=atom, target=edgeAtom))
+            for path in atom1atom2Paths:
+                length = len(path)-1
+                proximityList.append(length)
+        
+    if all(num >= cutDist for num in proximityList):
+        edgesMAST.append(edgeAtom)
     return edgesMAST
 def removeProblemAroms(molec ,  contactList ,smilesEdges ):
     blanketList = contactList.copy()
