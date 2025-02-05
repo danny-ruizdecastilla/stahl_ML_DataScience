@@ -94,13 +94,13 @@ def getContacts(atom1, prevAtom, graph, limitList, CC):
             prevAtom = atom1
             atom1 = nextAtom 
     return molecList
-def motifExtraction(masterDF , radius):
+def motifExtraction(SMILES, indexSMILES ,radius):
     motifMASTER = []
-    SMILES = masterDF['SMILES'].unique()
+    smilesIndeces = []
     failCount = 0
-    for i in range (len(SMILES)):
-        print("i" , i)
-        smiles = SMILES[i]
+    for smileInd, smiles in enumerate(list(SMILES)):
+        print("i" , smileInd)
+        
         print(smiles)
         try:
 
@@ -115,6 +115,7 @@ def motifExtraction(masterDF , radius):
                     g.add_edge(start, end)
                 limitMatrix = getAdjencyMatrix( g , radius)
                 contactListMAST = []
+                smilesEdgesMAST = []
                 for j in range (len(CC)): #Need to extend network to each carbon in the Alkene 
                     #print(j)
                     contactList = []
@@ -123,7 +124,8 @@ def motifExtraction(masterDF , radius):
                     #print("C1" , C1)
                     #print("C2" , C2)
                     upperLimits  = getUpperLimits(limitMatrix, C1 , g, radius)
-                    smilesEdges = upperLimits
+                    smilesEdges = upperLimits.copy()
+                    print("smilesEdges127" , smilesEdges)
                     upperLimits.append(C2)
                     upperLimits.append(C1)
                     #print("upper limits",  upperLimits)
@@ -131,12 +133,15 @@ def motifExtraction(masterDF , radius):
                     if upperLimits[0] == "Poison":
                         #Entire molecule can be kept 
                         motifMASTER.append(smiles)
+                        identSmiles = str(list(indexSMILES)[smileInd])
+                        smilesIndeces.append(identSmiles)
                         bypass = True
                         break
                     else: 
                         bypass = False
                         fail = 0
                         while True:
+                            print("fail" , fail)
                             contacts= getContacts(C1 , C2, g, upperLimits , CC)
                             #print(contacts)
                             if not contacts in contactList:
@@ -150,17 +155,18 @@ def motifExtraction(masterDF , radius):
                     network = list(set(num for sublist in contactList for num in sublist))
                     #print("network" , network)
                     contactListMAST.append(network)
+                    smilesEdgesMAST.append(smilesEdges)
+                smilesEdgesMAST = list(set(num for sublist in smilesEdgesMAST for num in sublist))
                 contactListMAST = list(set(num for sublist in contactListMAST for num in sublist))
-                
+                smilesEdgesMAST = smallestDistance(g, smilesEdgesMAST , radius , CC)
 
                 if not bypass:
                     #correct the 2 contact Lists and turn to motifs 
-                    print("contactListMAST" , contactListMAST)
-                    molec = removeProblemAroms(molec, contactListMAST ,  smilesEdges)
-                    print("contactListMAST" , contactListMAST)
+                    molec = removeProblemAroms(molec, contactListMAST ,  smilesEdgesMAST)
                     editMolec = Chem.EditableMol(molec)
+                    print("smilesEdges163" , smilesEdgesMAST)
 
-                    for i in range (len(smilesEdges)):
+                    for i in range (len(smilesEdgesMAST)):
                         starInd = smilesEdges[i]
                         editMolec.ReplaceAtom(starInd, Chem.Atom("*"))
                     molecMAST = editMolec.GetMol()
@@ -168,19 +174,27 @@ def motifExtraction(masterDF , radius):
                     motifSMILES = Chem.MolFragmentToSmiles(molecMAST, contactListMAST, kekuleSmiles=False)
 
                     #Post Processing of motifs 
-                    motifMASTER.append([motifSMILES , i])
-        except IndexError:
+                    motifMASTER.append(motifSMILES)
+                    identSmiles = str(list(indexSMILES)[smileInd])
+                    smilesIndeces.append(identSmiles)
+        except AttributeError:
             #Cursed SMILES
             failCount +=1
             continue
     print("failCount" , failCount)
-    return motifMASTER
+    return motifMASTER , smilesIndeces
 #Post Processing of motifs
-def removeProblemAroms(molec ,  contactListMAST ,smilesEdges ):
-    blanketList = contactListMAST
+def smallestDistance(graph, edgeList , cutDist, atoms):
+    edgesMAST = []
+    for atom in atoms:
+        #index of atom, check if distance of all in edgeList is greater than or equal to cutDist
+
+    return edgesMAST
+def removeProblemAroms(molec ,  contactList ,smilesEdges ):
+    blanketList = contactList.copy()
     
     while True:
-        print("contactListMAST183" , contactListMAST)
+        #print("contactListMAST183" , contactList)
         #print(blanketList)
         atomId = random.choice(blanketList)
         atom = molec.GetAtomWithIdx(atomId)
@@ -216,9 +230,10 @@ def removeProblemAroms(molec ,  contactListMAST ,smilesEdges ):
                         break 
                 atomSet = set(atomList)
                 blanketList = list(set(blanketList) - atomSet) 
-                missingElements = atomSet - set(contactListMAST)
-                print("contactListMAST220" , contactListMAST)
+                missingElements = atomSet - set(contactList)
+                #print("contactListMAST220" , contactList)
                 if missingElements:
+                    #print("missingElements")
                     molec = removeArom(molec, atomList)
             else:
                 blanketList.remove(atomId)
@@ -248,36 +263,30 @@ def removeArom(molec, indices):
     # Return the modified molecule
     return editableMol
 
-def createXLSX(smilesList , radius):
-    dim1 = len(smilesList)
-    numbers = []
-    for i in range(dim1):  # Generate numbers from 1 to 10
-        numb = str(i).zfill(7)
-        numbs = "Alkene_" + numb
-        numbers.append(numbs)
-    columns = ["SMILES", "Compound_Name"]
+def createXLSX(smilesList ,smilesID ,  radius):
+    columns = ["SMILES", "OriginalID"]
     # Create the DataFrame
-    df = pd.DataFrame({columns[0]: smilesList, columns[1]: numbers})
+    df = pd.DataFrame({columns[0]: smilesList, columns[1]: smilesID})
+    saveDir = mainDir  + "/motifExtractorOutput/"
+    if not os.path.exists(saveDir):
+        os.makedirs(saveDir)
 
-    df.to_excel(mainDir  + "/motifExtractor_" + str(radius) + ".xlsx", index=False) 
+    df.to_excel(saveDir + "breadthFirstSearchOuts_" + str(radius) + ".xlsx", index=False) 
 
 if __name__ == "__main__":
     mainDir = str(sys.argv[1])
     radius = int(sys.argv[2])
-    #print(radialList[1])
-    xlsxDir = glob.glob(mainDir + "/*.xlsx") #many directories 
-    masterDF = pd.DataFrame(columns=["SMILES"])
+    inputDF = str(sys.argv[3]) #name of the input DF
+    
+    dF = pd.read_excel(mainDir + "/" + inputDF + ".xlsx")
+    dfMAST = dF.drop_duplicates(subset="SMILES", keep="first") 
 
-    for i in range(len(xlsxDir)):
-        df = pd.read_excel(xlsxDir[i])
-        if 'SMILES' in df.columns:
-            masterDF = pd.concat([masterDF, df[['SMILES']]], ignore_index=True)
+    smilesDF = dfMAST['SMILES']
+    indexingDF = dfMAST['Compound_Name']
 
-    masterDF = masterDF.drop_duplicates()
-
-    motifList = motifExtraction(masterDF, radius)
+    motifList , smilesID = motifExtraction(smilesDF, indexingDF, radius) #SmilesID keeps track of the original 
  
-    createXLSX(motifList , radius)
+    createXLSX(motifList , smilesID , radius)
     #visulizations!!!!!
 
     
