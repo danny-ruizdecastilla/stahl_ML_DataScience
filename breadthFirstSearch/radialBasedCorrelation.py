@@ -141,7 +141,7 @@ def motifExtraction(SMILES, indexSMILES ,radius):
                         bypass = False
                         fail = 0
                         while True:
-                            print("fail" , fail)
+                            #print("fail" , fail)
                             contacts= getContacts(C1 , C2, g, upperLimits , CC)
                             #print(contacts)
                             if not contacts in contactList:
@@ -167,7 +167,7 @@ def motifExtraction(SMILES, indexSMILES ,radius):
                     print("smilesEdges163" , smilesEdgesMAST)
 
                     for i in range (len(smilesEdgesMAST)):
-                        starInd = smilesEdges[i]
+                        starInd = smilesEdgesMAST[i]
                         editMolec.ReplaceAtom(starInd, Chem.Atom("*"))
                     molecMAST = editMolec.GetMol()
                     
@@ -193,9 +193,10 @@ def smallestDistance(graph, edgeList , cutDist, atoms):
             for path in atom1atom2Paths:
                 length = len(path)-1
                 proximityList.append(length)
-        
-    if all(num >= cutDist for num in proximityList):
-        edgesMAST.append(edgeAtom)
+        print("proximityList" , proximityList)
+        print("cutDist" , cutDist)
+        if all(num >= cutDist for num in proximityList):
+            edgesMAST.append(edgeAtom)
     return edgesMAST
 def removeProblemAroms(molec ,  contactList ,smilesEdges ):
     blanketList = contactList.copy()
