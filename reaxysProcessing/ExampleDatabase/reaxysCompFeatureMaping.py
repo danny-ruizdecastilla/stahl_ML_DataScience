@@ -7,6 +7,7 @@ import pandas as pd
 from rdkit.Chem.PandasTools import LoadSDF
 import matplotlib.pyplot as plt
 import random
+import hdbscan
 from itertools import combinations
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.preprocessing import StandardScaler
@@ -27,6 +28,13 @@ def createCSV(dataFrame , saveDir, saveStr: str):
     return dataFrame
 
 def DimensionalityReduction(X, Y , labels, partition1 ):
+    #PCA then UMAP
+    scaler = StandardScaler()
+    scaledX = scaler.fit_transform(X)
+    pca = PCA(n_components=partition1)  # Keep top 10 principal components
+    xPCA= pca.fit_transform(scaledX)
+    
+
 
 
     return dataframeMAST
@@ -34,10 +42,12 @@ def DimensionalityReduction(X, Y , labels, partition1 ):
 
 if __name__ == "__main__":
 #input an xlsx dataframe and depending on what features you want to calculate, export .csv of features, performs feature elimination, maps features, and creates clusters 
-    mainDir = str(sys.argv[1])
+    mainDir = str(sys.argv[1]) #Dataframe of Smiles and yields and ID numbers, and citations 
     rdkitAllow = int(sys.argv[2])
     moldrAllow = int(sys.argv[3])
     maccAllow = int(sys.argv[4])
+     
+
     
     featureTypes = []
     if rdkitAllow == 1:
