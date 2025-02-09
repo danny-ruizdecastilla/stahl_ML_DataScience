@@ -55,6 +55,12 @@ def getUpperLimits(pathMatrix , C , graph , radius):
         if atom == 1:
             #This is the hard limit of the scope
             limitList.append(i)
+        if atom == 2:
+            #test for symmetry 
+            atom1atom2Paths = list(nx.all_simple_paths(graph, source=C, target=i))
+            withinRad = any(len(path) -1  < radius for path in atom1atom2Paths)
+            if not withinRad:
+                limitList.append(i)
     if len(limitList) == 0:
         return ["Poison"] #Entire molecule can be kept 
     else:
@@ -96,6 +102,9 @@ def getContacts(atom1, prevAtom, graph, limitList, CC):
             prevAtom = atom1
             atom1 = nextAtom 
     return molecList
+def mergeUnique(list1, list2):
+    set1, set2 = set(list1), set(list2)
+    return list(set1 ^ set2)
 def motifExtraction(SMILES, indexSMILES ,radius):
     motifMASTER = []
     smilesIndeces = []
@@ -126,6 +135,8 @@ def motifExtraction(SMILES, indexSMILES ,radius):
                     print("C1" , C1)
                     #print("C2" , C2)
                     upperLimits  = getUpperLimits(limitMatrix, C1 , g, radius)
+                    #upperLimits2  = getUpperLimits(limitMatrix, C2 , g, radius)
+                    #upperLimits = mergeUnique(upperLimits, upperLimits2)
                     smilesEdges = upperLimits.copy()
                     print("smilesEdges127" , smilesEdges)
                     upperLimits.append(C2)
@@ -152,7 +163,7 @@ def motifExtraction(SMILES, indexSMILES ,radius):
                                 fail = 0
                             else:
                                 fail += 1
-                            if fail == 30: #Output should include stars and aromatics, then new outputs can clean up and add either all Hydrogens or preserve double bond network for searches 
+                            if fail == 50: #Output should include stars and aromatics, then new outputs can clean up and add either all Hydrogens or preserve double bond network for searches 
                                 break
                     uniquePaths = len(contactList) 
                     saveDir = mainDir  + "/motifExtractorOutput/"   
