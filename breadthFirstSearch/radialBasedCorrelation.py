@@ -49,6 +49,7 @@ def getAdjencyMatrix(graph, radius):
 def getUpperLimits(pathMatrix , C , graph , radius):
     limitList = []
     scope = pathMatrix[C]
+    print("scope" , scope)
     for i in range (len(scope)):
         atom = scope[i]
         if atom == 1:
@@ -60,11 +61,12 @@ def getUpperLimits(pathMatrix , C , graph , radius):
         #maxLimit = len(limitList)
         #Trim down limitList 
         newlimitList = []
+        print("oldLimitList" , limitList)
         for i in range (len(limitList)):
             atom2 = limitList[i]
-            #print("atom2" , atom2)
+            print("atom2" , atom2)
             atom1atom2Paths = list(nx.all_simple_paths(graph, source=C, target=atom2))
-            #print(atom1atom2Paths)
+            print(atom1atom2Paths)
             withinRad = any(len(path) -1  < radius for path in atom1atom2Paths)
             if not withinRad:
                 newlimitList.append(atom2)
@@ -80,7 +82,7 @@ def randomWalk(atom1 , prevAtom , graph):
         return atom2 
 
 def getContacts(atom1, prevAtom, graph, limitList, CC):
-
+    #print("limitList" , limitList)
     molecList = [prevAtom,atom1 ]
     while True:
         nextAtom = randomWalk(atom1 , prevAtom, graph)
@@ -121,7 +123,7 @@ def motifExtraction(SMILES, indexSMILES ,radius):
                     contactList = []
                     C1 = CC[j] #leading Carbon 
                     C2 = CC[j-1] #left behind 
-                    #print("C1" , C1)
+                    print("C1" , C1)
                     #print("C2" , C2)
                     upperLimits  = getUpperLimits(limitMatrix, C1 , g, radius)
                     smilesEdges = upperLimits.copy()
@@ -143,15 +145,20 @@ def motifExtraction(SMILES, indexSMILES ,radius):
                         while True:
                             #print("fail" , fail)
                             contacts= getContacts(C1 , C2, g, upperLimits , CC)
-                            #print(contacts)
+                            #print("contacts" , contacts)
                             if not contacts in contactList:
-                                #print(count)
+                                
                                 contactList.append(contacts)
                                 fail = 0
                             else:
                                 fail += 1
-                            if fail == 20: #Output should include stars and aromatics, then new outputs can clean up and add either all Hydrogens or preserve double bond network for searches 
+                            if fail == 30: #Output should include stars and aromatics, then new outputs can clean up and add either all Hydrogens or preserve double bond network for searches 
                                 break
+                    uniquePaths = len(contactList) 
+                    saveDir = mainDir  + "/motifExtractorOutput/"   
+                    if os.path.exists(saveDir + "uniquePaths.dat"):
+                         with open(saveDir + "uniquePaths.dat" , "a") as file:
+                            file.write(f"{uniquePaths}\n")    
                     network = list(set(num for sublist in contactList for num in sublist))
                     #print("network" , network)
                     contactListMAST.append(network)
@@ -160,11 +167,12 @@ def motifExtraction(SMILES, indexSMILES ,radius):
             
                 if not bypass:
                     smilesEdgesMAST = list(set(num for sublist in smilesEdgesMAST for num in sublist))
-                    smilesEdgesMAST = smallestDistance(g, smilesEdgesMAST , radius , CC)
+                    smilesEdgesMAST = smallestDistance(g, smilesEdgesMAST , radius , CC , ">=")
                     #correct the 2 contact Lists and turn to motifs 
                     molec = removeProblemAroms(molec, contactListMAST ,  smilesEdgesMAST)
                     editMolec = Chem.EditableMol(molec)
-                    print("smilesEdges163" , smilesEdgesMAST)
+                    print("contacts172" , contactListMAST)
+                    print("smilesEdges173" , smilesEdgesMAST)
 
                     for i in range (len(smilesEdgesMAST)):
                         starInd = smilesEdgesMAST[i]
@@ -184,7 +192,7 @@ def motifExtraction(SMILES, indexSMILES ,radius):
     print("failCount" , failCount)
     return motifMASTER , smilesIndeces
 #Post Processing of motifs
-def smallestDistance(graph, edgeList , cutDist, atoms):
+def smallestDistance(graph, edgeList , cutDist, atoms , compare):
     edgesMAST = []
     for edgeAtom in edgeList:
         proximityList = []
@@ -193,14 +201,21 @@ def smallestDistance(graph, edgeList , cutDist, atoms):
             for path in atom1atom2Paths:
                 length = len(path)-1
                 proximityList.append(length)
-        print("proximityList" , proximityList)
-        print("cutDist" , cutDist)
-        if all(num >= cutDist for num in proximityList):
+        #print("proximityList" , proximityList)
+        #print("atoms" , atoms)
+        if compare == ">=":
+            condition = all(num >= cutDist for num in proximityList)
+        elif compare == "<=":
+            condition = all(num <= cutDist for num in proximityList)
+        else:
+            raise ValueError("Invalid compare argument. Use '>=' or '<='.")
+        if condition:
             edgesMAST.append(edgeAtom)
     return edgesMAST
 def removeProblemAroms(molec ,  contactList ,smilesEdges ):
     blanketList = contactList.copy()
-    
+    removeList = []
+    removes = False
     while True:
         #print("contactListMAST183" , contactList)
         #print(blanketList)
@@ -211,12 +226,15 @@ def removeProblemAroms(molec ,  contactList ,smilesEdges ):
             if atomId in smilesEdges:
                 #return network of smilesString
                 startAtom = atomId
+                #print("startAtom" , startAtom)
                 atomList = []
                 #walk the aromatic path
                 prevAtom = -1
                 while True:
                     atom = molec.GetAtomWithIdx(atomId)
+                    #print("currentAtom" , atomId)
                     bonds = atom.GetBonds()
+                    stepChoices = []
                     for bond in bonds:
                         atom1 = bond.GetBeginAtomIdx()  # Index of the first atom in the bond
                         atom2 = bond.GetEndAtomIdx()      # Index of the second atom in the bond
@@ -225,24 +243,30 @@ def removeProblemAroms(molec ,  contactList ,smilesEdges ):
                         if bondType == 'AROMATIC' and prevAtom not in atoms:  # Take the next step 
                             # Next atom
                             if atom1 == atomId:  # Then it is atom_2 that is the next step
-                                atomList.append(atom2)
-                                prevAtom = atom1
-                                atomId = atom2
+                                stepChoices.append([atom1 , atom2])
+
                             else:
-                                atomList.append(atom1)
-                                prevAtom = atom2
-                                atomId = atom1
-                            #print("currentAtom", atomId)
-                            break
-                    if atomId == startAtom:
-                        break 
+                                stepChoices.append([atom2, atom1])
+                    #print("stepChoices" , stepChoices)
+                    if len(stepChoices) != 0:
+                        
+                        atoms = random.choice(stepChoices)
+                        prevAtom = atoms[0]
+                        atomId = atoms[1]
+                        atomList.append(atomId)
+                        if atomId == startAtom:
+                            break 
+                    else:
+                        break
                 atomSet = set(atomList)
                 blanketList = list(set(blanketList) - atomSet) 
                 missingElements = atomSet - set(contactList)
                 #print("contactListMAST220" , contactList)
                 if missingElements:
                     #print("missingElements")
-                    molec = removeArom(molec, atomList)
+                    #molec = removeArom(molec, atomList)
+                    removeList.append(atomList)
+                    removes = True
             else:
                 blanketList.remove(atomId)
         else:
@@ -250,6 +274,10 @@ def removeProblemAroms(molec ,  contactList ,smilesEdges ):
 
         if len(blanketList) == 0:
             break
+    
+    if removes:
+        removeList = list(set(num for sublist in removeList for num in sublist))
+        molec = removeArom(molec, removeList)
     return molec
 def removeArom(molec, indices):
     editableMol = Chem.RWMol(molec)
@@ -271,7 +299,7 @@ def removeArom(molec, indices):
     # Return the modified molecule
     return editableMol
 
-def createXLSX(smilesList ,smilesID ,  radius):
+def createCSV(smilesList ,smilesID ,  radius):
     columns = ["SMILES", "OriginalID"]
     # Create the DataFrame
     df = pd.DataFrame({columns[0]: smilesList, columns[1]: smilesID})
@@ -279,7 +307,7 @@ def createXLSX(smilesList ,smilesID ,  radius):
     if not os.path.exists(saveDir):
         os.makedirs(saveDir)
 
-    df.to_excel(saveDir + "breadthFirstSearchOuts_" + str(radius) + ".xlsx", index=False) 
+    df.to_csv(saveDir + "breadthFirstSearchOuts_" + str(radius) + ".csv", index=False) 
 
 if __name__ == "__main__":
     mainDir = str(sys.argv[1])
@@ -294,7 +322,7 @@ if __name__ == "__main__":
 
     motifList , smilesID = motifExtraction(smilesDF, indexingDF, radius) #SmilesID keeps track of the original 
  
-    createXLSX(motifList , smilesID , radius)
+    createCSV(motifList , smilesID , radius)
     #visulizations!!!!!
 
     
