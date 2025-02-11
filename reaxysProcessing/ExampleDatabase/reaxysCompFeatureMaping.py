@@ -167,19 +167,20 @@ if __name__ == "__main__":
 #input an xlsx dataframe and depending on what features you want to calculate, export .csv of features, performs feature elimination, maps features, and creates clusters 
     mainDir = str(sys.argv[1]) #Dataframe of Smiles and yields and ID numbers, and citations 
     rdkitAllow = int(sys.argv[2])
-    moldrAllow = int(sys.argv[3])
+    morgAllow = int(sys.argv[3])
     maccAllow = int(sys.argv[4])
     catSplit = int(sys.argv[5])
-    sampleScale1 = float(sys.argv[6])
-    chemStr = str(sys.argv[7])
+    scale1 = float(sys.argv[6])
+    scale2 = float(sys.argv[7])
+    chemStr = str(sys.argv[8])
     inputDF = pd.read_excel(mainDir + "MasterDataFrame" + str(chemStr) + ".xlsx")
     
     featureTypes = []   #defines options for features you want 
     if rdkitAllow == 1:
         rdkitSave = "rdkit"
         featureTypes.append(rdkitSave)
-    if moldrAllow == 1:
-        moldrSave = "moldred"
+    if morgAllow == 1:
+        moldrSave = "morgan"
         featureTypes.append(moldrSave)
     if maccAllow == 1:
         maccSave = "MACCSkeys"
@@ -188,11 +189,18 @@ if __name__ == "__main__":
         catalysts = list(inputDF['ChemType'])
         catalystCounts = uniqueIntCounter(catalysts)
         minClusterSize1 =  min(catalystCounts.values()) 
-        minSamples1 = int(minClusterSize1/sampleScale1)
+        minSamples1 = int(minClusterSize1/scale1)
     for feature in featureTypes:
         #creates necessary features of interest, and generates plots 
+        if feature == 'rdkit':
+            featureDF = calc_rdkit_desc(smiles = list(inputDF['SMILES']) , multiprocess_ = True)
+        if feature == 'morgan':
+            featureDF = calc_morgan_keys(smiles = list(inputDF['SMILES']) , multiprocess_ = True)
+        if feature == 'MACCSkeys':
+            featureDF = calc_maccs_keys(smiles = list(inputDF['SMILES']) , multiprocess_ = True)
+        clusteredDF = DimensionalityReduction(featureDF, list(inputDF['SMILES']) , scale1, 10, scale2 , catSplit , feature , mainDir )
         
-    
+
 
 
     
