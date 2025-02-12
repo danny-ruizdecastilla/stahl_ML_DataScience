@@ -1,10 +1,10 @@
 import sys
-import glob
+#import glob
 import numpy as np
 import os
-from rdkit import Chem
+#from rdkit import Chem
 import pandas as pd
-from rdkit.Chem.PandasTools import LoadSDF
+#from rdkit.Chem.PandasTools import LoadSDF
 import matplotlib.pyplot as plt
 import random
 import hdbscan
@@ -13,9 +13,8 @@ from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from rdkit.Chem import Descriptors, MACCSkeys
-from rdkit.Chem import AllChem
-import datetime
+#from rdkit.Chem import Descriptors, MACCSkeys
+#from rdkit.Chem import AllChem
 from hdbscan import HDBSCAN
 import umap
 from expt2_create_features import *
@@ -44,11 +43,11 @@ def savePNG(df, saveDir:str , saveStr, saveStr_ , cluster:bool ):
             if cluster == -1:  
                 # Plot noise points in gray
                 plt.scatter(xArray[clusterArr == -1], yArray[clusterArr == -1], 
-                    color='gray', label="Noise", alpha=0.5, edgecolors='k')
+                    color='gray', label="Noise", alpha=0.5, s =10)
             else:
                 # Plot clustered points
                 plt.scatter(xArray[clusterArr == cluster], yArray[clusterArr == cluster], color=plt.cm.viridis(cluster / (len(uniques))), 
-                label="Cluster " + str(cluster), alpha=0.7, edgecolors='k')
+                label="Cluster " + str(cluster), alpha=0.7 , s = 10)
 
         plt.xlabel(xLabel, fontsize=14, fontweight='bold', color='black')
         plt.ylabel(yLabel, fontsize=14, fontweight='bold', color='black')
@@ -57,7 +56,7 @@ def savePNG(df, saveDir:str , saveStr, saveStr_ , cluster:bool ):
         plt.xticks(fontsize=14, color='black')
         plt.yticks(fontsize=14, color='black')
         #plt.grid(True, linestyle='--', alpha=0.5)
-        plt.savefig(saveDir + "/saveStr_" + " visualization for" + "saveStr.png" , dpi=300, bbox_inches='tight')
+        plt.savefig(saveDir  +"/" + saveStr_ + " Cluster visualization for" + saveStr + ".png" , dpi=300, bbox_inches='tight')
 
 
     else:
@@ -67,18 +66,43 @@ def savePNG(df, saveDir:str , saveStr, saveStr_ , cluster:bool ):
         yList = list(df[yLabel])
         dpi = 300
         plt.figure(figsize=(800 / dpi, 600 / dpi), dpi=dpi)  # 800x600 pixels
-        plt.scatter(xList, yList, c='blue', alpha=0.7, edgecolors='k')
+        plt.scatter(xList, yList, c='blue', alpha=0.7 , s=10)
         plt.xlabel(xLabel, fontsize=16, fontweight='bold', color='black')
         plt.ylabel(yLabel, fontsize=16, fontweight='bold', color='black')
         plt.title(saveStr_ + " Cluster visualization for " + saveStr, fontsize=18, fontweight='bold', color='navy')
         plt.xticks(fontsize=14, color='black')
         plt.yticks(fontsize=14, color='black')
         #plt.grid(True, linestyle='--', alpha=0.5)
-        plt.savefig(saveDir + "/saveStr_" + " Cluster visualization for" + "saveStr.png" , dpi=300, bbox_inches='tight')
+        plt.savefig(saveDir + "/" + saveStr_ + " Cluster visualization for " + saveStr + ".png" , dpi=300, bbox_inches='tight')
 
     return saveStr
+def locateNans(df):
+    columns = df.columns.tolist()
+    nanDict = {}
+    for column in columns:
+        col = df[column]
+        indCol = col.isna().to_numpy().nonzero()[0]
+        if len(indCol) != 0:
+            #print("NANS" , indCol)
+            nanDict[str(column)] = list(indCol)
+
+    return nanDict
+def eliminateNans(df , nanDict):
+    #print(df.shape)
+    for key in nanDict.keys():
+        rows = list(nanDict[key])
+        #print(rows)
+        try:
+            df = df.drop(rows)
+        except KeyError:
+            continue
+    df = df.reset_index(drop=True)
+    #print(df.shape)
+    return df
 def DimensionalityReduction(X, Y , sampleScale1, partition1, sampleScale2 , catSplit , saveStr1 , saveDir1 ):
     #PCA then UMAP
+    print("saveStr1" , saveStr1)
+
     population = len(Y)
     scaler = StandardScaler()
     scaledX = scaler.fit_transform(X)
@@ -97,7 +121,7 @@ def DimensionalityReduction(X, Y , sampleScale1, partition1, sampleScale2 , catS
     numClusters = len(set(clusterLabels)) - (1 if -1 in clusterLabels else 0)
 
     clusterCounts = uniqueIntCounter(list(clusterLabels))
-    umapNeighbors = int(np.mean(clusterCounts.values())* sampleScale2)
+    umapNeighbors = int(np.mean(list(clusterCounts.values())) * sampleScale2)
 
     reducer = umap.UMAP(n_components=2, n_neighbors=umapNeighbors, min_dist=0.1, metric='euclidean')
     reducedX = reducer.fit_transform(xPCA)
@@ -107,7 +131,7 @@ def DimensionalityReduction(X, Y , sampleScale1, partition1, sampleScale2 , catS
     yUMAP = list(dfUMAP['UMAP2'])
     saveStr2 = "UMAP"
     savePNG(dfUMAP, saveDir1 , saveStr1, saveStr2 , cluster = False  )
-
+    print("numClusters" , numClusters)
     if numClusters > 6:
         clusterRange = np.arange(numClusters-6, numClusters+6)
     else:
@@ -125,12 +149,12 @@ def DimensionalityReduction(X, Y , sampleScale1, partition1, sampleScale2 , catS
         inertia = np.mean(initInertia)
         inertiaList.append(inertia)
     specialK = needleAlg(list(clusterRange) , inertiaList)
-    kmeansMAST = KMeans(n_clusters = specialK, random_state = 42 )
-    kmeansLabels = kmeansMAST.fit(reducedX)
-
-    dfUMAP['Clusters'] = kmeansLabels
+    print("152")
+    kmeansMAST = KMeans(n_clusters=specialK, random_state=42)
+    kmeansMAST.fit(reducedX)  # Just fit the model
+    dfUMAP['Clusters'] = kmeansMAST.labels_ 
     createCSV(dfUMAP , saveDir1, saveStr1 + "_clustered")
-    savePNG(xUMAP , yUMAP , saveDir1 , saveStr1 + "_clustered"  )
+    savePNG(dfUMAP , saveDir1 , saveStr1 + "_clustered" , "UMAP" , cluster = True )
 
     return dfUMAP
 def slope(m , x, b):
@@ -146,7 +170,7 @@ def needleAlg(xList , yList):
     b_ = y0 - m_ * x0
 
     diffList = []
-    for i in range (xList):
+    for i in range (len(xList)):
         x_ = xList[i]
         yPred = slope(m_ , x_ , b_) 
         diff = np.abs(yPred - yList[i])
@@ -173,7 +197,7 @@ if __name__ == "__main__":
     scale1 = float(sys.argv[6])
     scale2 = float(sys.argv[7])
     chemStr = str(sys.argv[8])
-    inputDF = pd.read_excel(mainDir + "MasterDataFrame" + str(chemStr) + ".xlsx")
+    inputDF = pd.read_excel(mainDir + "/MasterDataFrame" + str(chemStr) + ".xlsx")
     
     featureTypes = []   #defines options for features you want 
     if rdkitAllow == 1:
@@ -190,15 +214,30 @@ if __name__ == "__main__":
         catalystCounts = uniqueIntCounter(catalysts)
         minClusterSize1 =  min(catalystCounts.values()) 
         minSamples1 = int(minClusterSize1/scale1)
+    if not os.path.exists(mainDir + "/features"):
+        os.makedirs(mainDir + "/features")
     for feature in featureTypes:
         #creates necessary features of interest, and generates plots 
         if feature == 'rdkit':
             featureDF = calc_rdkit_desc(smiles = list(inputDF['SMILES']) , multiprocess_ = True)
+            nanDict = locateNans(featureDF)
+            if len(nanDict) != 0:
+                featureDF = eliminateNans(featureDF , nanDict)
+            createCSV(featureDF , mainDir + "/features", "initialX" + feature + "_" + chemStr  )
         if feature == 'morgan':
             featureDF = calc_morgan_keys(smiles = list(inputDF['SMILES']) , multiprocess_ = True)
+            nanDict = locateNans(featureDF)
+            if len(nanDict) != 0:
+                featureDF = eliminateNans(featureDF , nanDict)
+            createCSV(featureDF ,mainDir + "/features", "initialX" + feature + "_" + chemStr )
         if feature == 'MACCSkeys':
             featureDF = calc_maccs_keys(smiles = list(inputDF['SMILES']) , multiprocess_ = True)
-        clusteredDF = DimensionalityReduction(featureDF, list(inputDF['SMILES']) , scale1, 10, scale2 , catSplit , feature , mainDir )
+            nanDict = locateNans(featureDF)
+            if len(nanDict) != 0:
+                featureDF = eliminateNans(featureDF , nanDict)
+            createCSV(featureDF ,mainDir + "/features", "initialX" + feature + "_" + chemStr  )
+
+        clusteredDF = DimensionalityReduction(featureDF, list(inputDF['SMILES']) , scale1, 10, scale2 , catSplit , feature + "_" + chemStr ,mainDir + "/features" )
         
 
 
