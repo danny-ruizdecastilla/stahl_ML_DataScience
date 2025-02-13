@@ -12,9 +12,33 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from scipy.stats import qmc
 #Danny Ruiz de Castilla 02.12.2025
-def strategicRandomSampling(df, partitionStr1, yieldParts, saveStr1 , saveStr2 , targetN):
-    #should split up by partition index 
-    partitionID = list(df[partitionStr1])
+def strategicRandomSampling(df, targetN, yieldRanges , partitionStr1 ):
+    #yieldRanges =[0 , 15 , 30 , 45 , 60 , 75 , 90 , 100]
+    sampleCount = 0
+    dfSplit = []
+    for i in range(len(yieldRanges)-1):
+        yieldRange = [yieldRanges[i] , yieldRanges[i + 1]]
+        df_ = df[(df[partitionStr1] < yieldRange[1]) & (df[partitionStr1] > yieldRange[0])]
+        if len(df_) != 0:
+            dfSplit.append(df_)
+    dfCounter = len(dfSplit) - 1
+    count = 0
+    while True:
+        sample = dfSplit[count].copy()
+        smiles = list(sample['Canonical'])
+        if len(smiles) != 0:
+            smile = random.choice(smiles)
+            if smile not in masterSMILESLIST and smile not in canonMASK:
+                masterSMILESLIST.append(smile)
+                sampleCount += 1
+                dfSplit[count] = sample[sample['Canonical'] != smile]
+        count += 1
+        if count == dfCounter:
+            count = 0
+        
+
+        if sampleCount == targetN:
+            break
 
 def getCanonical(maskedSMILES):
     canonicalList = []
@@ -37,17 +61,22 @@ def getSplits(df , N , split , pop):
             numSamples[partition ] +=1
         else:
             numSamples[partition ] = 1
-    scale = N / pop
     for num in numSamples:
-        numSamples[num] = int(numSamples[num] * scale)
+        numSamples[num] = int(numSamples[num]/ pop * N)
     
     return dfList , numSamples
+def createCSV(dataFrame , saveDir, saveStr: str):
+    if not os.path.exists(saveDir):
+        os.makedirs(saveDir)
+
+    dataFrame.to_csv(saveDir + "/" + saveStr + ".csv", index=True) 
+    return dataFrame
 if __name__ == "__main__":
     mainDir = str(sys.argv[1])
     maskedDir = str(sys.argv[2])
     mainDFStr = str(sys.argv[3])
-    partitionStr1 = str(sys.argv[4])
-    partitionStr2 = str(sys.argv[5])
+    partitionStr = str(sys.argv[4])
+    yieldStr = str(sys.argv[5])
     targetN = int(sys.argv[6]) 
 
     yieldRanges =[0 , 15 , 30 , 45 , 60 , 75 , 90]
@@ -56,9 +85,17 @@ if __name__ == "__main__":
     inputDF = pd.read_csv(mainDir + "/" + mainDFStr +  ".csv")
     sampleNum = len(inputDF)
     maskedSMILES = maskedDF['SMILES']
-    canonMASK = getCanonical(maskedSMILES)
+    canonMASK = getCanonical(maskedSMILES) #list of all current SMILES
 
     mainSMILES = inputDF['SMILES']
     canonSMILES = getCanonical(mainSMILES)
     inputDF["Canonical"] = canonSMILES
-    dfSplits = getSplits()
+    dfSplits , sampleDict = getSplits(inputDF , targetN , partitionStr , sampleNum)
+
+    masterSMILESLIST = []
+
+    for i in range (len(dfSplits)):
+        df = dfSplits[i]
+        sample = sampleDict[i]
+
+        strategicRandomSampling(df , sample , yieldRanges, yieldStr )
