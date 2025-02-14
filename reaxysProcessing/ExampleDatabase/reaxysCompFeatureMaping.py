@@ -11,7 +11,6 @@ import hdbscan
 from itertools import combinations
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 #from rdkit.Chem import Descriptors, MACCSkeys
 #from rdkit.Chem import AllChem
@@ -56,7 +55,7 @@ def savePNG(df, saveDir:str , saveStr, saveStr_ , cluster:bool ):
         plt.xticks(fontsize=14, color='black')
         plt.yticks(fontsize=14, color='black')
         #plt.grid(True, linestyle='--', alpha=0.5)
-        plt.savefig(saveDir  +"/" + saveStr_ + " Cluster visualization for" + saveStr + ".png" , dpi=300, bbox_inches='tight')
+        plt.savefig(saveDir  +"/" + saveStr_ + " Cluster visualization for " + saveStr + ".png" , dpi=300, bbox_inches='tight')
 
 
     else:
@@ -99,64 +98,38 @@ def eliminateNans(df , nanDict):
     df = df.reset_index(drop=True)
     #print(df.shape)
     return df
-def DimensionalityReduction(X, Y , sampleScale1, partition1, sampleScale2 , catSplit , saveStr1 , saveDir1 ):
-    #PCA then UMAP
-    print("saveStr1" , saveStr1)
-
-    population = len(Y)
+def DimensionalityReduction(X,  clusterScale , saveDir , saveStr1,  ):
     scaler = StandardScaler()
     scaledX = scaler.fit_transform(X)
-    pca = PCA(n_components=partition1)  # Keep top 10 principal components
-    xPCA= pca.fit_transform(scaledX)
+    partMax = int(np.sqrt(len(X)))
+    partMin = int(partMax*clusterScale)
 
-    if catSplit != 1:
-        minSamples1 = int(np.sqrt(population))
-        #minSamples1 = 0.01*float(len(Y))
-        minClusterSize1 =  int(minSamples1*sampleScale1)
-    clusterer = HDBSCAN(min_cluster_size=minClusterSize1, min_samples=minSamples1, metric='euclidean')
-    clusterLabels = clusterer.fit_predict(xPCA)
-    
-    #hdbNoise = list(clusterLabels).count(-1)
-    #print(hdbNoise)
-    numClusters = len(set(clusterLabels)) - (1 if -1 in clusterLabels else 0)
-
-    clusterCounts = uniqueIntCounter(list(clusterLabels))
-    umapNeighbors = int(np.mean(list(clusterCounts.values())) * sampleScale2)
-
-    reducer = umap.UMAP(n_components=2, n_neighbors=umapNeighbors, min_dist=0.1, metric='euclidean')
-    reducedX = reducer.fit_transform(xPCA)
-    dfUMAP = pd.DataFrame(reducedX, columns=['UMAP1', 'UMAP2'])
-
-    xUMAP = list(dfUMAP['UMAP1'])
-    yUMAP = list(dfUMAP['UMAP2'])
-    saveStr2 = "UMAP"
-    savePNG(dfUMAP, saveDir1 , saveStr1, saveStr2 , cluster = False  )
-    print("numClusters" , numClusters)
-    if numClusters > 6:
-        clusterRange = np.arange(numClusters-6, numClusters+6)
-    else:
-        clusterRange = np.arange(1, 11)
+    pca = PCA(n_components = 2 ,svd_solver="full" )
+    xPCA = pca.fit_transform(scaledX)
+    dfPCA = pd.DataFrame(xPCA, columns = ["PCA1" , "PCA2"] )
+    savePNG(dfPCA , saveDir , saveStr1 , "PCA" , cluster = False)
+    clusterRange = np.arange(partMin, partMax, 2)
+    print("clusterRange" , clusterRange)
     inertiaList = []
-
     for k in clusterRange:
         initInertia = []
         count = 0
-        while count < 4:
-            kmeans = KMeans(n_clusters=k, random_state=42)
-            kmeans.fit(reducedX)
+        while count < 8:
+            kmeans = KMeans(n_clusters = k, random_state = None)
+            kmeans.fit(xPCA)
             initInertia.append(kmeans.inertia_)
-            count +=1 
+            count += 1
         inertia = np.mean(initInertia)
         inertiaList.append(inertia)
+    print(inertiaList)
     specialK = needleAlg(list(clusterRange) , inertiaList)
-    print("152")
-    kmeansMAST = KMeans(n_clusters=specialK, random_state=42)
-    kmeansMAST.fit(reducedX)  # Just fit the model
-    dfUMAP['Clusters'] = kmeansMAST.labels_ 
-    createCSV(dfUMAP , saveDir1, saveStr1 + "_clustered")
-    savePNG(dfUMAP , saveDir1 , saveStr1 + "_clustered" , "UMAP" , cluster = True )
+    kmeansMAST = KMeans( n_clusters = specialK , random_state = 42)
+    kmeansMAST.fit(xPCA)
+    dfPCA['Clusters'] = kmeansMAST.labels_
+    createCSV(dfPCA, saveDir , saveStr1 + "_clustered")
+    savePNG(dfPCA , saveDir , saveStr1 + "_clustered" , "PCA" , cluster = True)
 
-    return dfUMAP
+    return list(kmeansMAST.labels_ )
 def slope(m , x, b):
         y = m*x + b
         return y
@@ -187,18 +160,33 @@ def uniqueIntCounter(list1):
         else:
             uniqueDict[num] = 1
     return uniqueDict
+def featureFiltering(outDir , X , feature_labels , featureStr):
+    if not os.path.exists(outDir + "/" + str(featureStr) + "featureFiltering.dat"):
+        with open(outDir + "/" + str(featureStr) + "featureFiltering.dat", "w") as f:
+            f.write(f"Total starting feature count: {len(feature_labels)}")
+            f.write("".join([f'\n\t{label}' for label in feature_labels]))
+            
+            X, feature_labels, dropped_features = remove_by_variance(X, feature_labels)
+            text = "\n\n\nFeatures drop due to low variance: " + "".join([f'\n\t{label}' for label in dropped_features])
+            f.write(text)
+
+            X, feature_labels, drop_group = correlation_analysis(X, feature_labels, threshold=0.95)
+            text = "\n\n\nFeatures drop due correlation: (STILL HAS ISSUES) "
+            import json
+            text += json.dumps(drop_group, indent=4).replace('\n', '\n\t')
+            f.write(text)
+
+            X, feature_labels  = spearmanr_correlation(X, feature_labels, threshold=0.95)
+    return X , feature_labels
 if __name__ == "__main__":
 #input an xlsx dataframe and depending on what features you want to calculate, export .csv of features, performs feature elimination, maps features, and creates clusters 
     mainDir = str(sys.argv[1]) #Dataframe of Smiles and yields and ID numbers, and citations 
     rdkitAllow = int(sys.argv[2])
     morgAllow = int(sys.argv[3])
     maccAllow = int(sys.argv[4])
-    catSplit = int(sys.argv[5])
-    scale1 = float(sys.argv[6])
-    scale2 = float(sys.argv[7])
-    chemStr = str(sys.argv[8])
+    scale1 = float(sys.argv[5]) #scaling for minClusterSize in PCA, take into account X sample size 
+    chemStr = str(sys.argv[6])
     inputDF = pd.read_excel(mainDir + "/MasterDataFrame" + str(chemStr) + ".xlsx")
-    
     featureTypes = []   #defines options for features you want 
     if rdkitAllow == 1:
         rdkitSave = "rdkit"
@@ -209,36 +197,43 @@ if __name__ == "__main__":
     if maccAllow == 1:
         maccSave = "MACCSkeys"
         featureTypes.append(maccSave)
-    if catSplit == 1: #Attempts to create initial clusterSize and minSample variables by using the catalyst splitting 
-        catalysts = list(inputDF['ChemType'])
-        catalystCounts = uniqueIntCounter(catalysts)
-        minClusterSize1 =  min(catalystCounts.values()) 
-        minSamples1 = int(minClusterSize1/scale1)
+
     if not os.path.exists(mainDir + "/features"):
         os.makedirs(mainDir + "/features")
+    featureMAST = pd.DataFrame()
+    featureStr = chemStr + "_"
     for feature in featureTypes:
         #creates necessary features of interest, and generates plots 
         if feature == 'rdkit':
             featureDF = calc_rdkit_desc(smiles = list(inputDF['SMILES']) , multiprocess_ = True)
-            nanDict = locateNans(featureDF)
-            if len(nanDict) != 0:
-                featureDF = eliminateNans(featureDF , nanDict)
             createCSV(featureDF , mainDir + "/features", "initialX" + feature + "_" + chemStr  )
+            featureMAST = pd.concat([featureMAST, featureDF], axis=1)
+            featureStr += feature
         if feature == 'morgan':
             featureDF = calc_morgan_keys(smiles = list(inputDF['SMILES']) , multiprocess_ = True)
-            nanDict = locateNans(featureDF)
-            if len(nanDict) != 0:
-                featureDF = eliminateNans(featureDF , nanDict)
             createCSV(featureDF ,mainDir + "/features", "initialX" + feature + "_" + chemStr )
+            featureMAST = pd.concat([featureMAST, featureDF], axis=1)
+            featureStr += feature
         if feature == 'MACCSkeys':
             featureDF = calc_maccs_keys(smiles = list(inputDF['SMILES']) , multiprocess_ = True)
-            nanDict = locateNans(featureDF)
-            if len(nanDict) != 0:
-                featureDF = eliminateNans(featureDF , nanDict)
             createCSV(featureDF ,mainDir + "/features", "initialX" + feature + "_" + chemStr  )
+            featureMAST = pd.concat([featureMAST, featureDF], axis=1)
+            featureStr += feature
 
-        clusteredDF = DimensionalityReduction(featureDF, list(inputDF['SMILES']) , scale1, 10, scale2 , catSplit , feature + "_" + chemStr ,mainDir + "/features" )
+    featureMAST['SMILES'] = list(inputDF['SMILES']) 
+    nanDict = locateNans(featureMAST)
+    if len(nanDict) != 0:
+        featureMAST = eliminateNans(featureMAST , nanDict)
+    smilesMain = list(featureMAST['SMILES'])
+    featureMAST = featureMAST.drop('SMILES', axis=1)
+    featureMAST, featureList = featureFiltering(mainDir + "/features", featureMAST, list(featureMAST.columns) , featureStr)
+    featureMAST = createCSV(featureMAST ,mainDir + "/features", featureStr + "_filteredFeatures_" + chemStr )
+    kMeanLabels = DimensionalityReduction(featureMAST,  scale1 , mainDir + "/features" , featureStr  )
         
+    finalDF = inputDF.loc[inputDF["SMILES"].isin(smilesMain)]
+    finalDF['KMeanCluster'] = kMeanLabels
+
+    finaldf = createCSV(finalDF , mainDir + "/features" , "masterDF_KMeansClustered_" + str(featureStr) )
 
 
 
