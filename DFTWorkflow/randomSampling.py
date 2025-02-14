@@ -71,6 +71,19 @@ def createCSV(dataFrame , saveDir, saveStr: str):
 
     dataFrame.to_csv(saveDir + "/" + saveStr + ".csv", index=True) 
     return dataFrame
+def createXLSX(smilesList , saveStr):
+    smilesArray = np.array(smilesList)
+    dim1 = len(smilesList)
+    numbers = []
+    for i in range(dim1):  # Generate numbers from 1 to 10
+        numb = str(i).zfill(6)
+        numbs = "Alkene_" + numb
+        numbers.append(numbs)
+    columns = ["SMILES", "ID"]
+    # Create the DataFrame
+    df = pd.DataFrame({columns[0]: smilesArray, columns[1]: numbers})
+
+    df.to_excel(mainDir  + "/" + saveStr +  "DFTInput.xlsx", index=False) 
 if __name__ == "__main__":
     mainDir = str(sys.argv[1])
     maskedDir = str(sys.argv[2])
@@ -81,7 +94,7 @@ if __name__ == "__main__":
 
     yieldRanges =[0 , 15 , 30 , 45 , 60 , 75 , 90]
 
-    maskedDF = pd.read_csv(maskedDir + ".csv")
+    maskedDF = pd.read_csv(maskedDir)
     inputDF = pd.read_csv(mainDir + "/" + mainDFStr +  ".csv")
     sampleNum = len(inputDF)
     maskedSMILES = maskedDF['SMILES']
@@ -91,11 +104,16 @@ if __name__ == "__main__":
     canonSMILES = getCanonical(mainSMILES)
     inputDF["Canonical"] = canonSMILES
     dfSplits , sampleDict = getSplits(inputDF , targetN , partitionStr , sampleNum)
-
+    samples = list(sampleDict.values())
     masterSMILESLIST = []
 
     for i in range (len(dfSplits)):
-        df = dfSplits[i]
-        sample = sampleDict[i]
+        df = dfSplits[i]  
+        sample = samples[i]
 
         strategicRandomSampling(df , sample , yieldRanges, yieldStr )
+
+    createXLSX(masterSMILESLIST ,mainDFStr )
+
+    finalDF = inputDF[inputDF["Canonical"].isin(masterSMILESLIST)]
+    df = createCSV(finalDF , mainDir + "/DFTInput/" , mainDFStr)
