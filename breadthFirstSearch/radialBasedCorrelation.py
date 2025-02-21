@@ -132,7 +132,7 @@ def motifExtraction(SMILES, indexSMILES ,radius):
                     contactList = []
                     C1 = CC[j] #leading Carbon 
                     C2 = CC[j-1] #left behind 
-                    print("C1" , C1)
+                    #print("C1" , C1)
                     #print("C2" , C2)
                     upperLimits  = getUpperLimits(limitMatrix, C1 , g, radius)
                     #upperLimits2  = getUpperLimits(limitMatrix, C2 , g, radius)
