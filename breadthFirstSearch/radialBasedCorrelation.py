@@ -325,7 +325,7 @@ if __name__ == "__main__":
     radius = int(sys.argv[2])
     inputDF = str(sys.argv[3]) #name of the input DF
     
-    dF = pd.read_excel(mainDir + "/" + inputDF + ".xlsx")
+    dF = pd.read_csv(mainDir + "/" + inputDF + ".csv")
     dfMAST = dF.drop_duplicates(subset="SMILES", keep="first") 
 
     smilesDF = dfMAST['SMILES']
