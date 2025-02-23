@@ -309,43 +309,31 @@ def figGenerator(atomDict ,bondDict , smile):
         atoms = list(atomDict[key])
         #print("alpha" , alpha)
         print("atoms" , atoms)
-        color = f"rgba({r},{g},{b},{alpha})"
+        colorG = colorGradient[i]
+        color = f"rgba({colorG[0]},{colorG[1]},{colorG[2]},{alpha})"
         print("atomColor" , color)
         for id_ in atoms:
             molec.atoms[id_].highlight.show = True
             molec.atoms[id_].highlight.color = color
+        drawer = chemdraw.Drawer(molec, title=smile)
     for j , key in enumerate(bondDict):
         alpha = float(key)
-        color = f"rgba({r},{g},{b},{alpha})"
+        colorG = colorGradient[j]
+        color = f"rgba({colorG[0]},{colorG[1]},{colorG[2]},{alpha})"
         print("bondColor" , color)
         bonds = list(bondDict[key])
         print("bonds" , bonds)
         for bond in bonds:
             molec.bonds[bond].highlight.show = True
             molec.bonds[bond].highlight.color = color
-
-
-    drawer = chemdraw.Drawer(molec, title=smile)
+        drawer = chemdraw.Drawer(molec, title=smile)
     drawer.draw_img(pngDir + "/" + str(ind) + str(smile) + "molec.png")
 def finalImage(smile):
-    color = f"rgba({r},{g},{b},{0.5})"
-    molec = chemdraw.Molecule(smile)
-    molec1 = Chem.MolFromSmiles(smile)
-    for bond in molec1.GetBonds(): 
-        a1 = bond.GetBeginAtomIdx()
-        a2 = bond.GetEndAtomIdx() 
-        bond1 = molec1.GetBondBetweenAtoms(a1, a2)  
-        molec.atoms[a1].highlight.show = True
-        molec.atoms[a1].highlight.color = color
-        molec.atoms[a2].highlight.show = True
-        molec.atoms[a2].highlight.color = color
-        molec.bonds[bond1].highlight.show = True
-        molec.bonds[bond1].highlight.color = color
-    drawer = chemdraw.Drawer(molec, title=smile)
-    drawer.draw_img(pngDir + "/subMolec"  + str(smile) + "molec.png")
+    molec = Chem.MolFromSmiles(smile)
+    Chem.rdDepictor.Compute2DCoords(molec)
+    Chem.Draw.MolToFile(molec , pngDir + "/subMolec"  + str(smile) + "Finalmolec.png")
 
 def createGif(pngDir, outputFile, duration=500):
-
     # Get list of PNG files in directory
     pngFiles = glob.glob(pngDir + "/*.png")
     pngFiles.sort()  # Sort files to ensure consistent order
@@ -356,17 +344,23 @@ def createGif(pngDir, outputFile, duration=500):
         img = Image.open(png)
         images.append(img)
     
-    # Save the GIF
     if images:
-        images[0].save(
+        # Determine target size based on the first image
+        target_size = images[0].size
+        
+        # Resize all images to the target size using LANCZOS filter
+        resized_images = [img.resize(target_size, Image.Resampling.LANCZOS) for img in images]
+        
+        # Save the GIF using the resized images
+        resized_images[0].save(
             outputFile,
             save_all=True,
-            append_images=images[1:],
+            append_images=resized_images[1:],
             duration=duration,
             loop=0
         )
         print(f"GIF created successfully: {outputFile}")
-        print(f"Number of frames: {len(images)}")
+        print(f"Number of frames: {len(resized_images)}")
     else:
         print("No PNG files found in the specified directory")
 
@@ -419,14 +413,19 @@ def decomposeDictionaries(dict1):
     for keys in keyRanges:
         dictList.append({k:dict1[k] for k in keys if k in dict1})
     return dictList
+def lightGradient(initRGB , numSteps):
+    base = np.array(initRGB)
+    white = np.array([255 ,255, 255])
+    return np.linspace(base , white, numSteps)
+
 if __name__ == "__main__":
     alkeneSMILE = "[H][C@@]12C[C@@](N([C@H](C)C3=CC=CC=C3)[C@@H]2C(OCC4=CC=CC=C4)=O)([H])C=C1"
     #RGB: 153,000,000
     radius = int(sys.argv[1])
     pngDir = str(sys.argv[2])
     alphaScale = float(sys.argv[3])
-    r , g , b = 208 , 55, 50
-
+    rgbInit = [197 , 5 ,12]
+    colorGradient = lightGradient(rgbInit , radius + 2)
     highlightDict , molec   , finalSMILE = motifExtract( alkeneSMILE , radius)
     print(highlightDict)
     #print(highlightDict)
