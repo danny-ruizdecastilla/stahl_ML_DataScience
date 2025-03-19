@@ -10,6 +10,7 @@ import random
 import hdbscan
 import re
 from itertools import combinations
+from featureMaping import savePNG , createCSV
 #Danny Ruiz de Castilla 02.28.2025
 #Imports cluster identifier and feature Dataframe to create 
 def getEpsilon(list1):
@@ -41,41 +42,61 @@ def createHistograms(data1 , data2 , saveDir , saveStr):
     plt.hist(data2, bins=bins_, density=True, alpha=0.6, label="Cluster" + saveStr, color='red')
     plt.title(f"Histogram Comparison\nKL Divergence: {klDiv:.4f}")
     plt.legend()
-    plt.savefig(saveDir + "/Cluster"  + saveStr + str(int(klDiv)) +  ".png")
+    plt.savefig(saveDir + "/"  + saveStr + str(int(klDiv)) +  ".png")
     plt.close()
 
 def removeNonLetters(text):
     return re.sub(r'[^a-zA-Z0-9_]', '', text)
-def histogramGenerator(df , partitionStr , partitionList , columnList, pngSaveDir ):
+def histogramGenerator(df ,  columnList, pngSaveDir , mainDF ):
+
+    if smileStr in columnList:
+        columnList.remove(smileStr)
+    if pc1Str in columnList:
+        columnList.remove(pc1Str)
+    if pc2Str in columnList:
+        columnList.remove(pc2Str)
 
     for col in columnList:
-        if col != partitionStr:
-            col_ = col
-            data1 = list(df[col_])
-            if '%' in col:
-                col = col.replace('%', '_')
-            featureStr = removeNonLetters(col)
-            
-            if not os.path.exists(pngSaveDir + "/" + str(featureStr)):
-                os.makedirs(pngSaveDir + "/" + featureStr)
+        col_ = col
+        data1 = list(mainDF[col_])
+        if '%' in col:
+            col = col.replace('%', '_')
+        featureStr = removeNonLetters(col)
+        data2 = list(df[col_])
+        createHistograms(data1 , data2 , pngSaveDir, featureStr)
+def partition(bounds1, bounds2, dfMAST, range1Str, range2Str):
+    dim1 = dfMAST[range1Str]
+    dim2 = dfMAST[range2Str]
+    df = pd.DataFrame(columns=dfMAST.columns)  # Ensures correct structure
 
-            for partition in partitionList:
-                partitionType = str(partition)
-                data2 = list(df[df[partitionStr] == partition][col_])
-                
-                createHistograms(data1 , data2 , pngSaveDir + "/" + featureStr , partitionType)
+    for i, row_ in enumerate(dfMAST.itertuples(index=False, name=None)):  
+        if bounds1[0] <= dim1[i] <= bounds1[1] and bounds2[0] <= dim2[i] <= bounds2[1]:
+            df = pd.concat([df, pd.DataFrame([row_], columns=dfMAST.columns)], ignore_index=True)
+
+    return df, list(df.columns)
+
                 
 if __name__ == "__main__":
+    dataframeDir = str(sys.argv[1]) #Must point to a .csv no longer cluster csv 
+    pc1Min = float(sys.argv[2])
+    pc1Max = float(sys.argv[3])
+    pc2Min = float(sys.argv[4])
+    pc2Max = float(sys.argv[5])
+    pc1Str = str(sys.argv[6])
+    pc2Str = str(sys.argv[7])
+    smileStr = str(sys.argv[8])
+    fileStr = "pc1_" + str(pc1Min) + "_" + str(pc1Max) + "_pc2_" + str(pc2Min) + "_" + str(pc2Max)
+    saveDir = dataframeDir + "/" + fileStr
+    if not os.path.exists(saveDir):
+        os.makedirs(saveDir)
+    featurePCA = glob.glob(dataframeDir + "/*.csv")[0]
+    mainDF = pd.read_csv(featurePCA)
 
-    dataframeDir = str(sys.argv[1]) #Must point to a .csv
-    pngSaveDir = str(sys.argv[2]) 
-    clusterStr = str(sys.argv[3])#what is the name of the column containing all the cluster assingments 
-    if not os.path.exists(pngSaveDir):
-        os.makedirs(pngSaveDir)
-    mainDF = pd.read_csv(dataframeDir)
+    pc1Range = [pc1Min , pc1Max]
+    pc2Range = [pc2Min , pc2Max]
+    newDF , columnNames = partition(pc1Range , pc2Range , mainDF , pc1Str , pc2Str)
+    createCSV(newDF, saveDir , fileStr + "_partitionPCA")
 
-    if "SMILES" in mainDF.columns: 
-        mainDF = mainDF.drop(columns=["SMILES"])
-    clusterList = np.unique(mainDF[clusterStr])
-    featureList = list(mainDF.columns)
-    histogramGenerator(mainDF , clusterStr , clusterList , featureList , pngSaveDir)
+
+
+    histogramGenerator(newDF , columnNames, saveDir , mainDF )
