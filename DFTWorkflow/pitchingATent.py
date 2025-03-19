@@ -20,7 +20,6 @@ from expt2_feature_filtering import *
 #smilesDict = {canonicalSmiles : [ xPCA , yPCA]}
 def dimensionalityReduction(X , smiles):
     np.random.seed(42)
-    X.to_csv("test.csv")
     scaler = StandardScaler()
     scaledX = scaler.fit_transform(X)
 
@@ -42,15 +41,15 @@ def dimensionalityReduction(X , smiles):
     top_features_pc1 = loadings['PC1'].abs().sort_values(ascending=False)
     top_features_pc2 = loadings['PC2'].abs().sort_values(ascending=False)
 
-    top_features = pd.DataFrame({
+    topFeatures = pd.DataFrame({
         "Feature": top_features_pc1.index,
         "PC1_Contribution": top_features_pc1.values,
         "PC2_Contribution": top_features_pc2.loc[top_features_pc1.index].values  # Align PC2 with PC1 sorting
     })
 
-    file_path = "topFeatures.csv"
-    if not os.path.exists(file_path):
-        top_features.to_csv(file_path, sep="\t", index=False)
+    filePath = "topFeatures.csv"
+    if not os.path.exists(saveDir + "/" + filePath):
+        topFeatures.to_csv(saveDir + "/" + filePath, sep="\t", index=False)
 
     dfPCA = pd.DataFrame(xPCA_, columns = ["PCA1" , "PCA2"] )
     #print(dfPCA)
@@ -62,8 +61,11 @@ def dimensionalityReduction(X , smiles):
     kmeansMAST = KMeans( n_clusters = specialK , random_state = 42)
     kmeansMAST.fit(xPCA_)
     dfPCA['Clusters'] = kmeansMAST.labels_
-    createCSV(dfPCA, datasetDir , chemType+ "_clustered")
-    savePNG(dfPCA , datasetDir , chemType + "_clustered" , "PCA" , cluster = True)
+    savePNG(dfPCA , saveDir , chemType + "_clustered" , "PCA" , cluster = True)
+    X["SMILES"] = smiles
+    X["PCA1"] = xAxis
+    X["PCA2"] = yAxis
+    createCSV(X, saveDir , chemType+ "_PCADistributed_Features")
 
     pcaDict = {}
     for i in range (len(smiles)):
@@ -72,6 +74,7 @@ def dimensionalityReduction(X , smiles):
     return pcaDict   , list(kmeansMAST.labels_)
 def findHighlights(smilesDict, partition1, chemistryDict):
     highlightDict = {}
+    hollowDict = {}
     to_remove = []
 
     for substrate, parameter in chemistryDict.items():
@@ -81,12 +84,18 @@ def findHighlights(smilesDict, partition1, chemistryDict):
             xPCA, yPCA = smilesDict[substrate]  # Direct unpacking
             highlightDict[substrate] = [xPCA, yPCA]
             to_remove.append(substrate)
+        
+        elif substrate in smilesDict and parameter < partition1: #hollow points
+            hollowX , hollowY = smilesDict[substrate]
+            hollowDict[substrate] = [hollowX , hollowY]
+            to_remove.append(substrate)
+    
 
     # Remove keys after iteration to avoid modifying the dictionary while looping
     for key in to_remove:
         del smilesDict[key]
 
-    return highlightDict, smilesDict
+    return highlightDict, hollowDict , smilesDict
 
 
 def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors , partitionStr):
@@ -94,32 +103,43 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
     for partition in partitionList:
         #print("partition" , partition)
         for i , chemistryDict in enumerate(chemistryDicts): #this is the highlighted chemistry in the plot
-            highlightDict , smilesDict = findHighlights(pcaDict.copy()  ,  partition , chemistryDict )
-            #print(highlightDict)
-            try:
-                xHigh , yHigh = zip (*highlightDict.values())
+            highlightDict , hollowDict , smilesDict = findHighlights(pcaDict.copy()  ,  partition , chemistryDict )
+
+            if len(highlightDict) != 0:
+                xHigh , yHigh = zip(*highlightDict.values())
                 colorScatter = True
-            except ValueError:
+            else:
                 colorScatter = False
 
+            if len(hollowDict) != 0:
+                xHollow , yHollow = zip(*hollowDict.values())
+                hollowScatter = True
+            else:
+                hollowScatter = False                
+
             xBland , yBland = zip(*smilesDict.values())
-            chemistryLabel = chemistryStr[i]
+            chemistryLabel = chemistryStr[i].split(".")[0]
             #print("**********************" + str(chemistryLabel))
 
-            xLabel = "PCA1"
-            yLabel = "PCA2"
+            xLabel = "PC1"
+            yLabel = "PC2"
             dpi = 300
             plt.figure(figsize=(800 / dpi, 600 / dpi), dpi=dpi)  # 800x600 pixels
             plt.scatter(list(xBland), list(yBland), c="grey", alpha=0.14 , s=10)
             if colorScatter:
                 plt.scatter(list(xHigh), list(yHigh), c=colors[i], alpha=0.7 , s=10)
-            plt.xlabel(xLabel, fontsize=16, fontweight='bold', color='black')
-            plt.ylabel(yLabel, fontsize=16, fontweight='bold', color='black')
+            if hollowScatter:
+                plt.scatter(list(xHollow), list(yHollow), facecolors = 'none', edgecolors = colors[i] ,  alpha=0.7 , s=10)
+            plt.xlabel(xLabel, fontsize=11,  color='black')
+            plt.ylabel(yLabel, fontsize=11,  color='black')
             plt.title("Substrate Scope for " + str(chemistryLabel) + " at " + str(partition) + "%" + str(partitionStr), fontsize=18, fontweight='bold', color='navy')
-            plt.xticks(fontsize=14, color='black')
-            plt.yticks(fontsize=14, color='black')
+            plt.xticks(fontsize=7, color='black')
+            plt.yticks(fontsize=7, color='black')
             #plt.grid(True, linestyle='--', alpha=0.5)
-            plt.savefig(str(chemistryLabel) + "at" + str(partition) + ".png", dpi=300, bbox_inches='tight')
+            if not os.path.exists(saveDir + "/" + chemistryLabel ):
+                os.makedirs(saveDir + "/" + chemistryLabel)
+            plt.savefig(saveDir + "/" + chemistryLabel + "/" + str(chemistryLabel) + "at" + str(partition) + ".png", dpi=300, bbox_inches='tight')
+            plt.close()
     
 def featureFiltering(outDir , X , feature_labels , featureStr):
     if not os.path.exists(outDir + "/" + str(featureStr) + "featureFiltering.dat"):
@@ -222,6 +242,9 @@ if __name__ == "__main__":
     datasetDir = str(sys.argv[2])
     chemType = str(sys.argv[3])
     specialK = int(sys.argv[4]) #Kmeans cluster
+    saveDir = str(sys.argv[5])
+    if not os.path.exists(saveDir):
+        os.makedirs(saveDir)
     #make sure to adjust what Chemistries you are plotting
     partitionList = [50 , 70 , 85 , 90]
     colorList = ['red' , 'blue' , 'green' , 'yellow']
@@ -233,32 +256,27 @@ if __name__ == "__main__":
     if len(nanDict) != 0:
         Xdataframe["SMILES"] = smileList
         Xdataframe = eliminateNans(Xdataframe , nanDict)
-    nanDict = locateNans(Xdataframe)
+    #nanDict = locateNans(Xdataframe)
     #print(Xdataframe.columns)
     smileList = Xdataframe["SMILES"].copy()
     Xdataframe = Xdataframe.drop("SMILES", axis=1)
-
-
     featureLabels = list(Xdataframe.columns)
     
-    X , featureLabels  = featureFiltering(datasetDir , Xdataframe ,featureLabels , chemType)
-
-
-
+    X , featureLabels  = featureFiltering(saveDir, Xdataframe ,featureLabels , chemType)
     pcaDict , clusterList = dimensionalityReduction(X , smileList)
     smilesTot = list(pcaDict.keys())
     coordinateTot = list(pcaDict.values())
-    if os.path.exists("pcaCoordinates.dat"):
-        for i in range(len(smilesTot)):
-        
-            smiles = smilesTot[i]
-            xAxis = coordinateTot[i][0]
-            yAxis = coordinateTot[i][1]
-            with open("pcaCoordinates.dat", "a") as file:
+    for i in range(len(smilesTot)):
+    
+        smiles = smilesTot[i]
+        xAxis = coordinateTot[i][0]
+        yAxis = coordinateTot[i][1]
+        if not os.path.exists(saveDir + "/pcaCoordinates.dat"):
+            with open(saveDir + "/pcaCoordinates.dat", "a") as file:
                 file.write(f"{smiles},{xAxis} ,  {yAxis}\n") 
 
     chemSpaceDict = []
-    chemDirList = []
+    chemDirList = [] #names to create folders
     for dir in substrateSpaces:
         #print(dir)
         df = pd.read_csv(dir)
@@ -270,13 +288,8 @@ if __name__ == "__main__":
 
         split2 = split1.split(chemType)[0]
         chemDirList.append(split2)
+    print(chemDirList)
     makePlots(pcaDict.copy() ,  partitionList , chemSpaceDict  , chemDirList, colorList , "Yield")
-    
-    #recreate X with SMILES and with cluster assignments for featureDistributionGenerator.py 
-    X["SMILES"] = smileList
-    X["clusterID"] = clusterList
-    createCSV(X, datasetDir , chemType + "_PCADataframe")
-    
 
 
 
