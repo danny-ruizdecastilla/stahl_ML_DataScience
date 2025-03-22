@@ -11,27 +11,35 @@ import hdbscan
 import re
 from itertools import combinations
 from featureMaping import savePNG , createCSV
+import chemdraw
+import plotly.graph_objs as go
+from plotly_gif import GIF, two_d_time_series
+from PIL import Image
 #Danny Ruiz de Castilla 02.28.2025
 #Imports cluster identifier and feature Dataframe to create 
 def getEpsilon(list1):
     list1 = np.array(list1) 
+    print("list1" , list1)
     if np.any(list1 == 0): 
         minNumb = np.min(np.abs(list1)[list1 != 0]) 
+        print("minNumb" , minNumb)
         factoredNumb = minNumb * 0.00001
         return factoredNumb
     else:
         return 0
 def getKLDiv(dist1, dist2):
+
     klDiv = np.sum(dist1 * np.log(dist1 / dist2))
+    print("klDiv" , klDiv)
     return klDiv
 def createHistograms(data1 , data2 , saveDir , saveStr):
     hist1, bins_ = np.histogram(data1, bins="auto", density=True)
-    epsilon = getEpsilon(hist1)
+    epsilon1 = getEpsilon(hist1)
 
-    hist2 , _ = np.histogram(data1, bins=bins_, density=True)
-
-    hist1 += epsilon
-    hist2 += epsilon
+    hist2 , _ = np.histogram(data2, bins=bins_, density=True)
+    epsilon2 = getEpsilon(hist2)
+    hist1 += epsilon1
+    hist2 += epsilon2
 
     hist1 /= hist1.sum()
     hist2 /= hist2.sum()
@@ -39,8 +47,8 @@ def createHistograms(data1 , data2 , saveDir , saveStr):
     klDiv = getKLDiv(hist1 , hist2)
     plt.figure(figsize=(8, 5))
     plt.hist(data1, bins=bins_, density=True, alpha=0.6, label="Entire Substrate Scope", color='blue')
-    plt.hist(data2, bins=bins_, density=True, alpha=0.6, label="Cluster" + saveStr, color='red')
-    plt.title(f"Histogram Comparison\nKL Divergence: {klDiv:.4f}")
+    plt.hist(data2, bins=bins_, density=True, alpha=0.6, label= pc1Str + ": " + str(pc1Min) + " - " + str(pc1Max)  + " , " + pc2Str + ": " + str(pc2Min) + " - " + str(pc2Max), color='red')
+    plt.title(saveStr + f"\nKL Divergence: {klDiv:.4f}")
     plt.legend()
     plt.savefig(saveDir + "/"  + saveStr + str(int(klDiv)) +  ".png")
     plt.close()
@@ -96,7 +104,10 @@ if __name__ == "__main__":
     pc2Range = [pc2Min , pc2Max]
     newDF , columnNames = partition(pc1Range , pc2Range , mainDF , pc1Str , pc2Str)
     createCSV(newDF, saveDir , fileStr + "_partitionPCA")
-
-
+    if smileStr in columnNames:
+        smiles = list(newDF[smileStr])
+        #list of smiles, 
+        drawer = chemdraw.GridDrawer(smiles)
+        drawer.draw_png(saveDir + "molecules.png")
 
     histogramGenerator(newDF , columnNames, saveDir , mainDF )

@@ -34,7 +34,7 @@ def dimensionalityReduction(X , smiles):
     top2 = np.argsort(explainedVar)[-2:][::-1] 
     #print(top2)
     top2PCA = pca.components_[top2]
-    xPCA_ = scaledX @ top2PCA.T
+    xPCA_ = scaledX @ top2PCA.T + 11
     #print(xPCA_)
     loadings = pd.DataFrame(pca.components_.T * np.sqrt(pca.explained_variance_), columns=[f'PC{i+1}' for i in range(pca.n_components_)] , index = X.columns)
 
@@ -55,7 +55,7 @@ def dimensionalityReduction(X , smiles):
     #print(dfPCA)
 
 
-    xAxis = list(dfPCA["PCA1"])
+    xAxis = list(dfPCA["PCA1"])  #scaling factor to avoid negative numbers in PCA
     yAxis = list(dfPCA["PCA2"])
     dfPCA["SMILES"] = smiles
     kmeansMAST = KMeans( n_clusters = specialK , random_state = 42)
@@ -63,7 +63,7 @@ def dimensionalityReduction(X , smiles):
     dfPCA['Clusters'] = kmeansMAST.labels_
     savePNG(dfPCA , saveDir , chemType + "_clustered" , "PCA" , cluster = True)
     X["SMILES"] = smiles
-    X["PCA1"] = xAxis
+    X["PCA1"] = xAxis 
     X["PCA2"] = yAxis
     createCSV(X, saveDir , chemType+ "_PCADistributed_Features")
 
@@ -127,9 +127,9 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
             plt.figure(figsize=(800 / dpi, 600 / dpi), dpi=dpi)  # 800x600 pixels
             plt.scatter(list(xBland), list(yBland), c="grey", alpha=0.14 , s=10)
             if colorScatter:
-                plt.scatter(list(xHigh), list(yHigh), c=colors[i], alpha=0.7 , s=10)
+                plt.scatter(list(xHigh), list(yHigh), facecolors = colors[i], edgecolors = 'none', alpha=0.35 , s=10)
             if hollowScatter:
-                plt.scatter(list(xHollow), list(yHollow), facecolors = 'none', edgecolors = colors[i] ,  alpha=0.7 , s=10)
+                plt.scatter(list(xHollow), list(yHollow), facecolors = 'none', edgecolors = colors[i] ,  alpha=0.35 , s=10)
             plt.xlabel(xLabel, fontsize=11,  color='black')
             plt.ylabel(yLabel, fontsize=11,  color='black')
             plt.title("Substrate Scope for " + str(chemistryLabel) + " at " + str(partition) + "%" + str(partitionStr), fontsize=18, fontweight='bold', color='navy')
@@ -224,7 +224,7 @@ def transformations(dataframeDirs):
             smileList = dataframeMast['SMILES'].copy()
 
         else:
-            print("Warning: 'SMILES' column not found in the dataframe")
+            print("Warning: SMILES column not found in the dataframe")
             smileList = pd.Series()
             
         for str in usualSuspects:
