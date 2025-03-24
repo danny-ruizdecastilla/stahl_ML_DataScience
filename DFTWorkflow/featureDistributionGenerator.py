@@ -4,7 +4,6 @@ import numpy as np
 import os
 from rdkit import Chem
 import pandas as pd
-#from rdkit.Chem.PandasTools import LoadSDF
 import matplotlib.pyplot as plt
 import random
 import hdbscan
