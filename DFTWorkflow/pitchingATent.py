@@ -65,7 +65,9 @@ def dimensionalityReduction(X , smiles):
     X["SMILES"] = smiles
     X["PCA1"] = xAxis 
     X["PCA2"] = yAxis
-    createCSV(X, saveDir , chemType+ "_PCADistributed_Features")
+    if not os.path.exists(saveDir + "/" + "featureDistribution" ):
+        os.makedirs(saveDir + "/" + "featureDistribution")
+    createCSV(X, saveDir + "/" + "featureDistribution" , chemType+ "_PCADistributed_Features")
 
     pcaDict = {}
     for i in range (len(smiles)):
@@ -98,13 +100,23 @@ def findHighlights(smilesDict, partition1, chemistryDict):
     return highlightDict, hollowDict , smilesDict
 
 
-def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors , partitionStr):
+def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors , partitionStr): 
     
     for partition in partitionList:
         #print("partition" , partition)
         for i , chemistryDict in enumerate(chemistryDicts): #this is the highlighted chemistry in the plot
+            chemistryLabel = chemistryStr[i].split(".")[0]
+            if not os.path.exists(saveDir + "/" + chemistryLabel ):
+                os.makedirs(saveDir + "/" + chemistryLabel)
             highlightDict , hollowDict , smilesDict = findHighlights(pcaDict.copy()  ,  partition , chemistryDict )
-
+            if not os.path.exists(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat"):
+                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat" , "w") as file:
+                    file.write("SMILES,PC1,PC2\n") 
+                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat" , "a") as file:
+                    for smile_ in list(highlightDict.keys()):
+                        file.write(f"{smile_},{highlightDict[smile_][0]},{highlightDict[smile_][1]}\n")   
+                    for smile_ in list(hollowDict.keys()):
+                        file.write(f"{smile_},{hollowDict[smile_][0]},{hollowDict[smile_][1]}\n")   
             if len(highlightDict) != 0:
                 xHigh , yHigh = zip(*highlightDict.values())
                 colorScatter = True
@@ -118,7 +130,6 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
                 hollowScatter = False                
 
             xBland , yBland = zip(*smilesDict.values())
-            chemistryLabel = chemistryStr[i].split(".")[0]
             #print("**********************" + str(chemistryLabel))
 
             xLabel = "PC1"
@@ -136,8 +147,6 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
             plt.xticks(fontsize=7, color='black')
             plt.yticks(fontsize=7, color='black')
             #plt.grid(True, linestyle='--', alpha=0.5)
-            if not os.path.exists(saveDir + "/" + chemistryLabel ):
-                os.makedirs(saveDir + "/" + chemistryLabel)
             plt.savefig(saveDir + "/" + chemistryLabel + "/" + str(chemistryLabel) + "at" + str(partition) + ".png", dpi=300, bbox_inches='tight')
             plt.close()
     
@@ -271,9 +280,8 @@ if __name__ == "__main__":
         smiles = smilesTot[i]
         xAxis = coordinateTot[i][0]
         yAxis = coordinateTot[i][1]
-        if not os.path.exists(saveDir + "/pcaCoordinates.dat"):
-            with open(saveDir + "/pcaCoordinates.dat", "a") as file:
-                file.write(f"{smiles},{xAxis} ,  {yAxis}\n") 
+        with open(saveDir + "/pcaCoordinates.dat", "a") as file:
+            file.write(f"{smiles},{xAxis} ,  {yAxis}\n") 
 
     chemSpaceDict = []
     chemDirList = [] #names to create folders
