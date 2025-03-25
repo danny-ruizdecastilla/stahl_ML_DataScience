@@ -29,8 +29,12 @@ def dimensionalityReduction(X , smiles):
 
 
     explainedVar = pca.explained_variance_ratio_
+    print(explainedVar)
+    if not os.path.exists(saveDir + "/" + "explainedVarr.dat"):
+        with open(saveDir + "/" + "explainedVarr.dat", "w") as file:
+            for i in range (len(explainedVar)):
+                file.write(f"explained variance ratio: PC {i + 1} {explainedVar[i]:.6f}\n")
 
-    #print("explained variance ratio:", explainedVar, f"(total):{np.sum(pca.explained_variance_ratio_)}")
     top2 = np.argsort(explainedVar)[-2:][::-1] 
     #print(top2)
     top2PCA = pca.components_[top2]
