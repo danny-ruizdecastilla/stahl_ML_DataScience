@@ -90,12 +90,12 @@ def findHighlights(smilesDict, partition1, chemistryDict):
         if substrate in smilesDict and parameter >= partition1:
             #print("MATCH")
             xPCA, yPCA = smilesDict[substrate]  # Direct unpacking
-            highlightDict[substrate] = [xPCA, yPCA]
+            highlightDict[substrate] = [xPCA, yPCA , parameter]
             to_remove.append(substrate)
         
         elif substrate in smilesDict and parameter < partition1: #hollow points
             hollowX , hollowY = smilesDict[substrate]
-            hollowDict[substrate] = [hollowX , hollowY]
+            hollowDict[substrate] = [hollowX , hollowY , parameter]
             to_remove.append(substrate)
     
 
@@ -117,20 +117,22 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
             highlightDict , hollowDict , smilesDict = findHighlights(pcaDict.copy()  ,  partition , chemistryDict )
             if not os.path.exists(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat"):
                 with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat" , "w") as file:
-                    file.write("SMILES,PC1,PC2\n") 
+                    file.write("SMILES,PC1,PC2,Yield\n") 
                 with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat" , "a") as file:
                     for smile_ in list(highlightDict.keys()):
-                        file.write(f"{smile_},{highlightDict[smile_][0]},{highlightDict[smile_][1]}\n")   
+                        file.write(f"{smile_},{highlightDict[smile_][0]},{highlightDict[smile_][1]},{highlightDict[smile_][2]}\n")   
                     for smile_ in list(hollowDict.keys()):
-                        file.write(f"{smile_},{hollowDict[smile_][0]},{hollowDict[smile_][1]}\n")   
+                        file.write(f"{smile_},{hollowDict[smile_][0]},{hollowDict[smile_][1]},{hollowDict[smile_][2]}\n")  
+            coordinatesHighlighted = [v[:2] for v in list(highlightDict.values())]
+            coordinatesHollowed = [v[:2] for v in list(hollowDict.values())]  
             if len(highlightDict) != 0:
-                xHigh , yHigh = zip(*highlightDict.values())
+                xHigh, yHigh = zip(*coordinatesHighlighted)
                 colorScatter = True
             else:
                 colorScatter = False
 
             if len(hollowDict) != 0:
-                xHollow , yHollow = zip(*hollowDict.values())
+                xHollow , yHollow = zip(*coordinatesHollowed)
                 hollowScatter = True
             else:
                 hollowScatter = False                
