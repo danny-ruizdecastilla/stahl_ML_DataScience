@@ -12,8 +12,10 @@ from itertools import combinations
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from featureMaping import savePNG , createCSV
-from expt2_feature_filtering import *
+parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(parentDir)
+from DFTWorkflow.featureMaping import savePNG , createCSV
+from DFTWorkflow.expt2_feature_filtering import *
 #Danny Ruiz de Castilla 02.28.2025
 
 #pcaDict = {canonicalSmiles : [ yield]} for local Chemistries 
@@ -196,7 +198,7 @@ def eliminateNans(df, nanDict):
     df = df.drop(list(allNanRows))
     df = df.reset_index(drop=True)
     return df
-def transformations(dataframeDirs):
+def transformations(dataframeDirs , regressionStr):
     usualSuspects = ["SMILES" , "Compound_Name", "Yield", "ChemistryType"  ]
 
     dataframeMast = pd.DataFrame()
@@ -235,6 +237,9 @@ def transformations(dataframeDirs):
         # Save SMILES column if it exists
         if 'SMILES' in dataframeMast.columns:
             smileList = dataframeMast['SMILES'].copy()
+        # Save Yield column if it exists
+        if regressionStr in dataframeMast.columns:
+            yieldList = dataframeMast[regressionStr].copy()
 
         else:
             print("Warning: SMILES column not found in the dataframe")
@@ -244,7 +249,7 @@ def transformations(dataframeDirs):
             if str in list(dataframeMast.columns):
                 dataframeMast = dataframeMast.drop(str, axis=1)
 
-        return dataframeMast, smileList
+        return dataframeMast, smileList , yieldList
         
     except Exception as e:
         print(f"Critical error in transformations: {e}")
@@ -264,7 +269,7 @@ if __name__ == "__main__":
     initdataSets = glob.glob(datasetDir + "/*.csv")
     substrateSpaces = glob.glob(chemistryDirs + "/*.csv")
     initdataSets = sorted(initdataSets)
-    Xdataframe , smileList = transformations(initdataSets )
+    Xdataframe , smileList  , yieldList_= transformations(initdataSets , "Yield")
     nanDict = locateNans(Xdataframe)
     if len(nanDict) != 0:
         Xdataframe["SMILES"] = smileList
