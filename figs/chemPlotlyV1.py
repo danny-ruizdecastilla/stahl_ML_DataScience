@@ -20,7 +20,7 @@ def createPNGDF(df , smileStr , saveDir  ):
     for i , smile in enumerate(smileList):
         drawer = chemdraw.Drawer(smile, title=smile)
         pngPath = saveDir + "/" + str(i) + ".png" #has to be entire path from root 
-        drawer.draw_png(pngPath)
+        drawer.draw_img(pngPath)
         pngPaths.append(pngPath)
 
     df["pngPath"] = pngPaths
@@ -108,7 +108,7 @@ def create_dash_app(fig, df):
             img_file = df_row["pngPath"]
             name = df_row['SMILES']
 
-            img_src = png64(f"assets/images/{img_file}")
+            img_src = png64(img_file)
             
             # Create tooltip children
             children = [
@@ -129,12 +129,14 @@ if __name__ == "__main__":
     outputDir = str(sys.argv[2])
     if not os.path.exists(outputDir):
         os.makedirs(outputDir)
+        print("created Dir")
     partitionVal = float(sys.argv[3])
     chemistryStr = str(sys.argv[4])
     substrateFiles = glob.glob(pathDir  + "*.dat")
+    #print(substrateFiles)
     for file in substrateFiles:
         fileName = file.split("/")[-1]
-        if "grey" in fileName:
+        if "Grey" in fileName:
             saveStr = "BackgroundSubstrates" #no need to create images for these 
 
             backgroundDF = dat2DF(file , ",")
@@ -142,7 +144,6 @@ if __name__ == "__main__":
             saveStr = chemistryStr
             chemDF = dat2DF(file , ",")
     chemDF = createPNGDF(chemDF , "SMILES" , outputDir)
-    fig = interactiveFigGenerator(chemDF , backgroundDF)
+    fig = interactiveFigGenerator(chemDF , backgroundDF , partitionVal)
     app = create_dash_app(fig , chemDF)
     app.run(debug=True)
-    
