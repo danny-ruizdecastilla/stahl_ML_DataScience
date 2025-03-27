@@ -46,7 +46,7 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition):
         y=backgroundDF["PC2"], 
         mode="markers", 
         name="Dataset 2",
-        marker=dict(color='grey'), 
+        marker=dict(color='grey' , size = 6), 
         opacity=0.1
     ))
 
@@ -54,35 +54,21 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition):
     fig.update_traces(hoverinfo="none", hovertemplate=None)
 
     fig.update_layout(
-        xaxis=dict(title='PC 1'),
-        yaxis=dict(title='PC 2'),
-        plot_bgcolor='rgba(255,255,255,0.1)'
+        xaxis=dict(title='PC 1' , scaleanchor="y"),
+        yaxis=dict(title='PC 2'),  
+        plot_bgcolor='rgba(255,255,255,0.1)' , width = 900 , length = 600  , margin=dict(l=60, r=60, t=50, b=60)
     )
 
 
 
     return fig 
 
-def create_dash_app(fig, df):
-    """
-    Create Dash application with interactive tooltip
-    
-    Parameters:
-    -----------
-    fig : plotly.graph_objs._figure.Figure
-        The initial figure to display
-    df : pandas.DataFrame
-        The dataframe containing additional information for tooltips
-    
-    Returns:
-    --------
-    app : Dash
-        Configured Dash application
-    """
+def create_dash_app(fig, df , mainStr , background):
+
     app = Dash(__name__)
     
     app.layout = html.Div([
-        dcc.Graph(id="graph-basic-2", figure=fig, clear_on_unhover=True),
+        dcc.Graph(id=mainStr, figure=fig, clear_on_unhover=True),
         dcc.Tooltip(id="graph-tooltip"),
     ])
     
@@ -90,7 +76,7 @@ def create_dash_app(fig, df):
         Output("graph-tooltip", "show"),
         Output("graph-tooltip", "bbox"),
         Output("graph-tooltip", "children"),
-        Input("graph-basic-2", "hoverData")
+        Input(mainStr, "hoverData")
     )
     def display_hover(hoverData):
         if hoverData is None:
@@ -137,13 +123,13 @@ if __name__ == "__main__":
     for file in substrateFiles:
         fileName = file.split("/")[-1]
         if "Grey" in fileName:
-            saveStr = "BackgroundSubstrates" #no need to create images for these 
+            datasetStr1 = "BackgroundSubstrates" #no need to create images for these 
 
             backgroundDF = dat2DF(file , ",")
         else:
-            saveStr = chemistryStr
+            datasetStr2 = chemistryStr
             chemDF = dat2DF(file , ",")
     chemDF = createPNGDF(chemDF , "SMILES" , outputDir)
     fig = interactiveFigGenerator(chemDF , backgroundDF , partitionVal)
-    app = create_dash_app(fig , chemDF)
+    app = create_dash_app(fig , chemDF  , datasetStr2 , datasetStr1)
     app.run(debug=True)
