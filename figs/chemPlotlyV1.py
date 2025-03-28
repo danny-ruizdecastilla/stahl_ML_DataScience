@@ -29,7 +29,7 @@ def png64(imagePath):
     with open(imagePath, "rb") as img_file:
         return "data:image/png;base64," + base64.b64encode(img_file.read()).decode()
 
-def interactiveFigGenerator(mainDF , backgroundDF , partition):
+def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataStr2):
     symbols = np.where(mainDF["Yield"] > partition, "circle", "circle-open")
 
     fig = go.Figure()
@@ -37,7 +37,7 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition):
         x=mainDF["PC1"], 
         y=mainDF["PC2"], 
         mode="markers", 
-        name="Dataset 1",
+        name= str(dataStr2),
         marker=dict(symbol=symbols, size=10, color='blue'),
     ))
 
@@ -45,22 +45,35 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition):
         x=backgroundDF["PC1"], 
         y=backgroundDF["PC2"], 
         mode="markers", 
-        name="Dataset 2",
+        name= str(dataStr1) ,
         marker=dict(color='grey' , size = 6), 
-        opacity=0.1
+        opacity=0.4
     ))
 
 
     fig.update_traces(hoverinfo="none", hovertemplate=None)
 
     fig.update_layout(
-        xaxis=dict(title='PC 1' , scaleanchor="y"),
-        yaxis=dict(title='PC 2'),  
-        plot_bgcolor='rgba(255,255,255,0.1)' , width = 900 , length = 600  , margin=dict(l=60, r=60, t=50, b=60)
+        xaxis=dict(title='PC 1', scaleanchor="y"),  # Keeps x and y scales equal
+        yaxis=dict(title='PC 2'),
+        plot_bgcolor='rgba(255,255,255,0.1)',  # Light background transparency
+        width=600,  
+        height=600,  
+        margin=dict(l=60, r=60, t=50, b=60),  
+        legend=dict(
+            x=0.6,  
+            y=0.98,  
+            bgcolor="rgba(255,255,255,0.7)",  
+            bordercolor="black",
+            borderwidth=1
+        ),
+        title=dict(
+            text=f"PCA for {dataStr2} Alkenes at {partition}% Yield",  # Fixed f-string
+            font=dict(size=18, color="black"),  
+            x=0.5,  # Center the title
+            y=0.95  
+        )
     )
-
-
-
     return fig 
 
 def create_dash_app(fig, df , mainStr , background):
@@ -123,13 +136,13 @@ if __name__ == "__main__":
     for file in substrateFiles:
         fileName = file.split("/")[-1]
         if "Grey" in fileName:
-            datasetStr1 = "BackgroundSubstrates" #no need to create images for these 
+            datasetStr1 = "Background Substrates" #no need to create images for these 
 
             backgroundDF = dat2DF(file , ",")
         else:
             datasetStr2 = chemistryStr
             chemDF = dat2DF(file , ",")
     chemDF = createPNGDF(chemDF , "SMILES" , outputDir)
-    fig = interactiveFigGenerator(chemDF , backgroundDF , partitionVal)
+    fig = interactiveFigGenerator(chemDF , backgroundDF , partitionVal , datasetStr1 , datasetStr2)
     app = create_dash_app(fig , chemDF  , datasetStr2 , datasetStr1)
     app.run(debug=True)
