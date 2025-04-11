@@ -143,10 +143,10 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
                 hollowScatter = False                
 
             xBland , yBland = zip(*smilesDict.values())
-            if not os.path.exists(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutPCA_Coordinates.dat"):
-                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutPCA_Coordinates.dat" , "w") as file:
+            if not os.path.exists(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutSubstrates.dat"):
+                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutSubstrates.dat" , "w") as file:
                     file.write("SMILES,PC1,PC2\n") 
-                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat" , "a") as file:
+                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutSubstrates.dat" , "a") as file:
                     for smile in list(smilesDict.keys()):   
                         file.write(f"{smile},{smilesDict[smile][0]},{smilesDict[smile][1]}\n")   
    
