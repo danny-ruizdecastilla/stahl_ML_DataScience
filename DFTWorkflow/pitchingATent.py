@@ -20,6 +20,11 @@ from DFTWorkflow.expt2_feature_filtering import *
 
 #pcaDict = {canonicalSmiles : [ yield]} for local Chemistries 
 #smilesDict = {canonicalSmiles : [ xPCA , yPCA]}
+def convertCanonical(str):
+    from rdkit import Chem
+    mol = Chem.MolFromSmiles(str)
+    canonical = Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
+    return canonical
 def dimensionalityReduction(X , smiles):
     np.random.seed(42)
     scaler = StandardScaler()
@@ -138,6 +143,13 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
                 hollowScatter = False                
 
             xBland , yBland = zip(*smilesDict.values())
+            if not os.path.exists(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutPCA_Coordinates.dat"):
+                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutPCA_Coordinates.dat" , "w") as file:
+                    file.write("SMILES,PC1,PC2\n") 
+                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat" , "a") as file:
+                    for smile in list(smilesDict.keys()):   
+                        file.write(f"{smile},{smilesDict[smile][0]},{smilesDict[smile][1]}\n")   
+   
             #print("**********************" + str(chemistryLabel))
 
             xLabel = "PC1"
@@ -212,6 +224,7 @@ def transformations(dataframeDirs , regressionStr):
     try:
         # Process each file
         for dfDir in dataframeDirs:
+            
             try:
                 df = pd.read_csv(dfDir)
                 
@@ -245,6 +258,8 @@ def transformations(dataframeDirs , regressionStr):
 
         else:
             print("Warning: SMILES column not found in the dataframe")
+            df = pd.read_csv(dfDir)
+            print(df.columns)
             smileList = pd.Series()
             
         for str in usualSuspects:
@@ -256,6 +271,7 @@ def transformations(dataframeDirs , regressionStr):
     except Exception as e:
         print(f"Critical error in transformations: {e}")
         return pd.DataFrame(), pd.Series()
+
 if __name__ == "__main__":
 
     chemistryDirs = str(sys.argv[1])
@@ -269,9 +285,12 @@ if __name__ == "__main__":
     partitionList = [50 , 70 , 85 , 90]
     colorList = ['red' , 'blue' , 'green' , 'yellow']
     initdataSets = glob.glob(datasetDir + "/*.csv")
+    print(initdataSets)
     substrateSpaces = glob.glob(chemistryDirs + "/*.csv")
+    print(substrateSpaces)
     initdataSets = sorted(initdataSets)
     Xdataframe , smileList  , yieldList_= transformations(initdataSets , "Yield")
+
     nanDict = locateNans(Xdataframe)
     if len(nanDict) != 0:
         Xdataframe["SMILES"] = smileList
@@ -279,11 +298,15 @@ if __name__ == "__main__":
     #nanDict = locateNans(Xdataframe)
     #print(Xdataframe.columns)
     smileList = Xdataframe["SMILES"].copy()
+    canonicalSMILES = []
+    for smile in smileList:
+        canonical = convertCanonical(smile)
+        canonicalSMILES.append(canonical)
     Xdataframe = Xdataframe.drop("SMILES", axis=1)
     featureLabels = list(Xdataframe.columns)
     
     X , featureLabels  = featureFiltering(saveDir, Xdataframe ,featureLabels , chemType)
-    pcaDict , clusterList = dimensionalityReduction(X , smileList)
+    pcaDict , clusterList = dimensionalityReduction(X , canonicalSMILES)
     smilesTot = list(pcaDict.keys())
     coordinateTot = list(pcaDict.values())
     for i in range(len(smilesTot)):
@@ -300,8 +323,12 @@ if __name__ == "__main__":
         #print(dir)
         df = pd.read_csv(dir)
         smileList_ = list(df["SMILES"])
+        canonicalSMILES_ = []
+        for smile in smileList_:
+            canonical = convertCanonical(smile)
+            canonicalSMILES_.append(canonical)
         yieldList = list(df["Yield"])
-        chemistryDict = dict(zip(smileList_, yieldList))
+        chemistryDict = dict(zip(canonicalSMILES_, yieldList))
         chemSpaceDict.append(chemistryDict)
         split1 = dir.split("/")[-1]
 
