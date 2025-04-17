@@ -212,8 +212,8 @@ def eliminateNans(df, nanDict):
     df = df.drop(list(allNanRows))
     df = df.reset_index(drop=True)
     return df
-def transformations(dataframeDirs , regressionStr):
-    usualSuspects = ["SMILES" , "Compound_Name", "Yield", "ChemistryType"  ]
+def transformations(dataframeDirs , regressionStr , usualSuspects):
+    
 
     dataframeMast = pd.DataFrame()
     
@@ -261,10 +261,8 @@ def transformations(dataframeDirs , regressionStr):
             df = pd.read_csv(dfDir)
             print(df.columns)
             smileList = pd.Series()
-            
-        for str in usualSuspects:
-            if str in list(dataframeMast.columns):
-                dataframeMast = dataframeMast.drop(str, axis=1)
+        elimCol = [col for col in dataframeMast.columns if any(frag in col for frag in usualSuspects)]
+        dataframeMast = dataframeMast.drop(columns=elimCol)
 
         return dataframeMast, smileList , yieldList
         
@@ -279,9 +277,15 @@ if __name__ == "__main__":
     chemType = str(sys.argv[3])
     specialK = int(sys.argv[4]) #Kmeans cluster
     saveDir = str(sys.argv[5])
+    elimFile = str(sys.argv[6])
     if not os.path.exists(saveDir):
         os.makedirs(saveDir)
-    #make sure to adjust what Chemistries you are plotting
+    if os.path.exists(elimFile):
+        with open(elimFile, 'r') as file:
+            content = file.read()
+            eliminatedPhrases = [item.strip() for item in content.split(',') if item.strip()]
+    else: 
+        eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType"  ]
     partitionList = [50 , 70 , 85 , 90]
     colorList = ['red' , 'blue' , 'green' , 'yellow']
     initdataSets = glob.glob(datasetDir + "/*.csv")
@@ -289,7 +293,7 @@ if __name__ == "__main__":
     substrateSpaces = glob.glob(chemistryDirs + "/*.csv")
     print(substrateSpaces)
     initdataSets = sorted(initdataSets)
-    Xdataframe , smileList  , yieldList_= transformations(initdataSets , "Yield")
+    Xdataframe , smileList  , yieldList_= transformations(initdataSets , "Yield" , eliminatedPhrases)
 
     nanDict = locateNans(Xdataframe)
     if len(nanDict) != 0:
