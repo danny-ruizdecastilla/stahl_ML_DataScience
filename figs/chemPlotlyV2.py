@@ -34,11 +34,35 @@ def createPNGDF(df, smileStr, saveDir):
 def png64(imagePath):
     with open(imagePath, "rb") as img_file:
         return "data:image/png;base64," + base64.b64encode(img_file.read()).decode()
+def plotly_template(): #Credit to Dylan Walsh
+    template = go.layout.Template()
+    template.layout.font = dict(family="Arial", size=18, color="black")
+    template.layout.plot_bgcolor = "white"
+    template.layout.width, template.layout.height = 1200, 600
+    template.layout.xaxis.tickprefix = "<b>"
+    template.layout.xaxis.ticksuffix = "<b>"
+    template.layout.xaxis.showline = True
+    template.layout.xaxis.linewidth = 5
+    template.layout.xaxis.linecolor = "black"
+    template.layout.xaxis.ticks = "outside"
+    template.layout.xaxis.tickwidth = 4
+    template.layout.xaxis.showgrid = False
+    template.layout.xaxis.mirror = True
+    template.layout.yaxis.tickprefix = "<b>"
+    template.layout.yaxis.ticksuffix = "<b>"
+    template.layout.yaxis.showline = True
+    template.layout.yaxis.linewidth = 5
+    template.layout.yaxis.linecolor = "black"
+    template.layout.yaxis.ticks = "outside"
+    template.layout.yaxis.tickwidth = 4
+    template.layout.yaxis.showgrid = False
+    template.layout.yaxis.mirror = True
 
+    return template
 def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataStr2):
     symbols = np.where(mainDF["Yield"] >= partition, "circle", "circle-open")
     colors = np.where(mainDF["Yield"] >= partition, "blue", "red")
-    fig = go.Figure()
+    fig = go.Figure(layout=dict(template=plotly_template()))
     fig.add_trace(go.Scatter(
         x=mainDF["PC1"], 
         y=mainDF["PC2"], 
@@ -67,8 +91,8 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataS
         height=600,  
         margin=dict(l=60, r=60, t=50, b=60),  
         legend=dict(
-            x=0.6,  
-            y=0.98,  
+            x=0.0,  
+            y=0.0,  
             bgcolor="rgba(255,255,255,0.7)",  
             bordercolor="black",
             borderwidth=1
@@ -131,7 +155,7 @@ def create_dash_app(figDict, dfDict, strList):
                             
                             # Verify the image file exists
                             if os.path.exists(img_file):
-                                name ="Yield:" + str(df_row['Yield'])
+                                name ="Yield: " + str(df_row['Yield'])
                                 try:
                                     img_src = png64(img_file)
                                     children = [
