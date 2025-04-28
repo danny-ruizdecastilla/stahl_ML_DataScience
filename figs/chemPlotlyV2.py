@@ -64,16 +64,16 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataS
     colors = np.where(mainDF["Yield"] >= partition, "blue", "red")
     fig = go.Figure(layout=dict(template=plotly_template()))
     fig.add_trace(go.Scatter(
-        x=mainDF["PC1"], 
-        y=mainDF["PC2"], 
+        x=mainDF[xAxis], 
+        y=mainDF[yAxis], 
         mode="markers", 
         name= str(dataStr2),
         marker=dict(symbol=symbols, size=10, color=colors),
     ))
 
     fig.add_trace(go.Scatter(
-        x=backgroundDF["PC1"], 
-        y=backgroundDF["PC2"], 
+        x=backgroundDF[xAxis], 
+        y=backgroundDF[yAxis], 
         mode="markers", 
         name= str(dataStr1) ,
         marker=dict(color='grey' , size = 8), 
@@ -84,8 +84,8 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataS
     fig.update_traces(hoverinfo="none", hovertemplate=None)
 
     fig.update_layout(
-        xaxis=dict(title='PC 1', scaleanchor="y"),  # Keeps x and y scales equal
-        yaxis=dict(title='PC 2'),
+        xaxis=dict(title=xAxis, scaleanchor="y"),  # Keeps x and y scales equal
+        yaxis=dict(title=yAxis),
         plot_bgcolor='rgba(255,255,255,0.1)',  # Light background transparency
         width=600,  
         height=600,  
@@ -98,7 +98,7 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataS
             borderwidth=1
         ),
         title=dict(
-            text=f"PCA for {dataStr2} Alkenes at {partition}% Yield",  # Fixed f-string
+            text=f"UMAP of PC's for {dataStr2} Alkenes at {partition}% Yield",  # Fixed f-string
             font=dict(size=18, color="black"),  
             x=0.5,  # Center the title
             y=0.95  
@@ -148,7 +148,7 @@ def create_dash_app(figDict, dfDict, strList):
                     # Find the corresponding row in the dataframe by matching coordinates
                     if df_id in dfDict:
                         # Find the row with matching coordinates
-                        mask = (dfDict[df_id]["PC1"] == x_val) & (dfDict[df_id]["PC2"] == y_val)
+                        mask = (dfDict[df_id][xAxis] == x_val) & (dfDict[df_id][yAxis] == y_val)
                         if any(mask):
                             df_row = dfDict[df_id][mask].iloc[0]  # Take the first match
                             img_file = df_row["pngPath"]
@@ -201,6 +201,8 @@ if __name__ == "__main__":
     pathDict = getPathDirs(pcaDir , backgroundStr , substrateStr)
     partitionVal = float(sys.argv[4])
     chemistryStr = str(sys.argv[5]) #Alkene
+    xAxis = str(sys.argv[6]) #PCA_umap1 or PCA or tSNE1 or ...
+    yAxis = sys.argv[7]
     chemDict = {}
     dfDict = {}
     saveStrList = []
@@ -216,7 +218,7 @@ if __name__ == "__main__":
         chemDF = dat2DF(substrateFile , ",")
         chemDF = createPNGDF(chemDF , "SMILES" , saveDir + "/png")
         createCSV(chemDF , saveDir + "/", "chemDF")
-        fig = interactiveFigGenerator(chemDF , backgroundDF , partitionVal , "Background Substrates", str(key) + " substrates")
+        fig = interactiveFigGenerator(chemDF , backgroundDF , partitionVal , "Background Substrates", str(key) )
         chemDict[key] = fig
         dfDict[key] = chemDF
         saveStrList.append([key , "Background Substrates"])
