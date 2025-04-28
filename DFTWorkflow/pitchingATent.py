@@ -7,7 +7,7 @@ import pandas as pd
 #from rdkit.Chem.PandasTools import LoadSDF
 import matplotlib.pyplot as plt
 import random
-import hdbscan
+import umap
 from itertools import combinations
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -25,66 +25,101 @@ def convertCanonical(str):
     mol = Chem.MolFromSmiles(str)
     canonical = Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
     return canonical
-def dimensionalityReduction(X , smiles):
-    np.random.seed(42)
-    scaler = StandardScaler()
-    scaledX = scaler.fit_transform(X)
+def dimensionalityReduction(X , smiles, reduceStr , saveDir , chemType , specialK):
+    if "PCA" in reduceStr:
+        np.random.seed(42)
+        scaler = StandardScaler()
+        scaledX = scaler.fit_transform(X)
 
 
-    pca = PCA(n_components = X.shape[1] ,svd_solver="full" )
-    pca.fit_transform(scaledX)
+        pca = PCA(n_components = X.shape[1] ,svd_solver="full" )
+        xPCAFullRank = pca.fit_transform(scaledX)
+        if "_" in reduceStr:
+            reducerType = reduceStr.split("_")[1]
+        else:
+            reducerType = "PCA"
+        if reducerType == 'umap':
+            reducer = umap.UMAP(n_components=2, metric='euclidean', random_state=0)
+            X_umap = reducer.fit_transform(xPCAFullRank)
 
 
-    explainedVar = pca.explained_variance_ratio_
-    print(explainedVar)
-    if not os.path.exists(saveDir + "/" + "explainedVarr.dat"):
-        with open(saveDir + "/" + "explainedVarr.dat", "w") as file:
-            for i in range (len(explainedVar)):
-                file.write(f"explained variance ratio: PC {i + 1} {explainedVar[i]:.6f}\n")
+        explainedVar = pca.explained_variance_ratio_
+        print(explainedVar)
+        if not os.path.exists(saveDir + "/" + "explainedVarr.dat"):
+            with open(saveDir + "/" + "explainedVarr.dat", "w") as file:
+                for i in range (len(explainedVar)):
+                    file.write(f"explained variance ratio: PC {i + 1} {explainedVar[i]:.6f}\n")
 
-    top2 = np.argsort(explainedVar)[-2:][::-1] 
-    #print(top2)
-    top2PCA = pca.components_[top2]
-    xPCA_ = scaledX @ top2PCA.T + 11
-    #print(xPCA_)
-    loadings = pd.DataFrame(pca.components_.T * np.sqrt(pca.explained_variance_), columns=[f'PC{i+1}' for i in range(pca.n_components_)] , index = X.columns)
+        top2 = np.argsort(explainedVar)[-2:][::-1] 
+        #print(top2)
+        top2PCA = pca.components_[top2]
+        xPCA_ = scaledX @ top2PCA.T + 11
+        #print(xPCA_)
+        loadings = pd.DataFrame(pca.components_.T * np.sqrt(pca.explained_variance_), columns=[f'PC{i+1}' for i in range(pca.n_components_)] , index = X.columns)
 
-    top_features_pc1 = loadings['PC1'].abs().sort_values(ascending=False)
-    top_features_pc2 = loadings['PC2'].abs().sort_values(ascending=False)
+        top_features_pc1 = loadings['PC1'].abs().sort_values(ascending=False)
+        top_features_pc2 = loadings['PC2'].abs().sort_values(ascending=False)
 
-    topFeatures = pd.DataFrame({
-        "Feature": top_features_pc1.index,
-        "PC1_Contribution": top_features_pc1.values,
-        "PC2_Contribution": top_features_pc2.loc[top_features_pc1.index].values  # Align PC2 with PC1 sorting
-    })
+        topFeatures = pd.DataFrame({
+            "Feature": top_features_pc1.index,
+            "PC1_Contribution": top_features_pc1.values,
+            "PC2_Contribution": top_features_pc2.loc[top_features_pc1.index].values  # Align PC2 with PC1 sorting
+        })
 
-    filePath = "topFeatures.csv"
-    if not os.path.exists(saveDir + "/" + filePath):
-        topFeatures.to_csv(saveDir + "/" + filePath, sep="\t", index=False)
+        filePath = "topFeatures.csv"
+        if not os.path.exists(saveDir + "/" + filePath):
+            topFeatures.to_csv(saveDir + "/" + filePath, sep="\t", index=False)
+        dfPCA = pd.DataFrame(xPCA_, columns = ["PCA1" , "PCA2"] )
+        #print(dfPCA)
+        xAxis = list(dfPCA["PCA1"])  #scaling factor to avoid negative numbers in PCA
+        yAxis = list(dfPCA["PCA2"])
+        dfPCA["SMILES"] = smiles
+        kmeansMAST = KMeans( n_clusters = specialK , random_state = 42)
+        kmeansMAST.fit(xPCA_)
+        dfPCA['Clusters'] = kmeansMAST.labels_
+        savePNG(dfPCA , saveDir , chemType + "_clustered" , "PCA" , cluster = True)
+        X["SMILES"] = smiles
+        X["PCA1"] = xAxis 
+        X["PCA2"] = yAxis
+        if not os.path.exists(saveDir + "/" + "featureDistribution" ):
+            os.makedirs(saveDir + "/" + "featureDistribution")
+        createCSV(X, saveDir + "/" + "featureDistribution" , chemType+ "_PCADistributed_Features")
 
-    dfPCA = pd.DataFrame(xPCA_, columns = ["PCA1" , "PCA2"] )
-    #print(dfPCA)
+        pcaDict = {}
+        for i in range (len(smiles)):
+            smile = smiles[i]
+            pcaDict[smile] = [xAxis[i] , yAxis[i]]
 
+        try:
+            dfUMAP = pd.DataFrame(X_umap, columns=["UMAP1", "UMAP2"])
+            umap1 = list(dfUMAP['UMAP1'])
+            umap2 = list(dfUMAP['UMAP2'])
+            pcaUmapdict = {}
+            X["UMAP1"] = umap1 
+            X["UMAP2"] = umap2
+            createCSV(X, saveDir + "/" + "featureDistribution" , chemType+ "_UMAPDistributed_Features")
+            for i in range (len(smiles)):
+                smile = smiles[i]
+                pcaUmapdict[smile] = [umap1[i] , umap2[i]]
+            return pcaUmapdict 
+        except NameError:
+            return pcaDict  
+        
+    elif "UMAP" == reduceStr:
+        reducer = umap.UMAP(n_components=2, metric='euclidean', random_state=0)
+        X_umap = reducer.fit_transform(X)
+        dfUMAP = pd.DataFrame(X_umap, columns=["UMAP1", "UMAP2"])
+        umap1 = list(dfUMAP['UMAP1'])
+        umap2 = list(dfUMAP['UMAP2'])
+        umapDict = {}
+        X["UMAP1"] = umap1 
+        X["UMAP2"] = umap2
+        createCSV(X, saveDir + "/" + "featureDistribution" , chemType+ "_UMAPDistributed_Features")
+        for i in range (len(smiles)):
+            smile = smiles[i]
+            umapDict[smile] = [umap1[i] , umap2[i]]
+        return umapDict 
 
-    xAxis = list(dfPCA["PCA1"])  #scaling factor to avoid negative numbers in PCA
-    yAxis = list(dfPCA["PCA2"])
-    dfPCA["SMILES"] = smiles
-    kmeansMAST = KMeans( n_clusters = specialK , random_state = 42)
-    kmeansMAST.fit(xPCA_)
-    dfPCA['Clusters'] = kmeansMAST.labels_
-    savePNG(dfPCA , saveDir , chemType + "_clustered" , "PCA" , cluster = True)
-    X["SMILES"] = smiles
-    X["PCA1"] = xAxis 
-    X["PCA2"] = yAxis
-    if not os.path.exists(saveDir + "/" + "featureDistribution" ):
-        os.makedirs(saveDir + "/" + "featureDistribution")
-    createCSV(X, saveDir + "/" + "featureDistribution" , chemType+ "_PCADistributed_Features")
-
-    pcaDict = {}
-    for i in range (len(smiles)):
-        smile = smiles[i]
-        pcaDict[smile] = [xAxis[i] , yAxis[i]]
-    return pcaDict   , list(kmeansMAST.labels_)
 def findHighlights(smilesDict, partition1, chemistryDict):
     highlightDict = {}
     hollowDict = {}
@@ -111,19 +146,20 @@ def findHighlights(smilesDict, partition1, chemistryDict):
     return highlightDict, hollowDict , smilesDict
 
 
-def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors , partitionStr): 
-    
+def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors , partitionStr , reduceType): 
+    xLabel = str(reduceType) + "1"
+    yLabel = str(reduceType) + "2"
     for partition in partitionList:
         #print("partition" , partition)
         for i , chemistryDict in enumerate(chemistryDicts): #this is the highlighted chemistry in the plot
             chemistryLabel = chemistryStr[i].split(".")[0]
-            if not os.path.exists(saveDir + "/" + chemistryLabel ):
-                os.makedirs(saveDir + "/" + chemistryLabel)
+            if not os.path.exists(reduceDir + "/" + chemistryLabel ):
+                os.makedirs(reduceDir  + "/" + chemistryLabel)
             highlightDict , hollowDict , smilesDict = findHighlights(pcaDict.copy()  ,  partition , chemistryDict )
-            if not os.path.exists(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat"):
-                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat" , "w") as file:
-                    file.write("SMILES,PC1,PC2,Yield\n") 
-                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "PCA_Coordinates.dat" , "a") as file:
+            if not os.path.exists(reduceDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + str(reduceType) + "_Coordinates.dat"):
+                with open(reduceDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + str(reduceType) + "_Coordinates.dat" , "w") as file:
+                    file.write(f"SMILES,{xLabel},{yLabel},Yield\n")
+                with open(reduceDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + str(reduceType) + "_Coordinates.dat" , "a") as file:
                     for smile_ in list(highlightDict.keys()):
                         file.write(f"{smile_},{highlightDict[smile_][0]},{highlightDict[smile_][1]},{highlightDict[smile_][2]}\n")   
                     for smile_ in list(hollowDict.keys()):
@@ -143,17 +179,12 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
                 hollowScatter = False                
 
             xBland , yBland = zip(*smilesDict.values())
-            if not os.path.exists(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutSubstrates.dat"):
-                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutSubstrates.dat" , "w") as file:
-                    file.write("SMILES,PC1,PC2\n") 
-                with open(saveDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutSubstrates.dat" , "a") as file:
+            if not os.path.exists(reduceDir  + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutSubstrates.dat"):
+                with open(reduceDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutSubstrates.dat" , "w") as file:
+                    file.write(f"SMILES,{xLabel},{yLabel},Yield\n")
+                with open(reduceDir + "/" + chemistryLabel  + "/" +  str(chemistryLabel)  + "GreyedOutSubstrates.dat" , "a") as file:
                     for smile in list(smilesDict.keys()):   
                         file.write(f"{smile},{smilesDict[smile][0]},{smilesDict[smile][1]}\n")   
-   
-            #print("**********************" + str(chemistryLabel))
-
-            xLabel = "PC1"
-            yLabel = "PC2"
             dpi = 300
             plt.figure(figsize=(800 / dpi, 600 / dpi), dpi=dpi)  # 800x600 pixels
             plt.scatter(list(xBland), list(yBland), c="grey", alpha=0.14 , s=10)
@@ -167,7 +198,7 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
             plt.xticks(fontsize=7, color='black')
             plt.yticks(fontsize=7, color='black')
             #plt.grid(True, linestyle='--', alpha=0.5)
-            plt.savefig(saveDir + "/" + chemistryLabel + "/" + str(chemistryLabel) + "at" + str(partition) + ".png", dpi=300, bbox_inches='tight')
+            plt.savefig(reduceDir + "/" + chemistryLabel + "/" + str(chemistryLabel) + "at" + str(partition) + ".png", dpi=300, bbox_inches='tight')
             plt.close()
     
 def featureFiltering(outDir , X , feature_labels , featureStr):
@@ -212,7 +243,7 @@ def eliminateNans(df, nanDict):
     df = df.drop(list(allNanRows))
     df = df.reset_index(drop=True)
     return df
-def transformations(dataframeDirs , regressionStr , usualSuspects):
+def compressData(dataframeDirs , regressionStr , usualSuspects):
     
 
     dataframeMast = pd.DataFrame()
@@ -269,60 +300,10 @@ def transformations(dataframeDirs , regressionStr , usualSuspects):
     except Exception as e:
         print(f"Critical error in transformations: {e}")
         return pd.DataFrame(), pd.Series()
-
-if __name__ == "__main__":
-
-    chemistryDirs = str(sys.argv[1])
-    datasetDir = str(sys.argv[2])
-    chemType = str(sys.argv[3])
-    specialK = int(sys.argv[4]) #Kmeans cluster
-    saveDir = str(sys.argv[5])
-    elimFile = str(sys.argv[6])
-    if not os.path.exists(saveDir):
-        os.makedirs(saveDir)
-    if os.path.exists(elimFile):
-        with open(elimFile, 'r') as file:
-            content = file.read()
-            eliminatedPhrases = [item.strip() for item in content.split(',') if item.strip()]
-    else: 
-        eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType"  ]
-    partitionList = [50 , 70 , 85 , 90]
-    colorList = ['red' , 'blue' , 'green' , 'yellow']
-    initdataSets = glob.glob(datasetDir + "/*.csv")
-    print(initdataSets)
-    substrateSpaces = glob.glob(chemistryDirs + "/*.csv")
-    print(substrateSpaces)
-    initdataSets = sorted(initdataSets)
-    Xdataframe , smileList  , yieldList_= transformations(initdataSets , "Yield" , eliminatedPhrases)
-
-    nanDict = locateNans(Xdataframe)
-    if len(nanDict) != 0:
-        Xdataframe["SMILES"] = smileList
-        Xdataframe = eliminateNans(Xdataframe , nanDict)
-    #nanDict = locateNans(Xdataframe)
-    #print(Xdataframe.columns)
-    smileList = Xdataframe["SMILES"].copy()
-    canonicalSMILES = []
-    for smile in smileList:
-        canonical = convertCanonical(smile)
-        canonicalSMILES.append(canonical)
-    Xdataframe = Xdataframe.drop("SMILES", axis=1)
-    featureLabels = list(Xdataframe.columns)
-    
-    X , featureLabels  = featureFiltering(saveDir, Xdataframe ,featureLabels , chemType)
-    pcaDict , clusterList = dimensionalityReduction(X , canonicalSMILES)
-    smilesTot = list(pcaDict.keys())
-    coordinateTot = list(pcaDict.values())
-    for i in range(len(smilesTot)):
-    
-        smiles = smilesTot[i]
-        xAxis = coordinateTot[i][0]
-        yAxis = coordinateTot[i][1]
-        with open(saveDir + "/pcaCoordinates.dat", "a") as file:
-            file.write(f"{smiles},{xAxis} ,  {yAxis}\n") 
-
-    chemSpaceDict = []
-    chemDirList = [] #names to create folders
+def partitionChemistries(substrateSpace , chemistry):
+    chemDirList = []
+    chemSpaceDicts = []
+    substrateSpaces = glob.glob(substrateSpace+ "/*.csv")
     for dir in substrateSpaces:
         #print(dir)
         df = pd.read_csv(dir)
@@ -333,21 +314,63 @@ if __name__ == "__main__":
             canonicalSMILES_.append(canonical)
         yieldList = list(df["Yield"])
         chemistryDict = dict(zip(canonicalSMILES_, yieldList))
-        chemSpaceDict.append(chemistryDict)
+        chemSpaceDicts.append(chemistryDict)
         split1 = dir.split("/")[-1]
 
-        split2 = split1.split(chemType)[0]
+        split2 = split1.split(chemistry)[0]
         chemDirList.append(split2)
-    print(chemDirList)
-    makePlots(pcaDict.copy() ,  partitionList , chemSpaceDict  , chemDirList, colorList , "Yield")
+    return chemSpaceDicts , chemDirList 
+def main(substrateSpace , substrateData , chemistry , clusterK ,  elimFile ,outputDir , outputStr ):
+    if not os.path.exists(outputDir): 
+        os.makedirs(outputDir)
+    if os.path.exists(elimFile):
+        with open(elimFile, 'r') as file:
+            content = file.read()
+            eliminatedPhrases = [item.strip() for item in content.split(',') if item.strip()]
+    else: 
+        eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType"  ]
+    partitionList = [50 , 70 , 85 , 90]
+    colorList = ['red' , 'blue' , 'green' , 'yellow']
+    initdataSets = glob.glob(substrateData + "/*.csv")
+    initdataSets = sorted(initdataSets)
+    Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases)
 
-
-
-
-
+    nanDict = locateNans(Xdataframe)
+    if len(nanDict) != 0:
+        Xdataframe["SMILES"] = smileList
+        Xdataframe = eliminateNans(Xdataframe , nanDict)
+    smileList = Xdataframe["SMILES"].copy()
+    canonicalSMILES = []
+    for smile in smileList:
+        canonical = convertCanonical(smile)
+        canonicalSMILES.append(canonical)
+    Xdataframe = Xdataframe.drop("SMILES", axis=1)
+    featureLabels = list(Xdataframe.columns)
     
+    X , featureLabels  = featureFiltering(reduceDir, Xdataframe ,featureLabels , chemistry)
+    dataDict  = dimensionalityReduction(X , canonicalSMILES , outputStr , reduceDir , chemistry , clusterK)
+    smilesTot = list(dataDict.keys())
+    coordinateTot = list(dataDict.values())
+    for i in range(len(smilesTot)):
+    
+        smiles = smilesTot[i]
+        xAxis = coordinateTot[i][0]
+        yAxis = coordinateTot[i][1]
+        with open(reduceDir + "/" + str(outputStr) + "Coordinates.dat", "a") as file:
+            file.write(f"{smiles},{xAxis} ,  {yAxis}\n") 
 
+    chemSpaceDicts , chemDirList = partitionChemistries(substrateSpace , chemistry)
+    #print(chemDirList)
+    makePlots(dataDict.copy() ,  partitionList , chemSpaceDicts  , chemDirList, colorList , "Yield" , reduceStr)
+if __name__ == "__main__":
 
-
-
-
+    chemistryDirs = str(sys.argv[1])
+    datasetDir = str(sys.argv[2])
+    chemType = str(sys.argv[3])
+    specialK = int(sys.argv[4]) #Kmeans cluster
+    saveDir = str(sys.argv[5])
+    elimFile = str(sys.argv[6])
+    reduceStr = str(sys.argv[7])
+    reduceDir = saveDir + "/" + reduceStr
+    main(chemistryDirs , datasetDir , chemType , specialK , elimFile , reduceDir , reduceStr)
+    
