@@ -17,9 +17,9 @@ from statistics import multimode
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from DFTWorkflow.featureMaping import savePNG , createCSV
-from DFTWorkflow.pitchingATent import transformations , locateNans , eliminateNans
+from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans
 #Danny Ruiz de Castilla 03.24.
-#gives top X features responsible for random forest regression of given parameter
+#gives top X features responsible for random forest regression of given parameterf
 def maskingColumns(featuresMAST , inputDF): 
     featureLabels = list(inputDF.columns)
     featureLabels = list(filter(None, featureLabels))  # Remove None values
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     featureDataSets = glob.glob(datasetDir + "*.csv")
     dfMASTDir = str(sys.argv[4])
     initdataSets = sorted(featureDataSets)
-    Xdataframe , smileList  , yieldList = transformations(initdataSets , regressionStr)
+    Xdataframe , smileList  , yieldList = compressData(initdataSets , regressionStr)
     nanDict = locateNans(Xdataframe)
     if len(nanDict) != 0:
         Xdataframe[regressionStr] = yieldList
