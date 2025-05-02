@@ -254,6 +254,7 @@ def compressData(dataframeDirs , regressionStr , usualSuspects):
     
     try:
         # Process each file
+        print(dataframeDirs)
         for dfDir in dataframeDirs:
             
             try:
@@ -263,7 +264,6 @@ def compressData(dataframeDirs , regressionStr , usualSuspects):
                 if df.empty:
                     print(f"Warning: Empty file {dfDir}")
                     continue
-                    
                 if dataframeMast.empty:
                     dataframeMast = df.copy()
                 else:
@@ -283,15 +283,19 @@ def compressData(dataframeDirs , regressionStr , usualSuspects):
         # Save SMILES column if it exists
         if 'SMILES' in dataframeMast.columns:
             smileList = dataframeMast['SMILES'].copy()
-        # Save Yield column if it exists
-        if regressionStr in dataframeMast.columns:
-            yieldList = dataframeMast[regressionStr].copy()
-
         else:
             print("Warning: SMILES column not found in the dataframe")
             df = pd.read_csv(dfDir)
             print(df.columns)
             smileList = pd.Series()
+        if regressionStr in dataframeMast.columns:
+            yieldList = dataframeMast[regressionStr].copy()
+        else:
+            print("Warning: Yield column not found in the dataframe")
+            df = pd.read_csv(dfDir)
+            print(df.columns)
+            yieldList = pd.Series()
+
         elimCol = [col for col in dataframeMast.columns if any(frag in col for frag in usualSuspects)]
         dataframeMast = dataframeMast.drop(columns=elimCol)
 
