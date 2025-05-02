@@ -28,7 +28,7 @@ def plotScatter( backgroundDF , xAxisStr , yAxisStr):
     fig.update_traces(hoverinfo="none", hovertemplate=None)
 
     fig.update_layout(
-    xaxis=dict(title=xAxisStr, scaleanchor="y"),  # Keeps x and y scales equal
+    xaxis=dict(title=xAxisStr),  # Keeps x and y scales equal
     yaxis=dict(title=yAxisStr),
     plot_bgcolor='rgba(255,255,255,0.1)',  # Light background transparency
     title=dict(
@@ -60,16 +60,16 @@ def dashScatter(figDict, pngDF):
                 pt = hover["points"][0]
                 bbox = pt["bbox"]
                 trace_index = pt["curveNumber"]
-                xAxis = str(fig_id.split("_")[0])
-                yAxis = str(fig_id.split("_")[1])
+                xAxis = str(fig_id.split("--")[0])
+                yAxis = str(fig_id.split("--")[1])
+                print(xAxis , yAxis)
                 if trace_index == 0:
-                    # Get the x,y coordinates of the point
                     x_val = pt["x"]
                     y_val = pt["y"]
 
                     mask = (pngDF[xAxis] == x_val) & (pngDF[yAxis] == y_val)
                     if any(mask):
-                        df_row = pngDF[mask].iloc[0]  # Take the first match
+                        df_row = pngDF[mask].iloc[0]
                         img_file = df_row["pngPath"]
 
                         if os.path.exists(img_file):
@@ -82,7 +82,6 @@ def dashScatter(figDict, pngDF):
                                 ]
                                 return True, bbox, children
                             except Exception as e:
-                                # Display error if image can't be loaded
                                 children = [html.Div(f"Error loading image: {str(e)}")]
                                 return True, bbox, children
                         else:
@@ -148,8 +147,8 @@ def main(substrateData , outputDir , elimFile , motifList ):
         yStr = str(pair[1])
         fig = plotScatter(pngDF , xStr , yStr)
 
-        figDict[xStr + "_" + yStr] = fig
-    
+        figDict[xStr + "--" + yStr] = fig
+
     app = dashScatter(figDict, pngDF)
     app.run(debug=True)
 if __name__ == "__main__":
