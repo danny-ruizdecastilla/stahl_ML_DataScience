@@ -38,7 +38,6 @@ def plotly_template(): #Credit to Dylan Walsh
     template = go.layout.Template()
     template.layout.font = dict(family="Arial", size=18, color="black")
     template.layout.plot_bgcolor = "white"
-    template.layout.width, template.layout.height = 1200, 600
     template.layout.xaxis.tickprefix = "<b>"
     template.layout.xaxis.ticksuffix = "<b>"
     template.layout.xaxis.showline = True
@@ -68,7 +67,8 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataS
         y=mainDF[yAxis], 
         mode="markers", 
         name= str(dataStr2),
-        marker=dict(symbol=symbols, size=10, color=colors),
+        marker=dict(symbol=symbols , size=10, color=colors),
+        opacity = 0.8
     ))
 
     fig.add_trace(go.Scatter(
@@ -84,21 +84,15 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataS
     fig.update_traces(hoverinfo="none", hovertemplate=None)
 
     fig.update_layout(
-        xaxis=dict(title=xAxis, scaleanchor="y"),  # Keeps x and y scales equal
-        yaxis=dict(title=yAxis),
+        xaxis=dict(title=f"<b>{xAxis}</b>"),
+        yaxis=dict(title=f"<b>{yAxis}</b>"),
         plot_bgcolor='rgba(255,255,255,0.1)',  # Light background transparency
         width=600,  
         height=600,  
         margin=dict(l=60, r=60, t=50, b=60),  
-        legend=dict(
-            x=0.0,  
-            y=0.0,  
-            bgcolor="rgba(255,255,255,0.7)",  
-            bordercolor="black",
-            borderwidth=1
-        ),
+        legend=dict(x=0.5,  y=1.0, xanchor="right",  bgcolor="rgba(255,255,255,0.7)",  bordercolor="black",borderwidth=1),
         title=dict(
-            text=f"UMAP of PC's for {dataStr2} Alkenes at {partition}% Yield",  # Fixed f-string
+            text=f"PCA for {dataStr2} Alkenes at {partition}% Yield",  # Fixed f-string
             font=dict(size=18, color="black"),  
             x=0.5,  # Center the title
             y=0.95  
@@ -138,22 +132,17 @@ def create_dash_app(figDict, dfDict, strList):
                 pt = hover["points"][0]
                 bbox = pt["bbox"]
                 trace_index = pt["curveNumber"]
-                
-                # Make sure we're only processing points from the first trace (blue circles)
                 if trace_index == 0:
                     # Get the x,y coordinates of the point
                     x_val = pt["x"]
                     y_val = pt["y"]
-                    
-                    # Find the corresponding row in the dataframe by matching coordinates
                     if df_id in dfDict:
                         # Find the row with matching coordinates
                         mask = (dfDict[df_id][xAxis] == x_val) & (dfDict[df_id][yAxis] == y_val)
                         if any(mask):
                             df_row = dfDict[df_id][mask].iloc[0]  # Take the first match
                             img_file = df_row["pngPath"]
-                            
-                            # Verify the image file exists
+
                             if os.path.exists(img_file):
                                 name ="Yield: " + str(df_row['Yield'])
                                 try:
