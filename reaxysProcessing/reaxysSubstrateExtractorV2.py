@@ -29,22 +29,68 @@ def getPartitions(chemistryType: str):
     i = 1
     partitionDict = {}
     while i != numParts:
-        partitionList = listInputs("Enter the string representations for partition" + str(i) + "(Ex: Mn,Manganese,Jacobsen)")
-        key = min(partitionList)
-        partitionDict[key] = partitionList
-        i += 1
+        promptChemistries = "Enter the string representations for partition" + str(i) + "(Ex: Mn,Manganese,Jacobsen) Enter " + str(chemistryType) + " to partition the chemistry of interest without any added catalyst or reagent"
+        partitionList = listInputs(promptChemistries)
+        if partitionList == chemistryType:
+            partitionDict["NoCats"] = ["empty"]
+            i += 1
+        else:
+            key = min(partitionList)
+            partitionDict[key] = partitionList
+            i += 1
 
     return partitionDict
-def dataframeDivide():
+def partitionDF(df , groupVar:str):
     dfList = []
+    parameters = np.array(df[groupVar])
+    parameters = np.unique(parameters)
+    
+    for i in range (len(parameters)):
+        parm = parameters[i]
+        smallDF = df[df[groupVar] == parm].copy()
+        smallDF.reset_index(drop=True, inplace=True)
+        dfList.append(smallDF)
+    return dfList
+def dataframeDivide(extractingCols , reagentList, reagentSplits, dataframeMAST):
+    refinedDF = dataframeMAST[dataframeMAST[extractingCols[2]].notna()].copy()
+    refinedDF = refinedDF[refinedDF[extractingCols[1]].notna()].copy()
+    refinedDF = refinedDF.drop(columns=[col for col in refinedDF.columns if col not in extractingCols])
+    dfList = []
+    substrateDF = pd.DataFrame(columns=refinedDF.columns)
+
+    for index, row in refinedDF.iterrows():
+        reagent = str(row[extractingCols[3]])
+        if any(sub.lower() in reagent.lower() for sub in reagentList):
+            substrateDF = pd.concat([substrateDF, pd.DataFrame([row])], ignore_index=True)
+    substrateList = partitionDF(substrateDF , extractingCols[0] )
+    finalColumns = [str(extractingCols[0]) , "SMILES" , "Yield" , "Reagent" , str(extractingCols[4]) ,  str(extractingCols[5]), str(extractingCols[6])]
+    for reagent in list(reagentSplits.key()):
+        reagentDF = pd.DataFrame(columns=finalColumns.columns)
+        chemStrs = list(reagentSplits[reagent])
+        if reagent == "NoCats":
+            #return only empty catalysts and empty clean reagents
+            for substrateDF in substrateList:
+                dfNoCat = substrateDF[substrateDF[extractingCols[4]].isna()]
+                if len(dfNoCat) == 0:
+                    continue
+                else:
+                    
+        else:
+            for substrateDF in substrateList:
+                
+                for index, row in substrateDF.iterrows():
+                    reagents = str(row[extractingCols[3]])
+                    catalysts = str(row[extractingCols[4]])
+                    if any(chem.lower() in reagents.lower() for chem in chemStrs) or any(chem.lower() in catalysts.lower() for chem in chemStrs):
 
 
+        dfList.append(reagentDF)
     return dfList
 def main(fileDir:str , columnFile: str):
-    masterDF = pd.read_csv(fileDir)
+    df = pd.read_excel(fileDir , engine="openpyxl")
     if os.path.isfile(columnFile):
         with open(columnFile , "r") as file:
-            headers = file.readline().strip().split(",") #ID , Yield , Reagent , Catalyst, Referene , Reaxys Link
+            headers = [col.strip() for col in file.readline().split(",")] #Reaxys ID number, SMILES of Reaction , Yield (or other numeric reaction assessment), Reagent , Catalyst, Referene , Reaxys Link
         
     chemistryList = listInputs("Enter the string representations for the Reagent type (Ex: NaOCl,bleach,sodium hypochlorite)")
     chemistryType = min(chemistryList)
