@@ -14,7 +14,7 @@ parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 from figs.featurePlotter import getFeaturePairs , standardCols
-from figs.chemPlotlyV1.py import insertIntoDataframe
+from figs.chemPlotlyV1 import insertIntoDataframe
 from figs.chemPlotlyV2 import plotly_template , interactiveFigGenerator
 from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans , convertCanonical , featureFiltering
 #Danny Ruiz de Castilla 05.08.
@@ -50,7 +50,8 @@ def modularPCA(X , numDim: int, outputDir):
         pcFeatures = loadings[pcStr].abs().sort_values(ascending=False)
         with open(outputDir + "/PC_featureExp/" + str(pcStr) + "loadings.dat", "w") as f:
             for key, values in pcFeatures.items():
-                line = f"{key}\t" + "\t".join(values) + "\n"
+                print(values)
+                line = f"{key}\t{values}\n"
                 f.write(line)
         j += 1 
 
@@ -82,15 +83,15 @@ def partitionChemistriesDF(chemistriesDir , dfMAST , partition, chemistry):
             canonical = convertCanonical(smile)
             canonicalSMILES_.append(canonical)
         df["canonicalSMILES"] = canonicalSMILES_
-        substrateDF = (dfMAST[dfMAST["canonicalSMILES"].isin(smileList_)].drop_duplicates(subset="canonicalSMILES").reset_index(drop=True)) 
-        substrateDF = insertIntoDataframe(substrateDF , "canonicalSMILES" , "canonicalSMILES" , df , partition)
+        substrateDF = (dfMAST[dfMAST["canonicalSMILES"].isin(canonicalSMILES_)].drop_duplicates(subset="canonicalSMILES").reset_index(drop=True)) 
+        substrateDF = insertIntoDataframe(substrateDF , "canonicalSMILES" , "canonicalSMILES" , df , partition , 2) #  df2 , inputStr , indexInterest  )
         split1 = dir.split("/")[-1]
         split2 = split1.split(chemistry)[0]
         substrateDict[split2] = substrateDF
     return substrateDict
 
 def main(substrateSpace , substrateData , chemistry , outputDir , axisMotifs, elimPhrases , partitionStr ):
-    partitionPrompt = "Please Enter a list of " + str(partitionStr) + " values to partition the dataset. Ex: 40,50,60,70,80,90"
+    partitionPrompt = "Please Enter a list of " + str(partitionStr) + " values to partition the dataset. (Ex: 40,50,60,70,80,90): "
     reactivityPartitions = listInputs(partitionPrompt)
     reactivityInts = [int(x) for x in reactivityPartitions]
     initdataSets = glob.glob(substrateData + "/*.csv")
@@ -113,7 +114,7 @@ def main(substrateSpace , substrateData , chemistry , outputDir , axisMotifs, el
 
     axisDF , axisMotifs = pcafeatureSplitter(X , axisMotifs , 1 , outputDir)
 
-    axisLabels = [[axisMotifs["sterics"] ], [axisMotifs["electronics"]]]
+    axisLabels = [list(axisMotifs["sterics"] ), list(axisMotifs["electronics"])]
     featureList = list(axisDF.columns)
     featurePairs = getFeaturePairs(featureList , axisLabels)
     axisDF["canonicalSMILES"] = canonicalSMILES
@@ -132,8 +133,8 @@ def main(substrateSpace , substrateData , chemistry , outputDir , axisMotifs, el
                     greyDFs.append(df)
             greyDF = pd.concat(greyDFs, axis=0).reset_index(drop=True)
             for partition in reactivityInts:
-
-                fig = interactiveFigGenerator(chemistryDF , greyDF , partition , xStr , yStr)
+                titleStr = xStr + " vs " + yStr + " for " + str(chemistry_) + " at " + str(partition) + "% yield" 
+                fig = interactiveFigGenerator(chemistryDF , greyDF , partition , xStr , yStr, str(chemistry_) , "Background Substrates" ,  titleStr)
                 figList.append(fig)
     html_parts = [pio.to_html(fig, include_plotlyjs=False, full_html=False) for fig in figList]
     html_output = """

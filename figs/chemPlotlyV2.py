@@ -58,7 +58,8 @@ def plotly_template(): #Credit to Dylan Walsh
     template.layout.yaxis.mirror = True
 
     return template
-def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataStr2):
+def interactiveFigGenerator(mainDF , backgroundDF , partition ,xAxis, yAxis,  dataStr1 , dataStr2 , titleStr):
+
     symbols = np.where(mainDF["Yield"] >= partition, "circle", "circle-open")
     colors = np.where(mainDF["Yield"] >= partition, "blue", "red")
     fig = go.Figure(layout=dict(template=plotly_template()))
@@ -92,7 +93,7 @@ def interactiveFigGenerator(mainDF , backgroundDF , partition , dataStr1 , dataS
         margin=dict(l=60, r=60, t=50, b=60),  
         legend=dict(x=0.5,  y=1.0, xanchor="right",  bgcolor="rgba(255,255,255,0.7)",  bordercolor="black",borderwidth=1),
         title=dict(
-            text=f"PCA for {dataStr2} Alkenes at {partition}% Yield",  # Fixed f-string
+            text=titleStr,  # Fixed f-string
             font=dict(size=18, color="black"),  
             x=0.5,  # Center the title
             y=0.95  
@@ -207,7 +208,8 @@ if __name__ == "__main__":
         chemDF = dat2DF(substrateFile , ",")
         chemDF = createPNGDF(chemDF , "SMILES" , saveDir + "/png")
         createCSV(chemDF , saveDir + "/", "chemDF")
-        fig = interactiveFigGenerator(chemDF , backgroundDF , partitionVal , "Background Substrates", str(key) )
+        titleStr = "PCA for X"#edit later
+        fig = interactiveFigGenerator(chemDF , backgroundDF , partitionVal , "Background Substrates", str(key) , titleStr)
         chemDict[key] = fig
         dfDict[key] = chemDF
         saveStrList.append([key , "Background Substrates"])
