@@ -124,18 +124,18 @@ def main(substrateSpace , substrateData , chemistry , outputDir , axisMotifs, el
     for pair in featurePairs:
         xStr = str(pair[0])
         yStr = str(pair[1])
-
-        for chemistry_, chemistryDF in substrateDict.items():
-            greyDFs = []
-            for key, df in substrateDict.items():
-                if key != chemistry_:
-                    df = df.copy()
-                    greyDFs.append(df)
-            greyDF = pd.concat(greyDFs, axis=0).reset_index(drop=True)
-            for partition in reactivityInts:
-                titleStr = xStr + " vs " + yStr + " for " + str(chemistry_) + " at " + str(partition) + "% yield" 
-                fig = interactiveFigGenerator(chemistryDF , greyDF , partition , xStr , yStr, str(chemistry_) , "Background Substrates" ,  titleStr)
-                figList.append(fig)
+        if "PC" in xStr or "PC" in yStr:
+            for chemistry_, chemistryDF in substrateDict.items():
+                greyDFs = []
+                for key, df in substrateDict.items():
+                    if key != chemistry_:
+                        df = df.copy()
+                        greyDFs.append(df)
+                greyDF = pd.concat(greyDFs, axis=0).reset_index(drop=True)
+                for partition in reactivityInts:
+                    titleStr = xStr + " vs " + yStr + " for " + str(chemistry_) + " at " + str(partition) + "% yield" 
+                    fig = interactiveFigGenerator(chemistryDF , greyDF , partition , xStr , yStr, str(chemistry_) , "Background Substrates" ,  titleStr)
+                    figList.append(fig)
     html_parts = [pio.to_html(fig, include_plotlyjs=False, full_html=False) for fig in figList]
     html_output = """
     <html>
