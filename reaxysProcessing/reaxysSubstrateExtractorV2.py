@@ -72,7 +72,7 @@ def dataframeDivide(extractingCols , reagentList, reagentSplits, dataframeMAST, 
     finalColumns = [str(extractingCols[0]) , "SMILES" , "Yield" , "Reagent" , str(extractingCols[4]) ,  str(extractingCols[5]), str(extractingCols[6])]
     print("substrateListLength" , len(substrateList))
     for reagent in list(reagentSplits.keys()):
-        print("loops" , len(dfDict.keys()))
+        #print("loops" , len(dfDict.keys()))
         reagentDF = pd.DataFrame(columns=finalColumns)
         chemStrs = list(reagentSplits[reagent])
         if reagent == "NoCats":
@@ -93,7 +93,7 @@ def dataframeDivide(extractingCols , reagentList, reagentSplits, dataframeMAST, 
                                 reagents_ = ""
                                 reagentList = reagents.split(";")
                                 for r in reagentList:
-                                    if r not in reagentSplits[reagent]:
+                                    if not any(sub in r for sub in reagentSplits[reagent]):
                                         reagents_ += " " + r
                     if len(yieldList) != 0:
                         yieldMast = np.mean(yieldList)
