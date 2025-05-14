@@ -10,7 +10,7 @@ def theoryLevel(option):
     
     return functional + "/" + basisSet
 def comWriter(comFile:str, **kwargs ):
-    if kwargs["coordinates"] is None:
+    if kwargs.get("coordinates") is None:
         fromChk = True
     else:
         fromChk = False
@@ -24,11 +24,17 @@ def comWriter(comFile:str, **kwargs ):
         spin = int(kwargs["spin"])
     except KeyError as e:
         raise ValueError(f"Missing required parameter: {e}")
-    if kwargs["guess"] is None:
+    if kwargs.get("guess") is None:
         guess = "read"
-    if kwargs["symmetry"] is None:
-        symmetry = "loose"    
+    else:
+        guess = str(kwargs["guess"])
+    if kwargs.get("symmetry") is None:
+        symmetry = "loose"
+    else:
+        symmetry = str(kwargs["symmetry"])
+
     with open(comFile, "w") as f:
+        print("writing")
         f.write(f"%nprocs={nprocs}\n")
         f.write(f"%mem={mem}GB\n")
         f.write(f"%chk={chk}\n")
@@ -36,9 +42,9 @@ def comWriter(comFile:str, **kwargs ):
                 "empiricaldispersion=GD3BJ int=(grid=ultrafine) SP\n\n")
         fileStr = chk.split("/")[-1].split(".")[0]
         if fromChk:
-            f.write(f"{netCharge} {spin}\n")
-            f.write(f"{netCharge} {spin}")
-            f.write("\n")
+            f.write("Commentline\n\n")
+            f.write(f"{netCharge} {spin}\n\n")
+
         else:
             f.write(f"{fileStr}.xyz\n\n")
             f.write(f"{netCharge} {spin}\n")
@@ -57,20 +63,20 @@ def main(logDir , deltaE , comDir , chkDir):
         ion = "cation"
     theory = theoryLevel(1)
     logs = glob.glob(logDir + "/*.log")
+    print(logs)
     if not os.path.exists(comDir):
         os.makedirs(comDir)
     for log in logs:
         file = log.split("/")[-1]
         fileName = file.split(".")[0]
 
-        chkFile = chkDir + fileName + ".chk"
-        if os.file.exists(chkFile):
-            chkPath = chkFile.copy()
-        else:
-            raise ValueError(f"Missing chk File {chkPath}")
-
+        chkFile = chkDir + "/"  + fileName + ".chk"
+        #print(chkFile)
+        if not os.path.exists(chkFile):
+            print("Missing .chk file for " + fileName)
+            continue
         fileName = str(fileName) + "_" + str(ion) + ".com"
-        fileName = comWriter(comDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkPath ,
+        fileName = comWriter(comDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
                               geom = "checkpoint" , electron =  deltaE , spin = int(2)  )
 
 
