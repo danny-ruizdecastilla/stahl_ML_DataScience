@@ -14,7 +14,7 @@ def copyChks(chkFile , outputDir):
     outputFile = os.path.join(outputDir , os.path.basename(chkFile))
     with open (chkFile , 'rb') as srcFile:
         with open(outputFile , 'wb') as destFile:
-            shutil.copyfileobj(chkFile,outputFile)
+            shutil.copyfileobj(srcFile,destFile)
     return outputFile
 def theoryLevel(option):
     if option == 1:
@@ -90,7 +90,7 @@ def main(logDir , deltaE , comDir , chkDir):
             print("Missing .chk file for " + fileName)
             continue
         else:
-            chkFile = copyChks(chkFile , chkDir + "/" + ion + "s" )
+            chkFile = copyChks(chkFile , chkDir + "/chk" + ion + "s" )
         fileName = str(fileName) + "_" + str(ion) + ".com"
         fileName = comWriter(comDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
                               geom = "checkpoint" , electron =  deltaE , spin = int(2)  )
