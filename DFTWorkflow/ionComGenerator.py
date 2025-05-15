@@ -39,6 +39,8 @@ def comWriter(comFile:str, **kwargs ):
         raise ValueError(f"Missing required parameter: {e}")
     if kwargs.get("geom") is None:
         geom =  "checkpoint"
+    else:
+        geom = str(kwargs["geom"])
     if kwargs.get("guess") is None:
         guess = "read"
     else:
