@@ -33,7 +33,6 @@ def comWriter(comFile:str, **kwargs ):
         mem = int(kwargs["mem"])
         chk = str(kwargs["chk"])
         theory = str(kwargs["theory"])
-        geom = str(kwargs["geom"])
         netCharge = int(kwargs["electron"]) 
         spin = int(kwargs["spin"])
     except KeyError as e:
