@@ -77,7 +77,7 @@ def main(logDir , deltaE , comDir , chkDir):
     theory = theoryLevel(1)
     logs = glob.glob(logDir + "/*.log")
     print(logs)
-    if not os.path.exists(comDir + "/" + ion + "s"):
+    if not os.path.exists(comDir + "/" + ion + "s"): 
         ionComDir = comDir + "/" + ion + "s"
         os.makedirs(ionComDir)
     for log in logs:
@@ -92,7 +92,7 @@ def main(logDir , deltaE , comDir , chkDir):
         else:
             chkFile = copyChks(chkFile , chkDir + "/chk" + ion + "s" )
         fileName = str(fileName) + "_" + str(ion) + ".com"
-        fileName = comWriter(comDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
+        fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
                               geom = "checkpoint" , electron =  deltaE , spin = int(2)  )
 
 
