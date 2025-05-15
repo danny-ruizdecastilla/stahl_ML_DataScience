@@ -2,6 +2,7 @@ import os
 import sys
 import glob
 import shutil
+import re
 #Danny Ruiz de Castilla
 #Prepares anion and cation .com files
 def copyChks(chkFile , outputDir):
@@ -15,7 +16,7 @@ def copyChks(chkFile , outputDir):
     with open (chkFile , 'rb') as srcFile:
         with open(outputFile , 'wb') as destFile:
             shutil.copyfileobj(srcFile,destFile)
-    return outputFile
+    return chkFile
 def theoryLevel(option):
     if option == 1:
         functional = "B3LYP"
@@ -67,7 +68,37 @@ def comWriter(comFile:str, **kwargs ):
                 f.write(f"{' '.join(str(i) for i in row)}\n")
             f.write("\n\n")
     return fileStr
+def locateinLog(logFile, textStr, returnType: str):
+    matchingLines = []
+    
+    with open(logFile, "r") as f:
+        for idx, line in enumerate(f):
+            if textStr in line:
+                matchingLines.append(idx)
+    if returnType == "earliest":
+        return matchingLines[0]
 
+    if returnType == "latest":
+        return matchingLines[-1]
+def getAtomCoords(logFile , xyzStr , commaSplit:int , ):
+    #Extracts atom coordinates into a dict from a log file 
+    atomCoords = {}
+    lowerIdx = locateinLog(logFile , xyzStr, "latest" )
+    upperIdx = locateinLog(logFile, "The archive entry for this job was punched." , "latest")
+    masterStr = ""
+    with open(logFile , "r") as f:
+        for idx, line in enumerate(f):
+            if idx >= lowerIdx and idx < upperIdx:
+                cleaned = re.sub(r'\s+', '' , line)
+                masterStr += cleaned
+
+    masterList = masterStr.split("\\")
+    for i ,  phrase in enumerate(masterList):
+        atomStr = phrase.split(",")
+        #print(atomStr)
+        if len(atomStr) == commaSplit:
+            atomCoords[i] = atomStr[:commaSplit]
+    return atomCoords
 def main(logDir , deltaE , comDir , chkDir):
 
     if deltaE < 0:
@@ -86,13 +117,16 @@ def main(logDir , deltaE , comDir , chkDir):
 
         chkFile = chkDir + "/"  + fileName + ".chk"
         #print(chkFile)
+        fileName = str(fileName) + "_" + str(ion) + ".com"
         if not os.path.exists(chkFile):
             print("Missing .chk file for " + fileName)
-            continue
+            atomsDict = getAtomCoords(log)
+            fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
+                              geom = "checkpoint" , electron =  deltaE , spin = int(2) , coordinates = atomsDict )          
         else:
-            chkFile = copyChks(chkFile , chkDir + "/chk" + ion + "s" )
-        fileName = str(fileName) + "_" + str(ion) + ".com"
-        fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
+            chkFile = copyChks(chkFile , ionComDir)
+        
+            fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
                               geom = "checkpoint" , electron =  deltaE , spin = int(2)  )
 
 
