@@ -38,6 +38,8 @@ def comWriter(comFile:str, **kwargs ):
         spin = int(kwargs["spin"])
     except KeyError as e:
         raise ValueError(f"Missing required parameter: {e}")
+    if kwargs.get("geom") is None:
+        geom =  "checkpoint"
     if kwargs.get("guess") is None:
         guess = "read"
     else:
@@ -52,14 +54,16 @@ def comWriter(comFile:str, **kwargs ):
         f.write(f"%nprocs={nprocs}\n")
         f.write(f"%mem={mem}GB\n")
         f.write(f"%chk={chk}\n")
-        f.write(f"#{theory} geom={geom} guess={guess} symmetry={symmetry} "
-                "empiricaldispersion=GD3BJ int=(grid=ultrafine) SP\n\n")
         fileStr = chk.split("/")[-1].split(".")[0]
         if fromChk:
+            f.write(f"#{theory} geom={geom} guess={guess} symmetry={symmetry} "
+                    "empiricaldispersion=GD3BJ int=(grid=ultrafine) SP\n\n")
             f.write("Commentline\n\n")
             f.write(f"{netCharge} {spin}\n\n")
 
         else:
+            f.write(f"#{theory} symmetry={symmetry} "
+                    "empiricaldispersion=GD3BJ scf=qc int=(grid=ultrafine) SP\n\n") 
             f.write(f"{fileStr}.xyz\n\n")
             f.write(f"{netCharge} {spin}\n")
             coordDict = kwargs["coordinates"]
@@ -120,9 +124,9 @@ def main(logDir , deltaE , comDir , chkDir):
         fileName = str(fileName) + "_" + str(ion) + ".com"
         if not os.path.exists(chkFile):
             print("Missing .chk file for " + fileName)
-            atomsDict = getAtomCoords(log)
+            atomsDict = getAtomCoords(log , "GINC-COMPUTE" , 5)
             fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
-                              geom = "checkpoint" , electron =  deltaE , spin = int(2) , coordinates = atomsDict )          
+                             electron =  deltaE , spin = int(2) , coordinates = atomsDict )          
         else:
             chkFile = copyChks(chkFile , ionComDir)
         
