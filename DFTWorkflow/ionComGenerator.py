@@ -103,6 +103,7 @@ def getAtomCoords(logFile , xyzStr , commaSplit:int , ):
         if len(atomStr) == commaSplit:
             atomCoords[i] = atomStr[:commaSplit]
     return atomCoords
+    
 def main(logDir , deltaE , comDir , chkDir):
 
     if deltaE < 0:
@@ -112,8 +113,8 @@ def main(logDir , deltaE , comDir , chkDir):
     theory = theoryLevel(1)
     logs = glob.glob(logDir + "/*.log")
     print(logs)
-    if not os.path.exists(comDir + "/" + ion + "s"): 
-        ionComDir = comDir + "/" + ion + "s"
+    ionComDir = comDir + "/" + ion + "s"
+    if not os.path.exists(ionComDir): 
         os.makedirs(ionComDir)
     for log in logs:
         file = log.split("/")[-1]
