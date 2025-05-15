@@ -16,7 +16,7 @@ def copyChks(chkFile , outputDir):
     with open (chkFile , 'rb') as srcFile:
         with open(outputFile , 'wb') as destFile:
             shutil.copyfileobj(srcFile,destFile)
-    return chkFile
+    return str(chkFile.split("/")[-1])
 def theoryLevel(option):
     if option == 1:
         functional = "B3LYP"
@@ -70,7 +70,7 @@ def comWriter(comFile:str, **kwargs ):
             coordDict = kwargs["coordinates"]
             for atom in coordDict.keys():
                 row = coordDict[atom]
-                f.write(f"{' '.join(str(i) for i in row)}\n")
+                f.write(f"{','.join(str(i) for i in row)}\n")
             f.write("\n\n")
     return fileStr
 def locateinLog(logFile, textStr, returnType: str):
@@ -131,7 +131,7 @@ def main(logDir , deltaE , comDir , chkDir):
                              electron =  deltaE , spin = int(2) , coordinates = atomsDict )          
         else:
             chkFile = copyChks(chkFile , ionComDir)
-        
+
             fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
                               geom = "checkpoint" , electron =  deltaE , spin = int(2)  )
 
