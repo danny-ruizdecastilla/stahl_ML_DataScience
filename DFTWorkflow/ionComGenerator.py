@@ -19,7 +19,7 @@ def copyChks(chkFile , outputDir):
     return str(chkFile.split("/")[-1])
 def theoryLevel(option):
     if option == 1:
-        functional = "MO62X"
+        functional = "M062X"
         basisSet = "def2tzvp"
     if option == 2:
         functional = "B3LYP"
