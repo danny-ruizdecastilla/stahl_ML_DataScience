@@ -69,7 +69,7 @@ def comWriter(comFile:str, **kwargs ):
             f.write(f"{netCharge} {spin}\n\n")
 
         else:
-            f.write(f"#{theory} symmetry={symmetry} pop=nbo7 prop={prop}"
+            f.write(f"#{theory} symmetry={symmetry} pop=nbo7 prop={prop} "
                     "empiricaldispersion=GD3BJ scf=qc int=(grid=ultrafine) SP\n\n") 
             f.write(f"{fileStr}.xyz\n\n")
             f.write(f"{netCharge} {spin}\n")
