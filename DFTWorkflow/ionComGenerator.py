@@ -19,9 +19,11 @@ def copyChks(chkFile , outputDir):
     return str(chkFile.split("/")[-1])
 def theoryLevel(option):
     if option == 1:
+        functional = "MO62X"
+        basisSet = "def2tzvp"
+    if option == 2:
         functional = "B3LYP"
         basisSet = "6-31G(d,p)"
-    
     return functional + "/" + basisSet
 def comWriter(comFile:str, **kwargs ):
     if kwargs.get("coordinates") is None:
@@ -49,6 +51,10 @@ def comWriter(comFile:str, **kwargs ):
         symmetry = "loose"
     else:
         symmetry = str(kwargs["symmetry"])
+    if kwargs.get("prop") is None:
+        prop = "efg"
+    else:
+        prop = str(kwargs["prop"])
 
     with open(comFile, "w") as f:
         print("writing")
@@ -57,13 +63,13 @@ def comWriter(comFile:str, **kwargs ):
         f.write(f"%chk={chk}\n")
         fileStr = chk.split("/")[-1].split(".")[0]
         if fromChk:
-            f.write(f"#{theory} geom={geom} guess={guess} symmetry={symmetry} "
+            f.write(f"#{theory} geom={geom} pop=nbo7 prop={prop} guess={guess} symmetry={symmetry} "
                     "empiricaldispersion=GD3BJ int=(grid=ultrafine) SP\n\n")
             f.write("Commentline\n\n")
             f.write(f"{netCharge} {spin}\n\n")
 
         else:
-            f.write(f"#{theory} symmetry={symmetry} "
+            f.write(f"#{theory} symmetry={symmetry} pop=nbo7 prop={prop}"
                     "empiricaldispersion=GD3BJ scf=qc int=(grid=ultrafine) SP\n\n") 
             f.write(f"{fileStr}.xyz\n\n")
             f.write(f"{netCharge} {spin}\n")
@@ -72,6 +78,7 @@ def comWriter(comFile:str, **kwargs ):
                 row = coordDict[atom]
                 f.write(f"{','.join(str(i) for i in row)}\n")
             f.write("\n\n")
+        
     return fileStr
 def locateinLog(logFile, textStr, returnType: str):
     matchingLines = []
