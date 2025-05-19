@@ -63,13 +63,13 @@ def comWriter(comFile:str, **kwargs ):
         f.write(f"%chk={chk}\n")
         fileStr = chk.split("/")[-1].split(".")[0]
         if fromChk:
-            f.write(f"#{theory} geom={geom} pop=nbo7 prop={prop} guess={guess} symmetry={symmetry} "
+            f.write(f"#{theory} geom={geom} pop=nbo7 guess={guess} symmetry={symmetry} "
                     "int=(grid=ultrafine) SP\n\n")
             f.write("Commentline\n\n")
             f.write(f"{netCharge} {spin}\n\n")
 
         else:
-            f.write(f"#{theory} symmetry={symmetry} pop=nbo7 prop={prop} "
+            f.write(f"#{theory} symmetry={symmetry} pop=nbo7 "
                     "scf=qc int=(grid=ultrafine) SP\n\n") 
             f.write(f"{fileStr}.xyz\n\n")
             f.write(f"{netCharge} {spin}\n")
