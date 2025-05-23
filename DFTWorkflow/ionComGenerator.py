@@ -112,12 +112,16 @@ def getAtomCoords(logFile , xyzStr , commaSplit:int , ):
             atomCoords[i] = atomStr[:commaSplit]
     return atomCoords
     
-def main(logDir , deltaE , comDir , chkDir):
-
-    if deltaE < 0:
+def main(logDir , netCharge , comDir , chkDir):
+    if netCharge == 0:
+        ion = "neutral"
+        spin_ = 1
+    elif netCharge < 0:
         ion = "anion"
-    if deltaE > 0:
+        spin_ = 2
+    elif netCharge > 0:
         ion = "cation"
+        spin_ = 2
     theory = theoryLevel(1)
     logs = glob.glob(logDir + "/*.log")
     print(logs)
@@ -135,17 +139,17 @@ def main(logDir , deltaE , comDir , chkDir):
             print("Missing .chk file for " + fileName)
             atomsDict = getAtomCoords(log , "GINC-COMPUTE" , 5)
             fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
-                             electron =  deltaE , spin = int(2) , coordinates = atomsDict )          
+                             electron =  netCharge , spin = spin_ , coordinates = atomsDict )          
         else:
             chkFile = copyChks(chkFile , ionComDir)
 
             fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
-                              geom = "checkpoint" , electron =  deltaE , spin = int(2)  )
+                              geom = "checkpoint" , electron =  netCharge , spin = spin_ )
 
 
 if __name__ == "__main__":
     logDir = str(sys.argv[1])
-    deltaE = int(sys.argv[2])
+    netCharge = int(sys.argv[2])
     comDir = str(sys.argv[3])
     chkDir = str(sys.argv[4])
-    main(logDir , deltaE , comDir , chkDir)
+    main(logDir , netCharge , comDir , chkDir)
