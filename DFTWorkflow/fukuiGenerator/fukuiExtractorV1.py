@@ -140,14 +140,15 @@ def extractOccupancies(logFile:str, extract1:str, extract2:str , location:str):
                 atomOccupancies[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)]
     #print(atomOccupancies)
     return atomOccupancies
-def getMedianDF(dfList):
+def getMeanDF(dfList):
     combined = pd.concat(dfList, axis=0)
     numericCols = combined.select_dtypes(include='number').columns
-    medianDF = combined[numericCols].groupby(combined.index).median()
+    meanDF = combined[numericCols].groupby(combined.index).mean()
     stringCols = combined.select_dtypes(exclude='number').columns
     stringDF = combined[stringCols].groupby(combined.index).first()
-    finalDF = pd.concat([stringDF, medianDF], axis=1)
+    finalDF = pd.concat([stringDF, meanDF], axis=1)
     return finalDF
+
 def main(logDir , cationDir, anionDir , substrateCSV, outputDir ):
     substrateScope = pd.read_csv(substrateCSV)
     smileString = substrateScope["SMILES"]
@@ -197,17 +198,37 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir ):
                 substrate_ = substrate.split("_conf")[0]
             for key in substrateDictMAST:
                 if substrate_ in key[0]:  # key[0] is the name
-                    substrateDictMAST[key].append(substrateDF)
+                    newKey= key + (substrate_,)
+                    substrateDictMAST[newKey] = substrateDictMAST.pop(key)
+                    substrateDictMAST[newKey].append(substrateDF)
                     break
         else:
             raise Exception(f"Atom Types on the 3 indexes for {substrate} do not line up")
     for identification , dfList in substrateDictMAST.items():
-        dfMedian = getMedianDF(dfList)
-        if not os.path.exists(outputDir + "/" + str(identification[0])): 
-            os.makedirs(outputDir + "/" + str(identification[0]))
-        with open(outputDir + "/" + str(identification[0]) + "/identification.dat", "w") as f:
-            f.write(f"{identification[0]},{identification[1]}")
-        createCSV(dfMedian ,outputDir + "/" + str(identification[0]), str(identification[0]))
+        logPaths = [log for log in neutralLogs if identification[0] in log]
+        confList = list(identification[2:])
+        if len(confList) == len(dfList):
+            weightedList = []
+            boltzmannDF = getBoltzmannWeightsGauss(logPaths, 298, 'gibbs')
+            boltzDict = boltzmannDF.set_index('logID')['boltzWeights'].to_dict()
+            for index , conf in enumerate(confList):
+                for key in boltzDict:
+                    if conf in key:  # conf is a substring of the key
+                        weight = boltzDict[key]
+                        df = dfList[index]
+                        numericDF = df.select_dtypes(include='number') * weight
+                        nonNumericDF = df.select_dtypes(exclude='number')
+                        finalDF = pd.concat([nonNumericDF, numericDF], axis=1)
+                        weightedList.append(finalDF) 
+            finalDF = getMeanDF(weightedList)
+            if not os.path.exists(outputDir + "/" + str(identification[0])): 
+                os.makedirs(outputDir + "/" + str(identification[0]))
+            with open(outputDir + "/" + str(identification[0]) + "/identification.dat", "w") as f:
+                f.write(f"{identification[0]},{identification[1]}")
+            createCSV(finalDF ,outputDir + "/" + str(identification[0]), str(identification[0]))
+        else:
+            raise ValueError("Number of conformers does not match the number of Fukui dataframes.")
+
 
 if __name__ == "__main__":
     neutralDir = str(sys.argv[1])
