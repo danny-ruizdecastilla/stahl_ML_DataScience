@@ -12,8 +12,85 @@ from DFTWorkflow.featureMaping import createCSV
 
 #Danny Ruiz de Castilla
 #Generates Fukui maps for each molecule 
+def extractEnergies(log: str, energyStr):
+
+    # Energy extraction patterns for Gaussian
+    patterns = {
+        'electronic': r'SCF Done:.*?E\([^)]+\)\s*=\s*([-\d.]+)',
+        'gibbs': r'Sum of electronic and thermal Free Energies=\s*([-\d.]+)',
+        'enthalpy': r'Sum of electronic and thermal Enthalpies=\s*([-\d.]+)',
+        'zpe': r'Sum of electronic and zero-point Energies=\s*([-\d.]+)'
+    }
+    if energyStr not in patterns:
+        raise ValueError(f"Unknown energy type: {energyStr}. "
+                        f"Available types: {list(patterns.keys())}")
+    
+    try:
+        with open(log, 'r') as f:
+            content = f.read()
+        matches = re.findall(patterns[energyStr], content)
+        
+        if matches:
+            return float(matches[-1])
+               
+    except FileNotFoundError:
+        print(f"Error: File {log} not found")
+        return None
+    except Exception as e:
+        print(f"Error reading {log}: {str(e)}")
+        return None
+def getBoltzmannWeightsGauss(logDirs, temperature, energyStr):
+    R = 1.987204e-3
+    HARTREE_TO_KCAL = 627.5094740631
+    results = []
+    
+    for log in logDirs:
+        if not os.path.exists(log):
+            print(f"Warning: File {log} not found. Skipping.")
+            continue        
+        try:
+            energy = extractEnergies(log, energyStr)
+            if energy is not None:
+                results.append({'logID': str(log.split("/")[-1].split(".")[0]),  'E_Ha': energy})
+            else:
+                print(f"Warning: Could not extract {energyStr} energy from {log}")     
+        except Exception as e:
+            print(f"Error processing {log}: {str(e)}")
+            continue
+    if len(results) == 0:
+        raise ValueError("No energies could be extracted from any log files")
+    # Convert to DataFrame
+    df = pd.DataFrame(results)
+    # Convert energies to kcal/mol
+    df['E_kCal'] = df['E_Ha'] * HARTREE_TO_KCAL
+    
+    # Calculate relative energies (relative to lowest energy)
+    minE = df['E_kCal'].min()
+    df['rE_kCal'] = df['E_kCal'] - minE
+    
+    # Calculate Boltzmann factors
+    df['boltzmannFacts'] = np.exp(-df['rE_kCal'] / (R * temperature))
+    
+    # Normalize to get weights (sum to 1)
+    normFacts = df['boltzmannFacts'].sum()
+    df['boltzWeights'] = df['boltzmannFacts'] / normFacts
+
+    df = df.sort_values('E_kCal').reset_index(drop=True)
+    
+    return df[['logID', 'E_Ha', 'rE_kCal', 'boltzWeights']]
+
+
+def boltzmannAveraging(weights, featureList): #same type features returns final DFMAST number
+    if len(weights) != len(featureList):
+        raise ValueError("Number of weights must equal number of features")
+    if abs(sum(weights) - 1.0) > 1e-6:
+        print(f"Warning: Weights sum to {sum(weights):.6f}, not 1.0")
+    
+    return sum(w * f for w, f in zip(weights, featureList))
+
+    
 def fukuiFunction(substrateDF):
-    populations = ['pop_Cat', 'pop_An', 'pop_Neut']
+    populations = ['pop_cat', 'pop_an', 'pop_neut']
     missingCols = [col for col in populations if col not in substrateDF.columns]
     
     if missingCols:
@@ -112,7 +189,7 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir ):
             substrateDF["pop_" + name1] = [values[-1] for values in occupanciesDict.values()]
             substrateDF["atom_" + name1] = [values[0] for values in occupanciesDict.values()]
             atomCols.append("atom_" + name1)
-        if substrateDF[atomCols[0]] == substrateDF[atomCols[1]] and substrateDF[atomCols[1]] == substrateDF[atomCols[2]]:
+        if ((substrateDF[atomCols[0]] == substrateDF[atomCols[1]]) & (substrateDF[atomCols[1]] == substrateDF[atomCols[2]])).all():
             substrateDF = fukuiFunction(substrateDF)
             if "clust" in substrate:
                 substrate_ = substrate.split("_clust")[0]
@@ -131,7 +208,7 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir ):
         with open(outputDir + "/" + str(identification[0]) + "/identification.dat", "w") as f:
             f.write(f"{identification[0]},{identification[1]}")
         createCSV(dfMedian ,outputDir + "/" + str(identification[0]), str(identification[0]))
-        
+
 if __name__ == "__main__":
     neutralDir = str(sys.argv[1])
     cationDir = str(sys.argv[2])
