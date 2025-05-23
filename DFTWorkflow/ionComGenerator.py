@@ -55,7 +55,10 @@ def comWriter(comFile:str, **kwargs ):
         prop = "efg"
     else:
         prop = str(kwargs["prop"])
-
+    if kwargs.get("pop") is None:
+        pop = "nbo7"
+    else:
+        pop = str(kwargs["pop"])
     with open(comFile, "w") as f:
         print("writing")
         f.write(f"%nprocs={nprocs}\n")
@@ -63,13 +66,13 @@ def comWriter(comFile:str, **kwargs ):
         f.write(f"%chk={chk}\n")
         fileStr = chk.split("/")[-1].split(".")[0]
         if fromChk:
-            f.write(f"#{theory} geom={geom} pop=nbo7 guess={guess} symmetry={symmetry} "
+            f.write(f"#{theory} geom={geom} pop={pop} guess={guess} symmetry={symmetry} "
                     "int=(grid=ultrafine) SP\n\n")
             f.write("Commentline\n\n")
             f.write(f"{netCharge} {spin}\n\n")
 
         else:
-            f.write(f"#{theory} symmetry={symmetry} pop=nbo7 "
+            f.write(f"#{theory} symmetry={symmetry} pop={pop} "
                     "scf=qc int=(grid=ultrafine) SP\n\n") 
             f.write(f"{fileStr}.xyz\n\n")
             f.write(f"{netCharge} {spin}\n")
@@ -112,7 +115,7 @@ def getAtomCoords(logFile , xyzStr , commaSplit:int , ):
             atomCoords[i] = atomStr[:commaSplit]
     return atomCoords
     
-def main(logDir , netCharge , comDir , chkDir):
+def main(logDir , netCharge , comDir , chkDir , popType):
     if netCharge == 0:
         ion = "neutral"
         spin_ = 1
@@ -139,12 +142,12 @@ def main(logDir , netCharge , comDir , chkDir):
             print("Missing .chk file for " + fileName)
             atomsDict = getAtomCoords(log , "GINC-COMPUTE" , 5)
             fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
-                             electron =  netCharge , spin = spin_ , coordinates = atomsDict )          
+                             electron =  netCharge , spin = spin_ , coordinates = atomsDict , pop = popType )          
         else:
             chkFile = copyChks(chkFile , ionComDir)
 
             fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
-                              geom = "checkpoint" , electron =  netCharge , spin = spin_ )
+                              geom = "checkpoint" , electron =  netCharge , spin = spin_ , pop = popType )
 
 
 if __name__ == "__main__":
@@ -152,4 +155,5 @@ if __name__ == "__main__":
     netCharge = int(sys.argv[2])
     comDir = str(sys.argv[3])
     chkDir = str(sys.argv[4])
-    main(logDir , netCharge , comDir , chkDir)
+    popType = str(sys.argv[5])
+    main(logDir , netCharge , comDir , chkDir , popType)
