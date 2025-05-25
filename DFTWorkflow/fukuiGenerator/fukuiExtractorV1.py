@@ -115,8 +115,7 @@ def fukuiFunction(substrateDF):
     
     print("Fukui function calculation completed successfully")
     return substrateDF
-def extractOccupancies(logFile:str, extract1:str, extract2:str , location:str):
-
+def extractOccupanciesNBO(logFile:str, extract1:str, extract2:str , location:str):
     lowerInd = locateinLog(logFile , extract1, location)
     upperInd = locateinLog(logFile , extract2, location )
     atomOccupancies = {}
@@ -140,6 +139,27 @@ def extractOccupancies(logFile:str, extract1:str, extract2:str , location:str):
                 atomOccupancies[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)]
     #print(atomOccupancies)
     return atomOccupancies
+def extractOccupanciesMull(logFile:str, extract1:str, extract2:str , location:str):
+
+    lowerInd = locateinLog(logFile , extract1, location)
+    upperInd = locateinLog(logFile , extract2, location )
+    atomOccupancies = {}
+    with open(logFile , "r") as f:
+        for idx, line in enumerate(f):
+            if idx > lowerInd + 1  and idx < upperInd-1:
+                newLine = line.strip()
+                print(newLine.split())
+                splits = newLine.split()
+                try:
+                    index = int(splits[1])
+                    occupancy = float(splits[4])
+                    atomName = str(splits[2])
+                    atomOccupancies[index] = [atomName , occupancy]
+                except ValueError:
+                    atom =  list(atomOccupancies.keys())[-1]
+                    atomOccupancies[atom][1] += float(splits[2])
+                    
+    return atomOccupancies
 def getMeanDF(dfList):
     combined = pd.concat(dfList, axis=0)
     numericCols = combined.select_dtypes(include='number').columns
@@ -149,7 +169,7 @@ def getMeanDF(dfList):
     finalDF = pd.concat([stringDF, meanDF], axis=1)
     return finalDF
 
-def main(logDir , cationDir, anionDir , substrateCSV, outputDir ):
+def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
     substrateScope = pd.read_csv(substrateCSV)
     smileString = substrateScope["SMILES"]
     substrateName = substrateScope["ID"]
@@ -184,7 +204,10 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir ):
                 name1 = name.split("_")[-1].split("ion")[0]
             else:
                 name1 = "neut"
-            occupanciesDict = extractOccupancies(dir,"Core      Valence    Rydberg" , "* Total *" , "earliest")
+            if densityStr == "NBO7":
+                occupanciesDict = extractOccupanciesNBO(dir,"Core      Valence    Rydberg" , "* Total *" , "earliest")
+            elif densityStr == "mull":
+                occupanciesDict = extractOccupanciesMull(dir,"Gross orbital populations:" , "Condensed to atoms (all electrons):" , "earliest")
             if not "atoms" in substrateDF.columns:
                 substrateDF["atoms"] = occupanciesDict.keys()
             substrateDF["pop_" + name1] = [values[-1] for values in occupanciesDict.values()]
@@ -209,7 +232,7 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir ):
         confList = list(identification[2:])
         if len(confList) == len(dfList):
             weightedList = []
-            boltzmannDF = getBoltzmannWeightsGauss(logPaths, 298, 'gibbs')
+            boltzmannDF = getBoltzmannWeightsGauss(logPaths, 298, 'electronic')
             boltzDict = boltzmannDF.set_index('logID')['boltzWeights'].to_dict()
             for index , conf in enumerate(confList):
                 for key in boltzDict:
@@ -236,5 +259,6 @@ if __name__ == "__main__":
     anionDir = str(sys.argv[3])
     substrateCSV = str(sys.argv[4])
     outputDir = str(sys.argv[5])
-    main(neutralDir , cationDir , anionDir , substrateCSV , outputDir)
+    densityStr = str(sys.argv[6])
+    main(neutralDir , cationDir , anionDir , substrateCSV , outputDir , densityStr)
 
