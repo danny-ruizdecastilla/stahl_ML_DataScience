@@ -71,7 +71,7 @@ def dimensionalityReduction(X , smiles, reduceStr , saveDir , chemType , special
             topFeatures.to_csv(saveDir + "/" + filePath, sep="\t", index=False)
         dfPCA = pd.DataFrame(xPCA_, columns = ["PCA1" , "PCA2"] )
         #print(dfPCA)
-        xAxis = list(dfPCA["PCA1"])  #scaling factor to avoid negative numbers in PCA
+        xAxis = list(dfPCA["PCA1"]) 
         yAxis = list(dfPCA["PCA2"])
         dfPCA["SMILES"] = smiles
         kmeansMAST = KMeans( n_clusters = specialK , random_state = 42)
@@ -258,7 +258,7 @@ def compressData(dataframeDirs , regressionStr , usualSuspects):
         for dfDir in dataframeDirs:
             
             try:
-                df = pd.read_csv(dfDir)
+                df = pd.read_csv(dfDir, encoding="utf-8")
                 
                 # Handle empty files
                 if df.empty:
@@ -285,14 +285,14 @@ def compressData(dataframeDirs , regressionStr , usualSuspects):
             smileList = dataframeMast['SMILES'].copy()
         else:
             print("Warning: SMILES column not found in the dataframe")
-            df = pd.read_csv(dfDir)
+            df = pd.read_csv(dfDir, encoding="utf-8")
             print(df.columns)
             smileList = pd.Series()
         if regressionStr in dataframeMast.columns:
             yieldList = dataframeMast[regressionStr].copy()
         else:
             print("Warning: Yield column not found in the dataframe")
-            df = pd.read_csv(dfDir)
+            df = pd.read_csv(dfDir, encoding='utf-8')
             print(df.columns)
             yieldList = pd.Series()
 
@@ -310,7 +310,7 @@ def partitionChemistries(substrateSpace , chemistry):
     substrateSpaces = glob.glob(substrateSpace+ "/*.csv")
     for dir in substrateSpaces:
         #print(dir)
-        df = pd.read_csv(dir)
+        df = pd.read_csv(dir, encoding="utf-8")
         smileList_ = list(df["SMILES"])
         canonicalSMILES_ = []
         for smile in smileList_:
