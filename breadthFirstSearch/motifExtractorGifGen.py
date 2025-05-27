@@ -48,7 +48,7 @@ def getUpperLimits(pathMatrix , C , graph , radius):
         if atom == 1:
             #This is the hard limit of the scope
             limitList.append(i)
-        if atom == 2:
+        elif atom == 2:
             #test for symmetry 
             atom1atom2Paths = list(nx.all_simple_paths(graph, source=C, target=i))
             withinRad = any(len(path) -1  < radius for path in atom1atom2Paths)
@@ -227,8 +227,8 @@ def motifExtract(smiles, radius):
             start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
             g.add_edge(start, end)
         limitMatrix = getAdjencyMatrix( g , radius)
-        contactListMAST = []
-        smilesEdgesMAST = []
+        contactListDict =  {}
+        smilesEdgesDict = {}
         allPaths = []
         for j in range (len(CC)):
             contactList = []
@@ -259,13 +259,15 @@ def motifExtract(smiles, radius):
                         break
             network = list(set(num for sublist in contactList for num in sublist))
             #print("network" , network)
-            contactListMAST.append(network)
-            smilesEdgesMAST.append(smilesEdges)
-        #Now we have a list of all eligible paths in PathListMAST
-        contactListMAST = list(set(num for sublist in contactListMAST for num in sublist))
-        motifSMILE = getMotif(smilesEdgesMAST , g, radius , CC , molec , contactListMAST )
-        highlightDict = getHighLightDict(radius,  CC, allPaths)
-        return highlightDict , molec , motifSMILE
+            contactListDict[C1] = network 
+            smilesEdgesDict[C1]= smilesEdges
+        return contactListDict , smilesEdgesDict , allPaths , g , molec
+def mergeMotifExtract(contactListMAST , smilesEdgesMAST , allPaths , g,  CC , molec):
+    #Now we have a list of all eligible paths in PathListMAST
+    contactListMAST = list(set(num for sublist in contactListMAST for num in sublist))
+    motifSMILE = getMotif(smilesEdgesMAST , g, radius , CC , molec , contactListMAST )
+    highlightDict = getHighLightDict(radius,  CC, allPaths)
+    return highlightDict , motifSMILE
 def getHighLightDict(cutDist,  initAtoms , contactPaths):
     highLightDictionary = {}
     i = 0
@@ -293,7 +295,7 @@ def getHighLightDict(cutDist,  initAtoms , contactPaths):
                 if not exists:
                     iOutMAST.append(atom)
         
-            highLightDictionary[255 - int(i)*alphaScale] = list(iOutMAST)
+            highLightDictionary[abs(255 - int(i)*alphaScale)] = list(iOutMAST)
         i += 1
         if i == cutDist + 1:
             break
@@ -327,7 +329,7 @@ def figGenerator(atomDict ,bondDict , smile):
             molec.bonds[bond].highlight.show = True
             molec.bonds[bond].highlight.color = color
         drawer = chemdraw.Drawer(molec, title=smile)
-    drawer.draw_img(pngDir + "/" + str(ind) + str(smile) + "molec.png")
+    drawer.draw_img(pngDir + "/" + str(ind) + "AlkeneSubmolec.png")
 def finalImage(smile):
     molec = Chem.MolFromSmiles(smile)
     Chem.rdDepictor.Compute2DCoords(molec)
@@ -419,14 +421,19 @@ def lightGradient(initRGB , numSteps):
     return np.linspace(base , white, numSteps)
 
 if __name__ == "__main__":
-    alkeneSMILE = "[H][C@@]12C[C@@](N([C@H](C)C3=CC=CC=C3)[C@@H]2C(OCC4=CC=CC=C4)=O)([H])C=C1"
+    alkeneSMILE = "C=C([H])O[SiH3]"
+
     #RGB: 153,000,000
     radius = int(sys.argv[1])
     pngDir = str(sys.argv[2])
     alphaScale = float(sys.argv[3])
     rgbInit = [197 , 5 ,12]
     colorGradient = lightGradient(rgbInit , radius + 2)
-    highlightDict , molec   , finalSMILE = motifExtract( alkeneSMILE , radius)
+    contactListDict , smilesEdgesDict , allPaths , g , molec = motifExtract( alkeneSMILE , radius)
+    CC = list(smilesEdgesDict.keys())
+    contactListMAST = [contactListDict[CC[0]] ,contactListDict[CC[1]] ]
+    smilesEdgesMAST = [smilesEdgesDict[CC[0]] ,smilesEdgesDict[CC[1]] ]
+    highlightDict ,finalSMILE  = mergeMotifExtract(contactListMAST , smilesEdgesMAST , allPaths , g,  CC , molec)
     print(highlightDict)
     #print(highlightDict)
     #print("finalSMILE" , finalSMILE)
@@ -444,7 +451,7 @@ if __name__ == "__main__":
 
 
     #finalImage(finalSMILE)
-    outputFile =  pngDir +  "/" + str(alkeneSMILE) + "alkene.gif"
+    outputFile =  pngDir +  "/alkene.gif"
     createGif(pngDir, outputFile, duration=500)
     
 
