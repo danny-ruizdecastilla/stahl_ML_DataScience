@@ -71,40 +71,29 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
             const columnMapping = {json.dumps(columnMaps, ensure_ascii=False)};
 
             function plotData() {{
-                console.log('plotData function called');
-                
                 const xCol = document.getElementById("xAxis").value;
                 const yCol = document.getElementById("yAxis").value;
-                
-                console.log('Selected axes:', xCol, yCol);
-                console.log('jsonData:', jsonData);
 
-                // Check if jsonData exists and has the expected structure
                 if (!jsonData || !Array.isArray(jsonData)) {{
-                    console.error('jsonData is not a valid array:', jsonData);
+                    console.error('jsonData is not a valid array');
                     return;
                 }}
 
-                // Fix: Access data points correctly
                 const xValues = jsonData.map(p => p[xCol]);
                 const yValues = jsonData.map(p => p[yCol]);
-                
-                console.log('X values:', xValues.slice(0, 5));
-                console.log('Y values:', yValues.slice(0, 5));
                 
                 const trace = {{
                     x: xValues,
                     y: yValues,
                     mode: 'markers',
                     type: 'scatter',
-                    // Fix: Remove .points since jsonData is already the array
                     text: jsonData.map(p => p.SMILES || 'No SMILES'),
                     customdata: jsonData.map((p, i) => ({{
                         id: p.SMILES || `point_${{i}}`, 
                         image: p.base64 || null
                     }})),
                     hovertemplate:
-                        '<b>%{{text}}</b><br>' +       // Use %{{text}} instead of customdata[0]
+                        '<b>%{{text}}</b><br>' +
                         `${{xCol}}: %{{x}}<br>` +
                         `${{yCol}}: %{{y}}<br>` +
                         '<extra></extra>',
@@ -147,50 +136,30 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
                     }}
                 }};
 
-                console.log('About to create plot');
-                
                 Plotly.newPlot('plotContainer', [trace], layout, config).then(() => {{
-                    console.log('Plot created successfully');
-                    
-                    // Get the plot element
                     const plotElement = document.getElementById('plotContainer');
-                    console.log('Plot element:', plotElement);
                     
-                    // Add hover event listener
                     plotElement.on('plotly_hover', function(data) {{
-                        console.log('Hover event triggered:', data);
                         const pointData = data.points[0];
                         const customData = pointData.customdata;
-                        
-                        console.log('Point data:', pointData);
-                        console.log('Custom data:', customData);
-                        
                         const imageContainer = document.getElementById('imageContainer');
-                        console.log('Image container found:', imageContainer);
                         
                         if (customData && customData.image) {{
-                            console.log('Image data exists:', customData.image.substring(0, 50) + '...');
-                            
-                            // Handle base64 image data
                             const imageSrc = customData.image.startsWith('data:') ? 
                                 customData.image : 
                                 `data:image/png;base64,${{customData.image}}`;
                             
                             imageContainer.innerHTML = `
                                 <h3>Hover Image</h3>
-                                <p><strong>${{pointData.text || 'No SMILES'}}</strong></p>
+                                <p><strong>${{pointData.text}}</strong></p>
                                 <img id="hoverImage" 
                                     src="${{imageSrc}}" 
                                     alt="Point Image" 
                                     style="max-width: 100%; height: auto; border: 1px solid #ddd;"
-                                    onload="console.log('Image loaded successfully')"
-                                    onerror="console.log('Image failed to load'); this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                                 <div style="display:none; color: #999; font-style: italic;">Image failed to load</div>
                             `;
-                            
-                            console.log('Image container updated with new content');
                         }} else {{
-                            console.log('No image data available for this point');
                             imageContainer.innerHTML = `
                                 <h3>Hover Image</h3>
                                 <div class="image-placeholder">No image data for this point</div>
@@ -198,23 +167,17 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
                         }}
                     }});
                     
-                    // Add unhover event listener
                     plotElement.on('plotly_unhover', function(data) {{
-                        console.log('Unhover event triggered');
                         const imageContainer = document.getElementById('imageContainer');
                         imageContainer.innerHTML = `
                             <h3>Hover Image</h3>
                             <div class="image-placeholder">Hover over a point to see its image</div>
                         `;
                     }});
-                    
-                }}).catch((error) => {{
-                    console.error('Error creating plot:', error);
                 }});
             }}
 
             window.onload = function() {{
-                // Add error handling
                 const xAxisSelect = document.getElementById("xAxis");
                 const yAxisSelect = document.getElementById("yAxis");
                 
@@ -224,8 +187,6 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
                     plotData();
                     xAxisSelect.addEventListener("change", plotData);
                     yAxisSelect.addEventListener("change", plotData);
-                }} else {{
-                    console.error("Could not find axis selection elements");
                 }}
             }};
         </script>
@@ -310,8 +271,6 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
     </body>
     </html>
     """
-
-    # Write to file
     with open(outputDir + "/" + chemistry + "interactiveMASTER.html", "w", encoding="utf-8") as f:
         f.write(html)
 if __name__ == "__main__":
