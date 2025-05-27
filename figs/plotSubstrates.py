@@ -12,7 +12,7 @@ import plotly.io as pio
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
-from figs.featurePlotter import getFeaturePairs , standardCols
+from figs.featurePlotter import getFeaturePairs 
 from figs.chemPlotlyV1 import insertIntoDataframe
 from figs.chemPlotlyV2 import plotly_template , interactiveFigGenerator,createPNGDF,png64
 from figs.stericvselectroPCA import pcafeatureSplitter
@@ -27,7 +27,6 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
     initdataSets = glob.glob(substrateData + "/*.csv")
     initdataSets = sorted(initdataSets)
     Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases)
-    Xdataframe = standardCols(Xdataframe)
     nanDict = locateNans(Xdataframe)
     if len(nanDict) != 0:
         Xdataframe["SMILES"] = smileList
@@ -54,29 +53,13 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
         base64Col.append(base64)
     masterDF["base64"] = base64Col
     masterDF = masterDF.drop(columns=['pngPath'])
-
-    jsonMAST = masterDF.to_json(orient="records")
+    print(masterDF.columns.tolist())
+    jsonMAST = masterDF.to_json(orient="records" , force_ascii=False )
+    jsonMAST = jsonMAST.replace('\\/', '/')
     with open(outputDir + "/" + chemistry + "MAST.json", "w" , encoding='utf-8') as f:
         f.write(jsonMAST)
 
-    xAxisList = []
-    yAxisList = []
-
-    # Debug: Check what columns are available
-    print("Available columns:", list(masterDF.columns))
-    print("Steric motifs:", axisMotifs.get("sterics", []))
-    print("Electronic motifs:", axisMotifs.get("electronics", []))
-
-    for col in masterDF.columns:
-        if any(motif in col for motif in axisMotifs["sterics"]):
-            xAxisList.append(col)
-        elif any(motif in col for motif in axisMotifs["electronics"]):
-            yAxisList.append(col)
-    print("X-axis options:", xAxisList)
-    print("Y-axis options:", yAxisList)
-
-    htmlYAxis = "".join([safeStringHTML(y) for y in yAxisList])
-    htmlXAxis = "".join([safeStringHTML(x) for x in xAxisList])
+    htmlAxis = "".join([safeStringHTML(axis) for axis in list(masterDF.columns)])
     columnMaps = {}
     for col in masterDF.columns:
         columnMaps[col] = col
@@ -122,7 +105,7 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
                 }};
 
                 const layout = {{
-                    title: 'Interactive Scatter Plot with Hover Images',
+                    title: 'Literature derived Epoxidation Substrate Space',
                     xaxis: {{
                         title: xCol,
                         showgrid: true,
@@ -203,12 +186,12 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
         <div class="controls">
             <label for="xAxis">X-axis:</label>
             <select id="xAxis">
-                {htmlXAxis}
+                {htmlAxis}
             </select>
 
             <label for="yAxis">Y-axis:</label>
             <select id="yAxis">
-                {htmlYAxis}
+                {htmlAxis}
             </select>
         </div>
 
@@ -221,9 +204,6 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
     with open("scatter_plot_with_hover_images.html", "w", encoding="utf-8") as f:
         f.write(html)
 
-    xOpt = len(xAxisList)
-    yOpt = len(yAxisList)
-    print(f"Found {xOpt} X-axis options and {yOpt} Y-axis options")
 
 if __name__ == "__main__":
     chemistriesDir = str(sys.argv[1])
