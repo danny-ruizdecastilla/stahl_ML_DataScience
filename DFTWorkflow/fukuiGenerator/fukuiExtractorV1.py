@@ -5,6 +5,7 @@ import shutil
 import re
 import pandas as pd 
 import numpy as np
+
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(parentDir)
 from DFTWorkflow.ionComGenerator import locateinLog
@@ -162,9 +163,9 @@ def extractOccupanciesMull(logFile:str, extract1:str, extract2:str , location:st
     return atomOccupancies
 def getMeanDF(dfList):
     combined = pd.concat(dfList, axis=0)
-    numericCols = combined.select_dtypes(include='number').columns
+    numericCols = combined.select_dtypes(include=['float64', 'float32']).columns
     meanDF = combined[numericCols].groupby(combined.index).mean()
-    stringCols = combined.select_dtypes(exclude='number').columns
+    stringCols = combined.select_dtypes(exclude=['float64', 'float32']).columns
     stringDF = combined[stringCols].groupby(combined.index).first()
     finalDF = pd.concat([stringDF, meanDF], axis=1)
     return finalDF
@@ -209,7 +210,7 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
             elif densityStr == "mull":
                 occupanciesDict = extractOccupanciesMull(dir,"Gross orbital populations:" , "Condensed to atoms (all electrons):" , "earliest")
             if not "atoms" in substrateDF.columns:
-                substrateDF["atoms"] = occupanciesDict.keys()
+                substrateDF["atoms"] = list(map(int, occupanciesDict.keys()))
             substrateDF["pop_" + name1] = [values[-1] for values in occupanciesDict.values()]
             substrateDF["atom_" + name1] = [values[0] for values in occupanciesDict.values()]
             atomCols.append("atom_" + name1)
@@ -239,7 +240,7 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
                     if conf in key:  # conf is a substring of the key
                         weight = boltzDict[key]
                         df = dfList[index]
-                        numericDF = df.select_dtypes(include='number') * weight
+                        numericDF = df.select_dtypes(include='number') * weight * len(confList)
                         nonNumericDF = df.select_dtypes(exclude='number')
                         finalDF = pd.concat([nonNumericDF, numericDF], axis=1)
                         weightedList.append(finalDF) 
