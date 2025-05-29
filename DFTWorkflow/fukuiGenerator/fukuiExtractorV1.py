@@ -108,7 +108,7 @@ def fukuiFunction(substrateDF):
             # f+ (electrophilic attack): q(N-1) - q(N)
             substrateDF.loc[index, "f_pos"] = row["pop_an"] - row["pop_neut"]
             # f0 (radical attack): 0.5 * [q(N-1) - q(N+1)]
-            substrateDF.loc[index, "f_neut"] = 0.5 * (row["pop_an"] - row["pop_cat"]) 
+            substrateDF.loc[index, "f_neut"] = 0.5 * (float(row["pop_an"]) - float(row["pop_cat"])) 
                 
     except Exception as e:
         print(f"Unexpected error in fukuiFunction: {e}")
@@ -119,6 +119,8 @@ def fukuiFunction(substrateDF):
 def extractOccupanciesNBO(logFile:str, extract1:str, extract2:str , location:str):
     lowerInd = locateinLog(logFile , extract1, location)
     upperInd = locateinLog(logFile , extract2, location )
+    if upperInd == "Poison" or lowerInd == "Poison":
+        raise ValueError(f"The Log file {logFile} did not terminate properly")
     atomOccupancies = {}
     with open(logFile , "r") as f:
         for idx, line in enumerate(f):
@@ -147,9 +149,10 @@ def extractOccupanciesMull(logFile:str, extract1:str, extract2:str , location:st
     atomOccupancies = {}
     with open(logFile , "r") as f:
         for idx, line in enumerate(f):
-            if idx > lowerInd + 1  and idx < upperInd-1:
+            #print(lowerInd , upperInd)
+            if idx > int(lowerInd) + 1  and idx < int(upperInd)-1:
                 newLine = line.strip()
-                print(newLine.split())
+                #print(newLine.split())
                 splits = newLine.split()
                 try:
                     index = int(splits[1])
