@@ -90,32 +90,38 @@ def locateinLog(logFile, textStr, returnType: str):
         for idx, line in enumerate(f):
             if textStr in line:
                 matchingLines.append(idx)
-    if returnType == "earliest":
-        return matchingLines[0]
+    if len(matchingLines) != 0:
+        if returnType == "earliest":
+            return matchingLines[0]
 
-    if returnType == "latest":
-        return matchingLines[-1]
+        elif returnType == "latest":
+            return matchingLines[-1]
+    else:
+        print(logFile)
+        print("Bad Log File")
+        return "Poison"
 def getAtomCoords(logFile , xyzStr , commaSplit:int , ):
     #Extracts atom coordinates into a dict from a log file 
     atomCoords = {}
     lowerIdx = locateinLog(logFile , xyzStr, "latest" )
     upperIdx = locateinLog(logFile, "The archive entry for this job was punched." , "latest")
-    masterStr = ""
-    with open(logFile , "r") as f:
-        for idx, line in enumerate(f):
-            if idx >= lowerIdx and idx < upperIdx:
-                cleaned = re.sub(r'\s+', '' , line)
-                masterStr += cleaned
-
-    masterList = masterStr.split("\\")
-    for i ,  phrase in enumerate(masterList):
-        atomStr = phrase.split(",")
-        #print(atomStr)
-        if len(atomStr) == commaSplit:
-            atomCoords[i] = atomStr[:commaSplit]
-    return atomCoords
-    
-def main(logDir , netCharge , comDir , chkDir , popType):
+    if not "Poison" in [lowerIdx , upperIdx]:
+        masterStr = ""
+        with open(logFile , "r") as f:
+            for idx, line in enumerate(f):
+                if idx >= lowerIdx and idx < upperIdx:
+                    cleaned = re.sub(r'\s+', '' , line)
+                    masterStr += cleaned
+        masterList = masterStr.split("\\")
+        for i ,  phrase in enumerate(masterList):
+            atomStr = phrase.split(",")
+            #print(atomStr)
+            if len(atomStr) == commaSplit:
+                atomCoords[i] = atomStr[:commaSplit]
+        return atomCoords
+    else:
+        return "Poison"
+def main(logDir , netCharge , comDir , chkDir , popType, theory):
     if netCharge == 0:
         ion = "neutral"
         spin_ = 1
@@ -125,7 +131,7 @@ def main(logDir , netCharge , comDir , chkDir , popType):
     elif netCharge > 0:
         ion = "cation"
         spin_ = 2
-    theory = theoryLevel(1)
+    theory = theoryLevel(theory)
     logs = glob.glob(logDir + "/*.log")
     print(logs)
     ionComDir = comDir + "/" + ion + "s"
@@ -141,7 +147,10 @@ def main(logDir , netCharge , comDir , chkDir , popType):
         if not os.path.exists(chkFile):
             print("Missing .chk file for " + fileName)
             atomsDict = getAtomCoords(log , "GINC-COMPUTE" , 5)
-            fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
+            if atomsDict == "Poison":
+                continue
+            else:
+                fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
                              electron =  netCharge , spin = spin_ , coordinates = atomsDict , pop = popType )          
         else:
             chkFile = copyChks(chkFile , ionComDir)
@@ -156,4 +165,5 @@ if __name__ == "__main__":
     comDir = str(sys.argv[3])
     chkDir = str(sys.argv[4])
     popType = str(sys.argv[5])
-    main(logDir , netCharge , comDir , chkDir , popType)
+    theory = int(sys.argv[6])
+    main(logDir , netCharge , comDir , chkDir , popType, theory)
