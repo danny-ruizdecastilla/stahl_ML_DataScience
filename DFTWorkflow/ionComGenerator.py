@@ -1,4 +1,4 @@
-import os
+import os 
 import sys
 import glob
 import shutil
@@ -35,7 +35,7 @@ def comWriter(comFile:str, **kwargs ):
         mem = int(kwargs["mem"])
         chk = str(kwargs["chk"])
         theory = str(kwargs["theory"])
-        netCharge = int(kwargs["electron"])
+        netCharge = int(kwargs["electron"]) 
         spin = int(kwargs["spin"])
     except KeyError as e:
         raise ValueError(f"Missing required parameter: {e}")
@@ -73,7 +73,7 @@ def comWriter(comFile:str, **kwargs ):
 
         else:
             f.write(f"#{theory} symmetry={symmetry} pop={pop} "
-                    "scf=qc int=(grid=ultrafine) SP\n\n")
+                    "scf=qc int=(grid=ultrafine) SP\n\n") 
             f.write(f"{fileStr}.xyz\n\n")
             f.write(f"{netCharge} {spin}\n")
             coordDict = kwargs["coordinates"]
@@ -81,11 +81,11 @@ def comWriter(comFile:str, **kwargs ):
                 row = coordDict[atom]
                 f.write(f"{','.join(str(i) for i in row)}\n")
             f.write("\n\n")
-
+        
     return fileStr
 def locateinLog(logFile, textStr, returnType: str):
     matchingLines = []
-
+    
     with open(logFile, "r") as f:
         for idx, line in enumerate(f):
             if textStr in line:
@@ -101,7 +101,7 @@ def locateinLog(logFile, textStr, returnType: str):
         print("Bad Log File")
         return "Poison"
 def getAtomCoords(logFile , xyzStr , commaSplit:int , ):
-    #Extracts atom coordinates into a dict from a log file
+    #Extracts atom coordinates into a dict from a log file 
     atomCoords = {}
     lowerIdx = locateinLog(logFile , xyzStr, "latest" )
     upperIdx = locateinLog(logFile, "The archive entry for this job was punched." , "latest")
@@ -135,7 +135,7 @@ def main(logDir , netCharge , comDir , chkDir , popType, theory):
     logs = glob.glob(logDir + "/*.log")
     print(logs)
     ionComDir = comDir + "/" + ion + "s"
-    if not os.path.exists(ionComDir):
+    if not os.path.exists(ionComDir): 
         os.makedirs(ionComDir)
     for log in logs:
         file = log.split("/")[-1]
@@ -151,7 +151,7 @@ def main(logDir , netCharge , comDir , chkDir , popType, theory):
                 continue
             else:
                 fileName = comWriter(ionComDir + "/" + fileName , nprocs = int(16) , mem = int(48) , theory = str(theory) , chk =chkFile ,
-                             electron =  netCharge , spin = spin_ , coordinates = atomsDict , pop = popType )
+                             electron =  netCharge , spin = spin_ , coordinates = atomsDict , pop = popType )          
         else:
             chkFile = copyChks(chkFile , ionComDir)
 
