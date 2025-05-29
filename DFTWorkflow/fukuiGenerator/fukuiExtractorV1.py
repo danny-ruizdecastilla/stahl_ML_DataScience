@@ -171,7 +171,7 @@ def getMeanDF(dfList):
     return finalDF
 
 def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
-    substrateScope = pd.read_csv(substrateCSV)
+    substrateScope = pd.read_csv(substrateCSV, encoding='utf-8')
     smileString = substrateScope["SMILES"]
     substrateName = substrateScope["ID"]
     neutralLogs = glob.glob(logDir + "/*.log")
