@@ -27,7 +27,7 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
     if len(nanDict) != 0:
         Xdataframe["SMILES"] = smileList
         Xdataframe = eliminateNans(Xdataframe , nanDict)
-    smileList = Xdataframe["SMILES"].copy()
+        smileList = Xdataframe["SMILES"].copy()
     canonicalSMILES = []
     for smile in smileList:
         canonical = convertCanonical(smile)
