@@ -46,6 +46,7 @@ def getBoltzmannWeightsGauss(logDirs, temperature, energyStr):
     results = []
     
     for log in logDirs:
+        #print(log)
         if not os.path.exists(log):
             print(f"Warning: File {log} not found. Skipping.")
             continue        
@@ -59,7 +60,7 @@ def getBoltzmannWeightsGauss(logDirs, temperature, energyStr):
             print(f"Error processing {log}: {str(e)}")
             continue
     if len(results) == 0:
-        raise ValueError("No energies could be extracted from any log files")
+        raise ValueError(f"No energies could be extracted from any log files for the log types {logDirs[-1]}")
     # Convert to DataFrame
     df = pd.DataFrame(results)
     # Convert energies to kcal/mol
@@ -232,9 +233,13 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
         else:
             raise Exception(f"Atom Types on the 3 indexes for {substrate} do not line up")
     for identification , dfList in substrateDictMAST.items():
+        print(identification[0])
         logPaths = [log for log in neutralLogs if identification[0] in log]
         confList = list(identification[2:])
-        if len(confList) == len(dfList):
+        if len(dfList) == 0 or len(confList) == 0:
+            print(identification[0] + " Does not have any confomers in this directory")
+            continue
+        elif len(confList) == len(dfList):
             weightedList = []
             boltzmannDF = getBoltzmannWeightsGauss(logPaths, 298, 'electronic')
             boltzDict = boltzmannDF.set_index('logID')['boltzWeights'].to_dict()
