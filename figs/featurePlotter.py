@@ -119,7 +119,7 @@ def main(substrateData , outputDir , elimFile , motifList ):
         eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType"  ]
     initdataSets = glob.glob(substrateData + "/*.csv")
     initdataSets = sorted(initdataSets)
-    Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases)
+    Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases , outputDir , "rawUnprocessed")
     standardXdf = standardCols(Xdataframe)
     Xdataframe["SMILES"] = smileList
     nanDict = locateNans(standardXdf)
