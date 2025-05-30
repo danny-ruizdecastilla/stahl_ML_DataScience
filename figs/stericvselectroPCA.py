@@ -96,7 +96,7 @@ def main(substrateSpace , substrateData , chemistry , outputDir , axisMotifs, el
     reactivityInts = [int(x) for x in reactivityPartitions]
     initdataSets = glob.glob(substrateData + "/*.csv")
     initdataSets = sorted(initdataSets)
-    Xdataframe , smileList  , yieldList_= compressData(initdataSets , partitionStr , elimPhrases)
+    Xdataframe , smileList  , yieldList_= compressData(initdataSets , partitionStr , elimPhrases , outputDir , "rawUnprocessed")
     Xdataframe = standardCols(Xdataframe)
     nanDict = locateNans(Xdataframe)
     if len(nanDict) != 0:
