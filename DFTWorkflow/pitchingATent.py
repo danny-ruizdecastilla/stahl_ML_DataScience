@@ -243,7 +243,7 @@ def eliminateNans(df, nanDict):
     df = df.drop(list(allNanRows))
     df = df.reset_index(drop=True)
     return df
-def compressData(dataframeDirs , regressionStr , usualSuspects):
+def compressData(dataframeDirs , regressionStr , usualSuspects , saveDir , saveStr):
     
 
     dataframeMast = pd.DataFrame()
@@ -297,6 +297,7 @@ def compressData(dataframeDirs , regressionStr , usualSuspects):
             yieldList = pd.Series()
 
         elimCol = [col for col in dataframeMast.columns if any(frag in col for frag in usualSuspects)]
+        createCSV(dataframeMast, saveDir , saveStr)
         dataframeMast = dataframeMast.drop(columns=elimCol)
 
         return dataframeMast, smileList , yieldList
@@ -337,7 +338,7 @@ def main(substrateSpace , substrateData , chemistry , clusterK ,  elimFile ,outp
     colorList = ['red' , 'blue' , 'green' , 'yellow']
     initdataSets = glob.glob(substrateData + "/*.csv")
     initdataSets = sorted(initdataSets)
-    Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases)
+    Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases , outputDir , "rawCompressedData")
 
     nanDict = locateNans(Xdataframe)
     if len(nanDict) != 0:

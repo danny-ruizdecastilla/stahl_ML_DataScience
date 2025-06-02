@@ -19,37 +19,7 @@ def safeStringHTML(unsafeString):
     display_name = html.escape(unsafeString)
     value_name = html.escape(unsafeString, quote=True)
     return f'<option value="{value_name}">{display_name}</option>'
-def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outputDir ):
-    initdataSets = glob.glob(substrateData + "/*.csv")
-    initdataSets = sorted(initdataSets)
-    Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases)
-    nanDict = locateNans(Xdataframe)
-    if len(nanDict) != 0:
-        Xdataframe["SMILES"] = smileList
-        Xdataframe = eliminateNans(Xdataframe , nanDict)
-    smileList = Xdataframe["SMILES"].copy()
-    canonicalSMILES = []
-    for smile in smileList:
-        canonical = convertCanonical(smile)
-        canonicalSMILES.append(canonical)
-    Xdataframe = Xdataframe.drop("SMILES", axis=1)
-    featureLabels = list(Xdataframe.columns)
-    
-    X , featureLabels  = featureFiltering(outputDir, Xdataframe ,featureLabels , chemistry)
-
-    axisDF , axisMotifs = pcafeatureSplitter(X , axisMotifs , 1 , outputDir)
-    axisDF["canonicalSMILES"] = canonicalSMILES
-    axisDF["SMILES"] = smileList
-    createCSV(axisDF , outputDir , "master " + str(chemistry)+ " Dataframe")
-    masterDF = createPNGDF(axisDF ,"SMILES" , figDir)
-    base64Col = []
-    for img in list(masterDF["pngPath"]):
-
-        base64 = png64(img)
-        base64Col.append(base64)
-    masterDF["base64"] = base64Col
-    masterDF = masterDF.drop(columns=['pngPath'])
-    print(masterDF.columns.tolist())
+def htmlGenerator1(masterDF , outputDir, chemistry):
     jsonMAST = masterDF.to_json(orient="records" , force_ascii=False )
     jsonMAST = jsonMAST.replace('\\/', '/')
     with open(outputDir + "/" + chemistry + "MAST.json", "w" , encoding='utf-8') as f:
@@ -273,6 +243,37 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
     """
     with open(outputDir + "/" + chemistry + "interactiveMASTER.html", "w", encoding="utf-8") as f:
         f.write(html)
+def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outputDir ):
+    initdataSets = glob.glob(substrateData + "/*.csv")
+    initdataSets = sorted(initdataSets)
+    Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases , outputDir , "rawUnprocessed")
+    nanDict = locateNans(Xdataframe)
+    if len(nanDict) != 0:
+        Xdataframe["SMILES"] = smileList
+        Xdataframe = eliminateNans(Xdataframe , nanDict)
+        smileList = Xdataframe["SMILES"].copy()
+        Xdataframe = Xdataframe.drop("SMILES", axis=1)
+    canonicalSMILES = []
+    for smile in smileList:
+        canonical = convertCanonical(smile)
+        canonicalSMILES.append(canonical)
+    featureLabels = list(Xdataframe.columns)
+    X , featureLabels  = featureFiltering(outputDir, Xdataframe ,featureLabels , chemistry)
+
+    axisDF , axisMotifs = pcafeatureSplitter(X , axisMotifs , 1 , outputDir)
+    axisDF["canonicalSMILES"] = canonicalSMILES
+    axisDF["SMILES"] = smileList
+    createCSV(axisDF , outputDir , "master " + str(chemistry)+ " Dataframe")
+    masterDF = createPNGDF(axisDF ,"SMILES" , figDir)
+    base64Col = []
+    for img in list(masterDF["pngPath"]):
+
+        base64 = png64(img)
+        base64Col.append(base64)
+    masterDF["base64"] = base64Col
+    masterDF = masterDF.drop(columns=['pngPath'])
+    #print(masterDF.columns.tolist())
+    htmlGenerator1(masterDF ,outputDir , chemistry )
 if __name__ == "__main__":
     chemistriesDir = str(sys.argv[1])
     figDir = str(sys.argv[2])
