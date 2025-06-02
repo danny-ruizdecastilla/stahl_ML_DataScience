@@ -14,10 +14,11 @@ from DFTWorkflow.fukuiGenerator.addSCF import readDat
 from DFTWorkflow.pitchingATent import convertCanonical 
 from DFTWorkflow.featureMaping import createCSV
 def dict2Dat(dict1, saveDir, saveStr):
-    file_path = os.path.join(saveDir, saveStr + ".dat")
+    os.makedirs(saveDir, exist_ok=True)
+    filePath = os.path.join(saveDir, saveStr + ".dat")
     
-    if not os.path.exists(file_path):
-        with open(file_path, "w") as file:
+    if not os.path.exists(filePath):
+        with open(filePath, "w") as file:
             for key, value in dict1.items():
                 value_str = ",".join(str(a) for a in value)
                 file.write(f"{key}:{value_str}\n")
@@ -25,7 +26,8 @@ def getMaxCoordinate( allPaths , coordinate , initList):
     coordinateList = []
     for path in allPaths:
         newPath = [atom for atom in path if atom not in initList]
-        coordinateList.append(int(newPath[coordinate]))
+        if len(newPath) > 0:
+            coordinateList.append(int(newPath[coordinate]))
     coordinateList = list(set(coordinateList))
     return coordinateList
 
@@ -65,17 +67,17 @@ def main(substratesDir:str, contactDist: int  , saveDir):
         C1 , C2 , wildList = getC1C2(smiles , contactDist)
         C1 += 1 #switch to log file indexing 
         C2 += 1
-        wildList += 1 
+        wildList = [a + 1 for a in wildList]
         #print(identifications[0])
-        #print("C1" , C1 , "C2" , C2)
+        print("C1" , C1 , "C2" , C2)
         wildDict = {}
         mainPath = path.split("identification.dat")[0]
         fukuiData = glob.glob(mainPath + "/*.csv")[0]
         fukuiPD = pd.read_csv(fukuiData)
         C1List = C2List = None
         for _, row in fukuiPD.iterrows():
-            atom = int(row["atoms"])
-            #print(atom)
+            atom = round(row["atoms"])
+            print(atom)
             f_neg, f_pos, f_neut = row["f_neg"], row["f_pos"], row["f_neut"]
 
             if atom == C1:
@@ -85,7 +87,9 @@ def main(substratesDir:str, contactDist: int  , saveDir):
             elif atom in wildList:
                 wildDict[atom] = [f_neg, f_pos, f_neut]
         if C1List is None or C2List is None:
-            raise ValueError("C1 or C2 not found in Fukui data")
+            raise ValueError(f"C1 or C2 not found in Fukui data for {path}")
+        elif len(wildDict.keys()) == 0:
+            raise ValueError(f"Wildcards not found in Fukui data for {path}")
         dict2Dat(wildDict, saveDir , "WildFukuiVals")
         wild0 = []
         wildPlus = []
