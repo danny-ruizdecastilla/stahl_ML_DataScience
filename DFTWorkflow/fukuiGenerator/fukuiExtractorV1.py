@@ -248,8 +248,8 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
                     if conf in key:  # conf is a substring of the key
                         weight = boltzDict[key]
                         df = dfList[index]
-                        numericDF = df.select_dtypes(include='number') * weight * len(confList)
-                        nonNumericDF = df.select_dtypes(exclude='number')
+                        numericDF = df.select_dtypes(include=['float64', 'float32']) * weight * len(confList)
+                        nonNumericDF = df.select_dtypes(exclude=['float64', 'float32'])
                         finalDF = pd.concat([nonNumericDF, numericDF], axis=1)
                         weightedList.append(finalDF) 
             finalDF = getMeanDF(weightedList)
