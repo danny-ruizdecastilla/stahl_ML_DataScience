@@ -6,7 +6,6 @@ import json
 import numpy as np
 import html
 import plotly
-import plotly.io as pio
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
@@ -35,7 +34,7 @@ def htmlGenerator1(masterDF , outputDir, chemistry):
     <html>
     <head>
         <title>Scatter Plot with Hover Images</title>
-        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
         <script>
             const jsonData = {jsonMAST};
             const columnMapping = {json.dumps(columnMaps, ensure_ascii=False)};
@@ -274,6 +273,7 @@ def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outp
     masterDF = masterDF.drop(columns=['pngPath'])
     #print(masterDF.columns.tolist())
     htmlGenerator1(masterDF ,outputDir , chemistry )
+    return masterDF 
 if __name__ == "__main__":
     chemistriesDir = str(sys.argv[1])
     figDir = str(sys.argv[2])
@@ -292,5 +292,5 @@ if __name__ == "__main__":
     else: 
         eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType"  ]
     
-    main( chemistriesDir,chemistry ,  figDir , axisMotifs, eliminatedPhrases , outputDir )
+    masaterDF = main( chemistriesDir,chemistry ,  figDir , axisMotifs, eliminatedPhrases , outputDir )
 
