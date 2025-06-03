@@ -21,7 +21,7 @@ def listInputs(prompt:str):
         if len(partitionList) == 0 or any(part == ' ' for part in partitionList):
             print("Invalid Input. Enter at least 1 comma-seperated string")   
         else:
-            print("partition List:", partitionList)
+            print("Input List:", partitionList)
             conf = int(input("Confirm your strings entry by Typing 1: "))
             if conf == 1:
                 break
