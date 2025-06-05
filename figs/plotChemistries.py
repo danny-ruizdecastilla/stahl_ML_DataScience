@@ -50,7 +50,7 @@ def createAxisMotifs(axisNum):
         axisDict[name] = motifList
     return axisDict
 def htmlGenerator2(jsonDict, axisList, chemStr, outputDir):
-
+    htmlAxis = "".join([safeStringHTML(axis) for axis in axisList])
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -349,12 +349,12 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir):
 
                 <label for="xAxis">X-axis:</label>
                 <select id="xAxis">
-                    {axisList}
+                    {htmlAxis}
                 </select>
 
                 <label for="yAxis">Y-axis:</label>
                 <select id="yAxis">
-                    {axisList}
+                    {htmlAxis}
                 </select>
             </div>
             
@@ -391,8 +391,10 @@ def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir):
 
             base64 = png64(img)
             base64Col.append(base64)
-            masterDF["base64"] = base64Col
-            masterDF = masterDF.drop(columns=['pngPath'])
+        masterDF["base64"] = base64Col
+        masterDF = masterDF.drop(columns=['pngPath'])
+        if "Unnamed: 0" in masterDF.columns:
+            masterDF = masterDF.drop(columns=['Unnamed: 0'])
         shutil.rmtree(figDir)
     jsonDict = {}
     for file in chemistryFiles:
@@ -404,16 +406,17 @@ def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir):
             canonical = convertCanonical(smiles)
             matches = masterDF[masterDF["canonicalSMILES"] == canonical]
             if not matches.empty:
-                rowMatch = matches.head(1)
-                rowMatch["Yield"] = float(row["Yields"])
+                rowMatch = matches.head(1).copy()
+                rowMatch["Yield"] = float(row["Yield"])
                 df = pd.concat([df, rowMatch], ignore_index=True)
             else:
                 continue
-        jsonChem = chemDF.to_json(orient="records" , force_ascii=False )
+        jsonChem = df.to_json(orient="records" , force_ascii=False )
         jsonChem = jsonChem.replace('\\/', '/')
         dfName = str(chemistriesDict[chemName])
-        jsonDict[dfName] = jsonChem
+        jsonDict[dfName] = json.loads(jsonChem)
     axisList = masterDF.select_dtypes(include='number').columns
+    print(axisList)
     htmlGenerator2(jsonDict , axisList , chemistry , outputDir)
 
 
@@ -422,6 +425,8 @@ if __name__ == "__main__":
     substrateFile = str(sys.argv[2])
     chemistry = str(sys.argv[3])
     outputDir = str(sys.argv[4])
+    if not os.path.exists(outputDir):
+        os.makedirs(outputDir)
     initDataSets = glob.glob(chemistriesDir + "/*.csv")
     initdataSets = sorted(initDataSets)
     chemistryNames = [name.split("/")[-1].split(".")[0] for name in initdataSets]
@@ -433,13 +438,15 @@ if __name__ == "__main__":
     #print(chemistriesDict)
     dataOption = checkSubstratePath(substrateFile)
     if dataOption == 2:
-        sys.close()
+        sys.exit()
     elif dataOption == 1:
         datasetsDir = input("Enter the directory where the substrate Data resides: ")
         eliminatedPhrases = listInputs(f"Enter the dataframe eliminated phrases for {chemistry} chemistry: ")
         figDir = input("Enter the figure Directory: ")
+        if not os.path.exists(figDir):
+            os.makedirs(figDir)
         axisMotifs = createAxisMotifs(2)        
         masterDF = plotSubstratesMain(datasetsDir,chemistry , figDir  , axisMotifs, eliminatedPhrases , outputDir)
     elif dataOption== 0:
-        masaterDF = pd.read_csv(substrateFile , encoding='utf-8')
+        masterDF = pd.read_csv(substrateFile , encoding='utf-8')
     main(initDataSets , masterDF , chemistriesDict, chemistry, outputDir)
