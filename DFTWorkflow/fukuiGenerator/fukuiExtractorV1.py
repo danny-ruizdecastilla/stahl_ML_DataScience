@@ -117,7 +117,7 @@ def fukuiFunction(substrateDF):
     
     print("Fukui function calculation completed successfully")
     return substrateDF
-def extractOccupanciesNBO(logFile:str, extract1:str, extract2:str , location:str):
+def extractChargesNBO(logFile:str, extract1:str, extract2:str , location:str):
     lowerInd = locateinLog(logFile , extract1, location)
     upperInd = locateinLog(logFile , extract2, location )
     if upperInd == "Poison" or lowerInd == "Poison":
@@ -143,28 +143,26 @@ def extractOccupanciesNBO(logFile:str, extract1:str, extract2:str , location:str
                 atomOccupancies[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)]
     #print(atomOccupancies)
     return atomOccupancies
-def extractOccupanciesMull(logFile:str, extract1:str, extract2:str , location:str):
-
+def extractChargesCHELPG_Mull_NBO(logFile: str, extract1:str, extract2:str,location:str , Offset1 ,Offset2, numInd, atomInd ):
     lowerInd = locateinLog(logFile , extract1, location)
     upperInd = locateinLog(logFile , extract2, location )
+    if upperInd == "Poison" or lowerInd == "Poison":
+        raise ValueError(f"The Log file {logFile} did not terminate properly")
     atomOccupancies = {}
     with open(logFile , "r") as f:
         for idx, line in enumerate(f):
-            #print(lowerInd , upperInd)
-            if idx > int(lowerInd) + 1  and idx < int(upperInd)-1:
+            if idx > int(lowerInd) + Offset1  and idx < int(upperInd) + Offset2:
                 newLine = line.strip()
-                #print(newLine.split())
                 splits = newLine.split()
+                print(splits)
                 try:
-                    index = int(splits[1])
-                    occupancy = float(splits[4])
-                    atomName = str(splits[2])
-                    atomOccupancies[index] = [atomName , occupancy]
+                    index = int(splits[numInd])
+                    charge = float(splits[2])
+                    atomName = str(splits[atomInd])
+                    atomOccupancies[index] = [atomName , charge]
                 except ValueError:
-                    atom =  list(atomOccupancies.keys())[-1]
-                    atomOccupancies[atom][1] += float(splits[2])
-                    
-    return atomOccupancies
+                    continue
+    return atomOccupancies  
 def getMeanDF(dfList):
     combined = pd.concat(dfList, axis=0)
     numericCols = combined.select_dtypes(include=['float64', 'float32']).columns
@@ -210,9 +208,11 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
             else:
                 name1 = "neut"
             if densityStr == "NBO7":
-                occupanciesDict = extractOccupanciesNBO(dir,"Core      Valence    Rydberg" , "* Total *" , "earliest")
+                occupanciesDict = extractChargesCHELPG_Mull_NBO(dir,"Atom No    Charge        Core " , "* Total *" , "earliest", 1 , -1 , 1 , 0)
             elif densityStr == "mull":
-                occupanciesDict = extractOccupanciesMull(dir,"Gross orbital populations:" , "Condensed to atoms (all electrons):" , "earliest")
+                occupanciesDict = extractChargesCHELPG_Mull_NBO(dir," Mulliken charges and spin densities:" , " Sum of Mulliken charges =" , "latest" , 1 ,0,  0, 1 )
+            elif densityStr == "chelpg":
+                occupanciesDict = extractChargesCHELPG_Mull_NBO(dir," ESP charges:" , " Sum of ESP charges = " , "latest" , 1 ,0,  0, 1 )
             if not "atoms" in substrateDF.columns:
                 substrateDF["atoms"] = list(map(int, occupanciesDict.keys()))
             substrateDF["pop_" + name1] = [values[-1] for values in occupanciesDict.values()]
