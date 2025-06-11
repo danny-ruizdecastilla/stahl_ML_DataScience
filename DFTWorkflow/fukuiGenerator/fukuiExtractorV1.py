@@ -143,9 +143,11 @@ def extractChargesNBO(logFile:str, extract1:str, extract2:str , location:str):
                 atomOccupancies[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)]
     #print(atomOccupancies)
     return atomOccupancies
-def extractChargesCHELPG_Mull_NBO(logFile: str, extract1:str, extract2:str,location:str , Offset1 ,Offset2, numInd, atomInd ):
-    lowerInd = locateinLog(logFile , extract1, location)
-    upperInd = locateinLog(logFile , extract2, location )
+def extractChargesCHELPG_Mull_NBO_Hirsh(logFile: str, extract1:str, extract2:str,location1:str ,location2, Offset1 ,Offset2, numInd, atomInd ):
+    lowerInd = locateinLog(logFile , extract1, location1)
+    upperInd = locateinLog(logFile , extract2, location2 )
+    print(lowerInd)
+    print(upperInd)
     if upperInd == "Poison" or lowerInd == "Poison":
         raise ValueError(f"The Log file {logFile} did not terminate properly")
     atomOccupancies = {}
@@ -171,17 +173,24 @@ def getMeanDF(dfList):
     stringDF = combined[stringCols].groupby(combined.index).first()
     finalDF = pd.concat([stringDF, meanDF], axis=1)
     return finalDF
-
+def fixNeutrals(log):
+    name = log.split("/")[-1].split(".")[0]
+    #print(name)
+    if "neutral" in name:
+        newName = str(name.split("_neutral")[0])
+        return newName
+    else:
+        return name
 def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
     substrateScope = pd.read_csv(substrateCSV, encoding='utf-8')
     smileString = substrateScope["SMILES"]
     substrateName = substrateScope["ID"]
     neutralLogs = glob.glob(logDir + "/*.log")
     logsDicts = {}
-
     for log in neutralLogs:
+        logName = fixNeutrals(log)
+
         logList = []
-        logName = log.split("/")[-1].split(".")[0]
         logList.append(log)
         if os.path.exists(cationDir + "/" + logName + "_cation.log"):
             logList.append(cationDir + "/" + logName + "_cation.log")
@@ -208,11 +217,13 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
             else:
                 name1 = "neut"
             if densityStr == "NBO7":
-                occupanciesDict = extractChargesCHELPG_Mull_NBO(dir,"Atom No    Charge        Core " , "* Total *" , "earliest", 1 , -1 , 1 , 0)
+                occupanciesDict = extractChargesCHELPG_Mull_NBO_Hirsh(dir,"Atom No    Charge        Core " , "* Total *" , "earliest", "earliest" , 1 , -1 , 1 , 0)
             elif densityStr == "mull":
-                occupanciesDict = extractChargesCHELPG_Mull_NBO(dir," Mulliken charges and spin densities:" , " Sum of Mulliken charges =" , "latest" , 1 ,0,  0, 1 )
+                occupanciesDict = extractChargesCHELPG_Mull_NBO_Hirsh(dir," Mulliken charges", " Sum of Mulliken charges =" , "earliest" ,"earliest", 1 ,0,  0, 1 )
             elif densityStr == "chelpg":
-                occupanciesDict = extractChargesCHELPG_Mull_NBO(dir," ESP charges:" , " Sum of ESP charges = " , "latest" , 1 ,0,  0, 1 )
+                occupanciesDict = extractChargesCHELPG_Mull_NBO_Hirsh(dir," ESP charges:" , " Sum of ESP charges = " , "latest" ,"latest", 1 ,0,  0, 1 )
+            elif densityStr == "hirsh":
+                occupanciesDict = extractChargesCHELPG_Mull_NBO_Hirsh(dir,"              Q-H" , "       Tot " , "earliest" ,"latest", 0 ,0,  0, 1 )
             if not "atoms" in substrateDF.columns:
                 substrateDF["atoms"] = list(map(int, occupanciesDict.keys()))
             substrateDF["pop_" + name1] = [values[-1] for values in occupanciesDict.values()]
