@@ -105,17 +105,16 @@ def fukuiFunction(substrateDF):
         substrateDF.insert(len(substrateDF.columns), "f_neut", 0)
         for index, row in substrateDF.iterrows():
             # f- (nucleophilic attack): q(N) - q(N+1) 
-            substrateDF.loc[index, "f_neg"] = row["pop_neut"] - row["pop_cat"]
+            substrateDF.loc[index, "f_neg"] = float(row["pop_neut"] - row["pop_cat"])
             # f+ (electrophilic attack): q(N-1) - q(N)
-            substrateDF.loc[index, "f_pos"] = row["pop_an"] - row["pop_neut"]
+            substrateDF.loc[index, "f_pos"] = float(row["pop_an"] - row["pop_neut"])
             # f0 (radical attack): 0.5 * [q(N-1) - q(N+1)]
             substrateDF.loc[index, "f_neut"] = 0.5 * (float(row["pop_an"]) - float(row["pop_cat"])) 
                 
     except Exception as e:
         print(f"Unexpected error in fukuiFunction: {e}")
         return None
-    
-    print("Fukui function calculation completed successfully")
+    #print("Fukui function calculation completed successfully")
     return substrateDF
 def extractChargesNBO(logFile:str, extract1:str, extract2:str , location:str):
     lowerInd = locateinLog(logFile , extract1, location)
@@ -131,7 +130,7 @@ def extractChargesNBO(logFile:str, extract1:str, extract2:str , location:str):
                 #print(occupancyLines)
                 atomNums = occupancyLines[0].split("   ")
                 atomInd = atomNums[0].split()
-                print(atomInd)
+                #print(atomInd)
                 
                 #print(occupancyLines[1:])
                 nums = []
@@ -146,8 +145,8 @@ def extractChargesNBO(logFile:str, extract1:str, extract2:str , location:str):
 def extractChargesCHELPG_Mull_NBO_Hirsh(logFile: str, extract1:str, extract2:str,location1:str ,location2, Offset1 ,Offset2, numInd, atomInd ):
     lowerInd = locateinLog(logFile , extract1, location1)
     upperInd = locateinLog(logFile , extract2, location2 )
-    print(lowerInd)
-    print(upperInd)
+    #print(lowerInd)
+    #print(upperInd)
     if upperInd == "Poison" or lowerInd == "Poison":
         raise ValueError(f"The Log file {logFile} did not terminate properly")
     atomOccupancies = {}
@@ -156,7 +155,7 @@ def extractChargesCHELPG_Mull_NBO_Hirsh(logFile: str, extract1:str, extract2:str
             if idx > int(lowerInd) + Offset1  and idx < int(upperInd) + Offset2:
                 newLine = line.strip()
                 splits = newLine.split()
-                print(splits)
+                #print(splits)
                 try:
                     index = int(splits[numInd])
                     charge = float(splits[2])
@@ -246,6 +245,7 @@ def main(logDir , cationDir, anionDir , substrateCSV, outputDir , densityStr ):
     for identification , dfList in substrateDictMAST.items():
         print(identification[0])
         logPaths = [log for log in neutralLogs if identification[0] in log]
+        #print(logPaths)
         confList = list(identification[2:])
         if len(dfList) == 0 or len(confList) == 0:
             print(identification[0] + " Does not have any confomers in this directory")
