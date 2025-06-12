@@ -242,7 +242,7 @@ def htmlGenerator1(masterDF , outputDir, chemistry):
     """
     with open(outputDir + "/" + chemistry + "interactiveMASTER.html", "w", encoding="utf-8") as f:
         f.write(html)
-def main(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outputDir ):
+def plotSubstratesMain(substrateData,chemistry ,  figDir , axisMotifs, eliminatedPhrases, outputDir ):
     initdataSets = glob.glob(substrateData + "/*.csv")
     initdataSets = sorted(initdataSets)
     Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases , outputDir , "rawUnprocessed")
@@ -290,7 +290,7 @@ if __name__ == "__main__":
             content = file.read()
             eliminatedPhrases = [item.strip() for item in content.split(',') if item.strip()]
     else: 
-        eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType"  ]
+        eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType",  "Unnamed" ]
     
-    masaterDF = main( chemistriesDir,chemistry ,  figDir , axisMotifs, eliminatedPhrases , outputDir )
+    masterDF = plotSubstratesMain( chemistriesDir,chemistry ,  figDir , axisMotifs, eliminatedPhrases , outputDir )
 
