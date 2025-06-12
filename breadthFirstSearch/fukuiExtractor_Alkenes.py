@@ -59,7 +59,7 @@ def main(substratesDir:str, contactDist: int  , saveDir):
                                           "C2_fuk_neg" , "C2_fuk_pos" , "C2_fuk_neut" 
                                              ,"delta_fuk_neg" , "delta_fuk_pos" , "delta_fuk_neut"  , 
                                              "CMax_fuk_neg" , "CMax_fuk_pos" , "CMax_fuk_neut",
-                                             "maxWild_fuk_neg", "maxWild_fuk_pos" , "maxWild_fuk_neut"  ])
+                                             "maxRel_fuk_neg", "maxRel_fuk_pos" , "maxRel_fuk_neut"  ])
     for i , path in enumerate(substratePaths):
         identifications = readDat(path)
         smiles = identifications[-1]
@@ -75,11 +75,18 @@ def main(substratesDir:str, contactDist: int  , saveDir):
         fukuiData = glob.glob(mainPath + "/*.csv")[0]
         fukuiPD = pd.read_csv(fukuiData)
         C1List = C2List = None
+        max_fneg = max_fpos = max_fneut = 0
+
         for _, row in fukuiPD.iterrows():
             atom = round(row["atoms"])
             print(atom)
             f_neg, f_pos, f_neut = row["f_neg"], row["f_pos"], row["f_neut"]
-
+            if f_neg > max_fneg:
+                max_fneg = f_neg
+            if f_pos > max_fpos:
+                max_fpos = f_pos
+            if f_neut > max_fneut:
+                max_fneut = f_neut
             if atom == C1:
                 C1List = [f_neg, f_pos, f_neut]
             elif atom == C2:
@@ -104,7 +111,12 @@ def main(substratesDir:str, contactDist: int  , saveDir):
         maxFukNeg = max([C1List[0] , C2List[0]])
         maxFukPos = max([C1List[1] , C2List[1]])
         maxFukNeut = max([C1List[2] , C2List[2]])
+        maxRelNeg = abs(maxFukNeg - max_fneg)
+        maxRelPos = abs(maxFukPos - max_fpos)
+        maxRelNeut = abs(maxFukNeut - max_fneut)
+
         deltaFuk = [abs(a - b) for a, b in zip(C1List, C2List)]
+
         canonical = convertCanonical(smiles)
         newRow = pd.DataFrame([{
             "SMILES": smiles,
@@ -113,7 +125,7 @@ def main(substratesDir:str, contactDist: int  , saveDir):
             "C2_fuk_neg": C2List[0],"C2_fuk_pos": C2List[1],"C2_fuk_neut": C2List[2],
             "delta_fuk_neg": deltaFuk[0],"delta_fuk_pos": deltaFuk[1],"delta_fuk_neut": deltaFuk[2], 
             "CMax_fuk_neg": maxFukNeg , "CMax_fuk_pos":maxFukPos , "CMax_fuk_neut": maxFukNeut,
-            "maxWild_fuk_neg" : maxWild_neg, "maxWild_fuk_pos": maxWild_pos , "maxWild_fuk_neut": maxWild_0  
+            "maxRel_fuk_neg" : maxRelNeg, "maxRel_fuk_pos": maxRelPos , "maxRel_fuk_neut": maxRelNeut  
         }])
         substrateDF = pd.concat([substrateDF, newRow], ignore_index=True)
     return substrateDF
@@ -123,4 +135,10 @@ if __name__ == "__main__":
     saveDir = str(sys.argv[3])
     saveStr = str(sys.argv[4])
     substrateDF = main(fukuiOutputs , contactDist , saveDir)
+    charge_theory = str(sys.argv[5])
+    columns = substrateDF.columns.tolist()
+    for i, col in enumerate(columns):
+        if "fuk" in col:
+            columns[i] = charge_theory + "_" + col
+    substrateDF.columns = columns
     createCSV(substrateDF , saveDir , saveStr)
