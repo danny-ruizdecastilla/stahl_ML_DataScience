@@ -54,6 +54,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir):
     html = f"""
     <!DOCTYPE html>
     <html>
+    <meta charset="UTF-8">
     <head>
         <title>Scatter Plot with Hover Images</title>
         <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
