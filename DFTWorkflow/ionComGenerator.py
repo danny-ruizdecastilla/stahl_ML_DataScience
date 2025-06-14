@@ -55,7 +55,7 @@ def comWriter(comFile:str, **kwargs ):
     else:
         guess = str(kwargs["guess"])
     if kwargs.get("symmetry") is None:
-        symmetry = "loose"
+        symmetry = "tight"
     else:
         symmetry = str(kwargs["symmetry"])
     if kwargs.get("prop") is None:
@@ -172,9 +172,6 @@ if __name__ == "__main__":
     comDir = str(sys.argv[3])
     chkDir = str(sys.argv[4])
     popType = str(sys.argv[5])
-    if popType == "chelpg":
-        iop = " iop(6/50=1) "
-    else:
-        iop = " "
+    iop = " "
     theory = int(sys.argv[6])
     main(logDir , netCharge , comDir , chkDir , popType, theory, iop)
