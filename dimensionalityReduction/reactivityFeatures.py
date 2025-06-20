@@ -59,11 +59,42 @@ def selectChemistries(mainDir ):
 
             break 
     return fileList , prompt2
-def featureOverYield(outputDir , reactivityStr, chemistires, dataDir):
-     
-if __name__ == "__main__":
-    dataDir = str(sys.argv[1])
-    chemList  , reactivityParm= selectChemistries(dataDir)
-    outputDir = input("Enter an output directory for the scatterplots: ")
+def featureOverYield(outputDir , reactivityStr, chemistries, dataDir):
+    if "csv" in dataDir:
+        dfMAST = pd.read_csv(dataDir)
+    elif "xlsx" in dataDir:
+        dfMAST = pd.read_excel(dataDir)
+    chemDFMAST = pd.DataFrame()
+    for chemistry in chemistries:
+        df = pd.read_csv(chemistry)
+        stringCols = list(df.select_dtypes(include='string').columns)
+        stringBox = boxGen(stringCols)
+        prompt1 = f"""These are the columns of dtype strings:\n {stringBox}
+        Using the corresponding number, select the one with the chemical structures of choice:\n
+        """
+        while True:
+            try:
+                smileInd = int(input(prompt1))
+                break
+            except ValueError:
+                print(f"Invalid input. Please enter a single whole number:\n")
 
+        smilesCols = stringCols[smileInd]
+        convert = input(f"Do you want to convert to canonical SMILES (recommended)?\n[1] == Yes\n[2] == No")
+        while True:
+            try:
+                convert = int(convert)
+                if convert == 1:
+                
+                elif convert == 2:
+                    
+                break
+            except ValueError:
+                print(f"Invalid input. Please enter either [1] or [2]\n")  
+if __name__ == "__main__":
+    chemDir = str(sys.argv[1])
+    dataDir = str(sys.argv[2])
+    chemList  , Yield= selectChemistries(chemDir)
+    outputDir = input("Enter an output directory for the scatterplots: ")
+    featureOverYield(outputDir , Yield, chemList , dataDir )
 
