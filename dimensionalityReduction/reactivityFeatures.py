@@ -176,7 +176,7 @@ def featureOverYield(outputDir , reactivityStr, chemistries, dataDir):
             print(f"Invalid input. Please enter either [1] or [2]\n") 
     dropIdx = []
     newCols = [col for col in dfMAST.columns if col not in stringCols2]
-    dfMAST = dfMAST.drop_duplicates()
+    dfMAST = dfMAST.drop_duplicates(subset=[smileStrMAST])
     featureDict = dfMAST.set_index(smileStrMAST).to_dict('index')
     for index, row in chemDFMAST.iterrows():
         canonical = row["canonicalSMILES"]
