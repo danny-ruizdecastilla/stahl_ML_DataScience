@@ -26,13 +26,12 @@ def getDeltaPairs(atom1:str, atom2:str , featureList):
         feat2 = feat.replace("diffAtom" , atom2)
         pairs.append([feat1 , feat2])
     return pairs
-def getWilds(c1Dict ,c2Dict, columns):#consolidates all the wildcard columns of 4 into 1 dict 
 
 def abstractFeats(df , elimSet , atom1, atom2):
     unfilteredColumns = list(df.columns)
     filteredCols = [f for f in unfilteredColumns if not any(sub in f for sub in elimSet)]
     deltaPairs = getDeltaPairs(atom1 , atom2, list(filteredCols))
-    wildColumns = getWilds(atom1 , atom2 , list(filteredCols))
+    
     print("deltaPairs" , deltaPairs)
     for pair in deltaPairs:
         if pair[0] in df.columns and pair[1] in df.columns:
@@ -69,4 +68,4 @@ if __name__ == "__main__":
     for dfDir in dataframes:
         df = pd.read_csv(dfDir , encoding='utf-8')
         dfWithDeltas = abstractFeats(df , elimSet , atom1 , atom2)
-        createCSV(df , outputDir , str(dfDir.split("/")[-1].split(".")[0]))
+        createCSV(dfWithDeltas , outputDir , str(dfDir.split("/")[-1].split(".")[0]))
