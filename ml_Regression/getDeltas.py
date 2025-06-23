@@ -26,17 +26,33 @@ def getDeltaPairs(atom1:str, atom2:str , featureList):
         feat2 = feat.replace("diffAtom" , atom2)
         pairs.append([feat1 , feat2])
     return pairs
-def getDeltaFeats(df , elimSet , atom1, atom2):
+def getWilds(c1Dict ,c2Dict, columns):#consolidates all the wildcard columns of 4 into 1 dict 
+
+def abstractFeats(df , elimSet , atom1, atom2):
     unfilteredColumns = list(df.columns)
     filteredCols = [f for f in unfilteredColumns if not any(sub in f for sub in elimSet)]
     deltaPairs = getDeltaPairs(atom1 , atom2, list(filteredCols))
+    wildColumns = getWilds(atom1 , atom2 , list(filteredCols))
     print("deltaPairs" , deltaPairs)
     for pair in deltaPairs:
         if pair[0] in df.columns and pair[1] in df.columns:
             name = f"delta({pair[0]}_{pair[1]})"
-            df[name] = abs(df[pair[0]] - df[pair[1]])
+            df[name] = df[pair[0]] - df[pair[1]]
+            featMin = df[[pair[0] , pair[1]]].max(axis=1)
+            featMax = df[[pair[0] , pair[1]]].min(axis=1)
+            if atom1 in pair[0]:
+                maxName = pair[0].split(atom1)[0] + "Cmax" + pair[0].split(atom1)[-1]
+                minName = pair[0].split(atom1)[0] + "Cmin" + pair[0].split(atom1)[-1]
+                df[maxName] = featMax
+                df[minName] = featMin
+            elif atom1 in pair[1]:
+                maxName = pair[1].split(atom1)[0] + "Cmax" + pair[1].split(atom1)[-1]
+                minName = pair[1].split(atom1)[0] + "Cmin" + pair[1].split(atom1)[-1]
+                df[maxName] = featMax
+                df[minName] = featMin               
         else:
             print(f"Columns {pair[0]} or {pair[1]} not found")
+    
     return df
 if __name__ == "__main__":
     featureDir = str(sys.argv[1])
@@ -52,5 +68,5 @@ if __name__ == "__main__":
     dataframes = glob.glob(featureDir + "/*.csv")
     for dfDir in dataframes:
         df = pd.read_csv(dfDir , encoding='utf-8')
-        dfWithDeltas = getDeltaFeats(df , elimSet , atom1 , atom2)
+        dfWithDeltas = abstractFeats(df , elimSet , atom1 , atom2)
         createCSV(df , outputDir , str(dfDir.split("/")[-1].split(".")[0]))
