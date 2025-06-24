@@ -39,12 +39,19 @@ def getSubstitutionList(smilesList):
             if len(contactList) == 2:
                 ccDict[C1] = contactList
         wildCards = [atom for sublist in ccDict.values() for atom in sublist]
-        hydrogens = []
+        hydrogens = 0
         for wildcard in wildCards:
+            atom = molec.GetAtomWithIdx(wildcard)
+            atom1 = str(atom.GetSymbol())
+            if atom1 == "H":
+                hydrogens += 1
+        if hydrogens == 2:
+            addended = cisortrans(molec, g, ccDict)
+            hydrogens += addended
+         
 
-def cisortrans(molec , graph , C1C2):
-    positionsDict = {}
-    while True:
+def cisortrans(molec , graph , ccDict):
+    
         
 def main(featureDir , outputDir):
     featureList = glob.glob("/*.csv")
@@ -55,7 +62,7 @@ def main(featureDir , outputDir):
             smilesList = df["SMILES"]
             substitutionList = getSubstitutionList(smilesList)
         else:
-            
+
 if __name__ == "__main__":
     featureDir = str(sys.argv[1])
     outputDir = str(sys.argv[2])
