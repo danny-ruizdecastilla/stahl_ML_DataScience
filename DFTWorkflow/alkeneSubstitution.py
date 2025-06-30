@@ -50,6 +50,7 @@ def minFirstSearch(atomList , g , rejections):
     return graphSubstitutions
 
 def getSubstitutionList(smilesList):
+    substitutionList = []
     for smiles in smilesList:
         cc , molec = getCC(smiles)
         molec = Chem.AddHs(molec) 
@@ -85,7 +86,9 @@ def getSubstitutionList(smilesList):
             
             addended = cistransterminal(molec, g, ccDict)
             hydrogens += addended
+        substitutionList.append(hydrogens)
          
+    return substitutionList
 
 def cistransterminal(molec , graph , ccDict):
     carbonDict = {}
@@ -101,6 +104,7 @@ def cistransterminal(molec , graph , ccDict):
         else:
             carbonDict[carbon] = motifList
     
+    
 
   
 def main(featureDir , outputDir):
@@ -111,8 +115,10 @@ def main(featureDir , outputDir):
         if "SMILES" in stringCols:
             smilesList = df["SMILES"]
             substitutionList = getSubstitutionList(smilesList)
+            df["alkeneSubstitution"] = substitutionList
         else:
-
+            raise ("SMILES column not found in Dataframe")
+        
 if __name__ == "__main__":
     featureDir = str(sys.argv[1])
     outputDir = str(sys.argv[2])
