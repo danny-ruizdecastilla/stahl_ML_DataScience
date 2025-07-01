@@ -46,10 +46,12 @@ if __name__ == "__main__":
     atom2 = c1c2list[1]
     elimFile = str(sys.argv[2])
     outputDir = str(sys.argv[3])
+    if not os.path.exists(outputDir):
+        os.makedirs(outputDir)
     if os.path.exists(elimFile):
         elimPhrases = dat2List(elimFile , " , ")
     else: 
-        elimPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType", "stdev" , "max" , "pyramid" , "range"]
+        elimPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType", "stdev" , "max" , "pyramid" , "range" , "dihedral"]
     elimSet = set(elimPhrases)
     dataframes = glob.glob(featureDir + "/*.csv")
     for dfDir in dataframes:

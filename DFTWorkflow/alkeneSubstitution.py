@@ -39,7 +39,8 @@ def getSubstitutionList(smilesList):
                 if atom == 1:
                     #This is the hard limit of the scope
                     contactList.append(i)
-            contactList.pop(C2)
+            if C2 in contactList:
+                contactList.remove(C2)
             if len(contactList) == 2:
                 ccDict[C1] = contactList
         wildCards = [atom for sublist in ccDict.values() for atom in sublist]
@@ -50,7 +51,7 @@ def getSubstitutionList(smilesList):
             if atom1 == "H":
                 hydrogens += 1
         if hydrogens <=2:
-            
+            print(smiles)
             addended = cistransterminal(molec, g, ccDict)
             hydrogens += addended
         substitutionList.append(hydrogens)
@@ -62,6 +63,7 @@ def cistransterminal(molec , graph , ccDict):
     for carbon , startAtoms  in ccDict.items():
         rejections = [carbon , startAtoms[0] , startAtoms[1]]
         pathDict = maxPathCompare(molec, graph, startAtoms, rejections)
+        print(pathDict)
         weights = [dq[0] for dq in pathDict.values()]
         if weights[0] == weights[1]:
             #same weights, terminal alkene 
@@ -80,6 +82,7 @@ def cistransterminal(molec , graph , ccDict):
     if "." in smiles1:
         raise ValueError(". in the subMolec, incorrect path")
     else:
+        print(smiles1)
         slashCount= smiles1.count('/')
         backslashCount = smiles1.count('\\')
         if slashCount == 2:
@@ -94,20 +97,22 @@ def cistransterminal(molec , graph , ccDict):
 
   
 def main(featureDir , outputDir):
-    featureList = glob.glob("/*.csv")
-    for featureDir in featureList:
-        df = pd.read_csv(featureDir)
+    featureList = glob.glob(featureDir + "/*.csv")
+    for featureFile in featureList:
+        df = pd.read_csv(featureFile)
         stringCols = list(df.select_dtypes(include='object').columns)
         if "SMILES" in stringCols:
             smilesList = df["SMILES"]
             substitutionList = getSubstitutionList(smilesList)
             df["alkeneSubstitution"] = substitutionList
         else:
-            raise ("SMILES column not found in Dataframe")
+            raise ValueError("SMILES column not found in DataFrame")
         createCSV(df , outputDir , outputDir.split("/")[-1].split(".")[0])
-        
+
         
 if __name__ == "__main__":
     featureDir = str(sys.argv[1])
     outputDir = str(sys.argv[2])
-    main(featureDir)
+    if not os.path.exists(outputDir):
+        os.makedirs(outputDir)
+    main(featureDir , outputDir)
