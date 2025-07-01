@@ -12,42 +12,9 @@ import chemdraw
 import pandas as pd
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
+from DFTWorkflow.featureMaping import  createCSV
 from breadthFirstSearch.radialBasedCorrelation import getCC,getAdjencyMatrix
-def minFirstSearch(atomList , g , rejections):
-    graphSubstitutions = {}
-    for j in range (len(atomList)): #Need to extend network to each carbon in the Alkene 
-        #print(j)
-        C1 = atomList[j] #leading Carbon 
-        print("carbon:" , C1)
-        atom = C1
-        branching = {}
-        atomConnections = [C1]
-        while True:
-            #print("atom" , atom)
-            #print(list(branching.values()))
-            contacts = list(g.neighbors(atom))
-            eligibles = [contact for contact in contacts if contact not in rejections]
-            #print("eligibles" , eligibles)
-            branching[atom] = len(eligibles)
-            if len(eligibles) == 0:
-                remainings = list(branching.values())
-                if all(value == 0 for value in remainings):
-                    break
-                else:
-                    remainingAtoms = [key for key, value in branching.items() if value != 0]
-                    nextAtom = min(remainingAtoms)
-                    #atomConnections.append(nextAtom)
-                    rejections.append(atom)
-                    atom = nextAtom
-            else:
-                
-                nextAtom = min(eligibles)
-                atomConnections.append(nextAtom)
-                print("nextAtom" , nextAtom)
-                rejections.append(atom)
-                atom = nextAtom
-            graphSubstitutions[C1] = atomConnections
-    return graphSubstitutions
+from breadthFirstSearch.graphTraversals import minFirstSearch,maxPathCompare
 
 def getSubstitutionList(smilesList):
     substitutionList = []
@@ -82,7 +49,7 @@ def getSubstitutionList(smilesList):
             atom1 = str(atom.GetSymbol())
             if atom1 == "H":
                 hydrogens += 1
-        if hydrogens == 2:
+        if hydrogens <=2:
             
             addended = cistransterminal(molec, g, ccDict)
             hydrogens += addended
@@ -91,20 +58,39 @@ def getSubstitutionList(smilesList):
     return substitutionList
 
 def cistransterminal(molec , graph , ccDict):
-    carbonDict = {}
+    idxMAST = []
     for carbon , startAtoms  in ccDict.items():
-        pathDict = minFirstSearch(startAtoms , graph , list(ccDict.keys()))#gives path 1, path 2 centered on Alkene carbon of interest
-        motifList = []
-        for atom , path in pathDict.items():
-            motifSMILES = Chem.MolFragmentToSmiles(molec, path, kekuleSmiles=False)
-            motifList.append(motifSMILES)
-        if str(motifList[0][1]) == str(motifList[1][1]) == "H":
-            #alkene is terminal 
+        rejections = [carbon , startAtoms[0] , startAtoms[1]]
+        pathDict = maxPathCompare(molec, graph, startAtoms, rejections)
+        weights = [dq[0] for dq in pathDict.values()]
+        if weights[0] == weights[1]:
+            #same weights, terminal alkene 
             return 0
-        else:
-            carbonDict[carbon] = motifList
-    
-    
+        else: 
+            for atom , dq in pathDict.items():
+                lstdq = list(dq)
+                midpoint = len(lstdq) // 2
+                idxList= lstdq[midpoint:]
+                for idx in idxList:
+                    idxMAST.append(int(idx))
+            idxMAST.append(int(carbon))
+    idxSet = list(set(idxMAST))
+
+    smiles1 = Chem.MolFragmentToSmiles(molec, idxSet, kekuleSmiles=False)
+    if "." in smiles1:
+        raise ValueError(". in the subMolec, incorrect path")
+    else:
+        slashCount= smiles1.count('/')
+        backslashCount = smiles1.count('\\')
+        if slashCount == 2:
+            #Z alkene with Z brackets 
+            return -0.5
+        if backslashCount == 2:
+            #Z alkene with Z brackets 
+            return -0.5
+        if slashCount == 1 and backslashCount == 1:
+            #E Alkene
+            return -0.75
 
   
 def main(featureDir , outputDir):
@@ -118,6 +104,8 @@ def main(featureDir , outputDir):
             df["alkeneSubstitution"] = substitutionList
         else:
             raise ("SMILES column not found in Dataframe")
+        createCSV(df , outputDir , outputDir.split("/")[-1].split(".")[0])
+        
         
 if __name__ == "__main__":
     featureDir = str(sys.argv[1])
