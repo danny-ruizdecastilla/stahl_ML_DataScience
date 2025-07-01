@@ -442,7 +442,14 @@ if __name__ == "__main__":
         sys.exit()
     elif dataOption == 1:
         datasetsDir = input("Enter the directory where the substrate Data resides: ")
-        eliminatedPhrases = listInputs(f"Enter the dataframe eliminated phrases for {chemistry} chemistry: ")
+        eliminatedFile = listInputs(f"Enter the dataframe eliminated phrases for {chemistry} chemistry: ")
+        elimFile = eliminatedFile[0]
+        if os.path.exists(elimFile):
+            with open(elimFile, 'r') as file:
+                content = file.read()
+                eliminatedPhrases = [item.strip() for item in content.split(',') if item.strip()]
+        else: 
+            eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType",  "Unnamed" ]
         figDir = input("Enter the figure Directory: ")
         if not os.path.exists(figDir):
             os.makedirs(figDir)

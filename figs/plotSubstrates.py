@@ -262,7 +262,7 @@ def plotSubstratesMain(substrateData,chemistry ,  figDir , axisMotifs, eliminate
     axisDF , axisMotifs = pcafeatureSplitter(X , axisMotifs , 1 , outputDir)
     axisDF["canonicalSMILES"] = canonicalSMILES
     axisDF["SMILES"] = smileList
-    createCSV(axisDF , outputDir , "master " + str(chemistry)+ " Dataframe")
+    createCSV(axisDF , outputDir , "master_" + str(chemistry)+ "_Dataframe")
     masterDF = createPNGDF(axisDF ,"SMILES" , figDir)
     base64Col = []
     for img in list(masterDF["pngPath"]):
