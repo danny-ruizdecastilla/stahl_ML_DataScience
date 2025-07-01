@@ -19,7 +19,7 @@ from figs.chemPlotlyV2 import plotly_template , interactiveFigGenerator
 from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans , convertCanonical , featureFiltering
 #Danny Ruiz de Castilla 05.08.
 #Splits features into sterics vs electronics, reduces to PC1 and plots 
-def modularPCA(X , numDim: int, outputDir):
+def modularPCA(X , numDim: int, outputDir , saveStr):
     np.random.seed(42)
     scaler = StandardScaler()
     scaledX = scaler.fit_transform(X)
@@ -48,7 +48,7 @@ def modularPCA(X , numDim: int, outputDir):
     while j <= numDim: #get N dimensional explained features 
         pcStr = "PC" + str(j)
         pcFeatures = loadings[pcStr].abs().sort_values(ascending=False)
-        with open(outputDir + "/PC_featureExp/" + str(pcStr) + "loadings.dat", "w") as f:
+        with open(outputDir + "/PC_featureExp/" + str(pcStr) + saveStr + "loadings.dat", "w") as f:
             for key, values in pcFeatures.items():
                 print(values)
                 line = f"{key}\t{values}\n"
@@ -57,14 +57,14 @@ def modularPCA(X , numDim: int, outputDir):
 
     return dfPCA
 
-def pcafeatureSplitter(df , axisMotifs:dict , numDim: int , outputDir):
+def pcafeatureSplitter(df , axisMotifs:dict , numDim: int , outputDir ):
     for axis in list(axisMotifs.keys()):
         dfMin = pd.DataFrame()
         axisStrings = list(axisMotifs[axis])
         for col in df.columns:
             if any(sub in col for sub in axisStrings):
                 dfMin[col] = df[col]   
-        dfAxis = modularPCA(dfMin , numDim , outputDir)
+        dfAxis = modularPCA(dfMin , numDim , outputDir , axis)
         for col in dfAxis.columns:
             newCol = str(axis) + "_" + str(col)
             df[newCol] = dfAxis[col].copy()
