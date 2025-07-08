@@ -49,8 +49,20 @@ def createAxisMotifs(axisNum):
                 print("⚠️  Invalid input. Please enter 1 (yes) or 2 (no).")
         axisDict[name] = motifList
     return axisDict
-def htmlGenerator2(jsonDict, axisList, chemStr, outputDir):
+def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
     htmlAxis = "".join([safeStringHTML(axis) for axis in axisList])
+    all_values = []
+    for group in jsonDict.values():
+        all_values.extend(p[partitionStr] for p in group if partitionStr in p and isinstance(p[partitionStr], (int, float)))
+
+    if all_values:
+        sliderMin = min(all_values)
+        sliderMax = max(all_values)
+        sliderStart = round((sliderMin + sliderMax) / 2, 2)
+    else:
+        sliderMin = 0
+        sliderMax = 100
+        sliderStart = 50
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -77,16 +89,16 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir):
                     const jsonData = groupedData[groupKey];
                     
                     if (groupKey === selectedGroup) {{
-                        const above = jsonData.filter(p => p.Yield > threshold);
-                        const below = jsonData.filter(p => p.Yield <= threshold);
+                        const above = jsonData.filter(p => p["{partitionStr}"] > threshold);
+                        const below = jsonData.filter(p => p["{partitionStr}"] <= threshold);
                         if (above.length > 0) {{
                             const traceAbove = {{
                                 x: above.map(p => p[xCol]),
                                 y: above.map(p => p[yCol]),
                                 mode: 'markers',
                                 type: 'scatter',
-                                name: `${{groupKey}} (Yield > ${{threshold}}%)`,
-                                text: above.map(p => `Yield: ${{p.Yield}}%`),
+                                name: `${{groupKey}} ("{partitionStr}" > ${{threshold}})`,
+                                text: above.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
                                 customdata: above.map((p, i) => ({{
                                     id: p.SMILES || `point_${{i}}`, 
                                     image: p.base64 || null
@@ -109,8 +121,8 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir):
                                 y: below.map(p => p[yCol]),
                                 mode: 'markers',
                                 type: 'scatter',
-                                name: `${{groupKey}} (Yield ≤ ${{threshold}}%)`,
-                                text: below.map(p => `Yield: ${{p.Yield}}%`),
+                                name: `${{groupKey}} ("{partitionStr}" ≤ ${{threshold}})`,
+                                text: below.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
                                 customdata: below.map((p, i) => ({{
                                     id: p.SMILES || `point_${{i}}`, 
                                     image: p.base64 || null
@@ -138,7 +150,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir):
                             mode: 'markers',
                             type: 'scatter',
                             name: `${{groupKey}} (background)`,
-                            text: jsonData.map(p => `Yield: ${{p.Yield}}%`),
+                            text: jsonData.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
                             customdata: jsonData.map((p, i) => ({{
                                 id: p.SMILES || `point_${{i}}`, 
                                 image: p.base64 || null
@@ -361,8 +373,8 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir):
             
             <div class="control-row">
                 <div class="slider-container">
-                    <label for="yieldSlider">Yield Threshold:</label>
-                    <input type="range" id="yieldSlider" min="0" max="100" value="50" step="1">
+                    <label for="yieldSlider">"{partitionStr}" Threshold:</label>
+                    <input type="range" id="yieldSlider" min="{sliderMin}" max="{sliderMax}" value="{sliderStart}" step="1">
                     <span id="thresholdValue">50</span>%
                 </div>
             </div>
@@ -380,7 +392,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir):
     """
     with open(outputDir + "/" + chemStr + "interactiveMASTER.html", "w", encoding="utf-8") as f:
         f.write(html)
-def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir):
+def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir , partitionStr):
     cols = masterDF.columns
     if "base64" in cols:
         pass
@@ -400,7 +412,10 @@ def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir):
     jsonDict = {}
     for file in chemistryFiles:
         chemName = file.split("/")[-1].split(".")[0]
-        df = pd.DataFrame(columns=list(masterDF.columns) + ["Yield"])
+        columnList = list(masterDF.columns)
+        if not partitionStr in columnList:
+            columnList.append(partitionStr)
+        df = pd.DataFrame(columns= columnList)
         chemDF = pd.read_csv(file)  
         for _, row in chemDF.iterrows():
             smiles = row["SMILES"]
@@ -408,7 +423,7 @@ def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir):
             matches = masterDF[masterDF["canonicalSMILES"] == canonical]
             if not matches.empty:
                 rowMatch = matches.head(1).copy()
-                rowMatch["Yield"] = float(row["Yield"])
+                rowMatch[partitionStr] = float(row[partitionStr])
                 df = pd.concat([df, rowMatch], ignore_index=True)
             else:
                 continue
@@ -418,7 +433,7 @@ def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir):
         jsonDict[dfName] = json.loads(jsonChem)
     axisList = masterDF.select_dtypes(include='number').columns
     print(axisList)
-    htmlGenerator2(jsonDict , axisList , chemistry , outputDir)
+    htmlGenerator2(jsonDict , axisList , chemistry , outputDir, partitionStr)
 
 
 if __name__ == "__main__":
@@ -426,6 +441,7 @@ if __name__ == "__main__":
     substrateFile = str(sys.argv[2])
     chemistry = str(sys.argv[3])
     outputDir = str(sys.argv[4])
+    partitionStr = str(sys.argv[5])
     if not os.path.exists(outputDir):
         os.makedirs(outputDir)
     initDataSets = glob.glob(chemistriesDir + "/*.csv")
@@ -457,4 +473,4 @@ if __name__ == "__main__":
         masterDF = plotSubstratesMain(datasetsDir,chemistry , figDir  , axisMotifs, eliminatedPhrases , outputDir)
     elif dataOption== 0:
         masterDF = pd.read_csv(substrateFile , encoding='utf-8')
-    main(initDataSets , masterDF , chemistriesDict, chemistry, outputDir)
+    main(initDataSets , masterDF , chemistriesDict, chemistry, outputDir , partitionStr)
