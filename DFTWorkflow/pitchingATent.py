@@ -244,8 +244,6 @@ def eliminateNans(df, nanDict):
     df = df.reset_index(drop=True)
     return df
 def compressData(dataframeDirs , regressionStr , usualSuspects , saveDir , saveStr):
-    
-
     dataframeMast = pd.DataFrame()
     
     # Check if input is valid
@@ -297,9 +295,10 @@ def compressData(dataframeDirs , regressionStr , usualSuspects , saveDir , saveS
             yieldList = pd.Series()
 
         elimCol = [col for col in dataframeMast.columns if any(frag in col for frag in usualSuspects)]
-        createCSV(dataframeMast, saveDir , saveStr)
+        smileCol = pd.Series(smileList,  name="SMILES")
+        dataframeSave = pd.concat([dataframeMast, smileCol], axis=1)
+        createCSV(dataframeSave, saveDir , saveStr)
         dataframeMast = dataframeMast.drop(columns=elimCol)
-
         return dataframeMast, smileList , yieldList
         
     except Exception as e:
