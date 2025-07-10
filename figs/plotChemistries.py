@@ -49,9 +49,10 @@ def createAxisMotifs(axisNum):
                 print("⚠️  Invalid input. Please enter 1 (yes) or 2 (no).")
         axisDict[name] = motifList
     return axisDict
-def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
+def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
     plotChemStr = input("Name your new functional scatterplot: ")
     htmlAxis = "".join([safeStringHTML(axis) for axis in axisList])
+    
     all_values = []
     for group in jsonDict.values():
         all_values.extend(p[partitionStr] for p in group if partitionStr in p and isinstance(p[partitionStr], (int, float)))
@@ -64,6 +65,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
         sliderMin = 0
         sliderMax = 100
         sliderStart = 50
+    
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -71,7 +73,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
     <head>
         <title>Scatter Plot with Hover Images</title>
         <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
-        <script src="https://unpkg.com/simple-statisctics@7.8.3/dist/simple-statistics.min.js"></script>
+        <script src="https://unpkg.com/simple-statistics@7.8.3/dist/simple-statistics.min.js"></script>
         <script>
             const jsonDict = {json.dumps(jsonDict)};
             const groupedData = jsonDict;
@@ -86,6 +88,8 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                 document.getElementById("thresholdValue").textContent = threshold;
 
                 let traces = [];
+                let allXData = [];
+                let allYData = [];
 
                 for (const groupKey in groupedData) {{
                     const jsonData = groupedData[groupKey];
@@ -93,10 +97,16 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                     if (groupKey === selectedGroup) {{
                         const above = jsonData.filter(p => p["{partitionStr}"] > threshold);
                         const below = jsonData.filter(p => p["{partitionStr}"] <= threshold);
+                        
                         if (above.length > 0) {{
+                            const xData = above.map(p => p[xCol]);
+                            const yData = above.map(p => p[yCol]);
+                            allXData.push(...xData);
+                            allYData.push(...yData);
+                            
                             const traceAbove = {{
-                                x: above.map(p => p[xCol]),
-                                y: above.map(p => p[yCol]),
+                                x: xData,
+                                y: yData,
                                 mode: 'markers',
                                 type: 'scatter',
                                 name: `${{groupKey}} ("{partitionStr}" > ${{threshold}})`,
@@ -117,10 +127,16 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                             }};
                             traces.push(traceAbove);
                         }}
+                        
                         if (below.length > 0) {{
+                            const xData = below.map(p => p[xCol]);
+                            const yData = below.map(p => p[yCol]);
+                            allXData.push(...xData);
+                            allYData.push(...yData);
+                            
                             const traceBelow = {{
-                                x: below.map(p => p[xCol]),
-                                y: below.map(p => p[yCol]),
+                                x: xData,
+                                y: yData,
                                 mode: 'markers',
                                 type: 'scatter',
                                 name: `${{groupKey}} ("{partitionStr}" ≤ ${{threshold}})`,
@@ -146,9 +162,14 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                             traces.push(traceBelow);
                         }}
                     }} else {{
+                        const xData = jsonData.map(p => p[xCol]);
+                        const yData = jsonData.map(p => p[yCol]);
+                        allXData.push(...xData);
+                        allYData.push(...yData);
+                        
                         const trace = {{
-                            x: jsonData.map(p => p[xCol]),
-                            y: jsonData.map(p => p[yCol]),
+                            x: xData,
+                            y: yData,
                             mode: 'markers',
                             type: 'scatter',
                             name: `${{groupKey}} (background)`,
@@ -169,6 +190,63 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                         }};
                         traces.push(trace);
                     }}
+                }}
+
+                // Linear regression calculation
+                let lineTrace = null;
+                let equationAnnotation = null;
+                
+                if (allXData.length > 1 && document.getElementById("toggleFit").checked) {{
+                    try {{
+                        const dataPoints = allXData.map((x, i) => [x, allYData[i]]).filter(([x, y]) => 
+                            !isNaN(x) && !isNaN(y) && isFinite(x) && isFinite(y)
+                        );
+                        
+                        if (dataPoints.length > 1) {{
+                            const linearRegression = ss.linearRegression(dataPoints);
+                            const linearFn = ss.linearRegressionLine(linearRegression);
+                            const r2 = ss.rSquared(dataPoints, linearFn);
+                            
+                            const xFit = [Math.min(...allXData), Math.max(...allXData)];
+                            const yFit = xFit.map(x => linearFn(x));
+                            const slope = linearRegression.m.toFixed(3);
+                            const intercept = linearRegression.b.toFixed(3);
+                            const r2Text = r2.toFixed(4);
+                            const equation = `y = ${{slope}}x + ${{intercept}}<br>R² = ${{r2Text}}`;
+
+                            lineTrace = {{
+                                x: xFit,
+                                y: yFit,
+                                mode: 'lines',
+                                type: 'scatter',
+                                name: 'Fit Line',
+                                line: {{ dash: 'dot', width: 2, color: 'red' }},
+                                showlegend: false
+                            }};
+                            
+                            equationAnnotation = {{
+                                x: 0.05,
+                                y: 0.95,
+                                xref: 'paper',
+                                yref: 'paper',
+                                text: equation,
+                                showarrow: false,
+                                align: 'left',
+                                font: {{ size: 14 }},
+                                bordercolor: 'blue',
+                                borderwidth: 1,
+                                borderpad: 4,
+                                bgcolor: 'white',
+                                opacity: 0.9
+                            }};
+                        }}
+                    }} catch (error) {{
+                        console.warn('Linear regression failed:', error);
+                    }}
+                }}
+                
+                if (lineTrace) {{
+                    traces.push(lineTrace);
                 }}
 
                 const layout = {{
@@ -192,7 +270,8 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                         zeroline: false
                     }},
                     hovermode: 'closest',
-                    showlegend: false
+                    showlegend: true,
+                    annotations: equationAnnotation ? [equationAnnotation] : []
                 }};
 
                 const config = {{
@@ -209,11 +288,11 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
 
                 Plotly.newPlot('plotContainer', traces, layout, config).then(() => {{
                     const plotElement = document.getElementById('plotContainer');
+                    const imageContainer = document.getElementById('imageContainer');
                     
                     plotElement.on('plotly_hover', function(data) {{
                         const pointData = data.points[0];
                         const customData = pointData.customdata;
-                        const imageContainer = document.getElementById('imageContainer');
                         
                         if (customData && customData.image) {{
                             const imageSrc = customData.image.startsWith('data:') ? 
@@ -239,7 +318,6 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                     }});
                     
                     plotElement.on('plotly_unhover', function(data) {{
-                        const imageContainer = document.getElementById('imageContainer');
                         imageContainer.innerHTML = `
                             <h3>Hover Image</h3>
                             <div class="image-placeholder">Hover over a point to see its image</div>
@@ -262,15 +340,19 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                 const xAxisSelect = document.getElementById("xAxis");
                 const yAxisSelect = document.getElementById("yAxis");
                 const yieldSlider = document.getElementById("yieldSlider");
+                const toggleFit = document.getElementById("toggleFit");
                 
                 if (xAxisSelect && yAxisSelect) {{
                     xAxisSelect.selectedIndex = 0;
                     yAxisSelect.selectedIndex = 1;
                     plotData();
+                    
+                    // Add event listeners
                     xAxisSelect.addEventListener("change", plotData);
                     yAxisSelect.addEventListener("change", plotData);
                     dropdown.addEventListener("change", plotData);
                     yieldSlider.addEventListener("input", plotData);
+                    toggleFit.addEventListener("change", plotData);
                 }}
             }};
 
@@ -314,7 +396,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
             }}
             .linRegChk {{
                 display: flex;
-                align-items: left;
+                align-items: center;
                 gap: 10px;
             }}
             input[type="range"] {{
@@ -405,6 +487,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
     </body>
     </html>
     """
+    
     with open(outputDir + "/" + chemStr + "interactiveMASTER.html", "w", encoding="utf-8") as f:
         f.write(html)
 def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir , partitionStr):
