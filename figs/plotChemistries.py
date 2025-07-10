@@ -50,6 +50,7 @@ def createAxisMotifs(axisNum):
         axisDict[name] = motifList
     return axisDict
 def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
+    plotChemStr = input("Name your new functional scatterplot: ")
     htmlAxis = "".join([safeStringHTML(axis) for axis in axisList])
     all_values = []
     for group in jsonDict.values():
@@ -70,6 +71,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
     <head>
         <title>Scatter Plot with Hover Images</title>
         <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+        <script src="https://unpkg.com/simple-statisctics@7.8.3/dist/simple-statistics.min.js"></script>
         <script>
             const jsonDict = {json.dumps(jsonDict)};
             const groupedData = jsonDict;
@@ -310,6 +312,11 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                 align-items: center;
                 gap: 10px;
             }}
+            .linRegChk {{
+                display: flex;
+                align-items: left;
+                gap: 10px;
+            }}
             input[type="range"] {{
                 width: 200px;
             }}
@@ -351,7 +358,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
         </style>
     </head>
     <body>
-        <h1>Literature Based Alkene Epoxidation Substrate Space</h1>
+        <h1>{plotChemStr}</h1>
 
         <div class="controls">
             <div class="control-row">
@@ -376,6 +383,14 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir , partitionStr):
                     <label for="yieldSlider">"{partitionStr}" Threshold:</label>
                     <input type="range" id="yieldSlider" min="{sliderMin}" max="{sliderMax}" value="{sliderStart}" step="1">
                     <span id="thresholdValue">50</span>%
+                </div>
+            </div>
+            <div class="control-row">
+                <div class="linRegChk">
+                    <label>
+                        <input type="checkbox" id="toggleFit" checked/>
+                        Show Fit line
+                    </label>
                 </div>
             </div>
         </div>
