@@ -7,15 +7,20 @@ import re
 #Edits com files
 def editComs(comFile , comDict , comType , chkName):
     machineStr = f"%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n"
-    geomTheory = f"# {comDict["geom"]} int=(grid=fine) opt freq=noraman"
+    geomTheory = comDict["geom"]
+    solventType = comDict["solvent"]
+    HNMR = comDict["HNMR"]
+    CNMR = comDict["CNMR"]
+    geomTheory = f"# {geomTheory} int=(grid=fine) opt freq=noraman"
     if comType == 1:
-        linkList = [f"--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {comDict["energy"]} int=(grid=fine) SP guess=read geom=check {comDict["solvent"]}\n {chkName}.xyz\n0 1\n" , 
-                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {comDict["HNMR"]} int=(grid=fine) nmr=giao guess=read geom=check {comDict["solvent"]}\n {chkName}.xyz\n0 1\n" , 
-                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {comDict["CNMR"]} int=(grid=fine) nmr=giao guess=read geom=check {comDict["solvent"]}\n{chkName}.xyz\n0 1\n"]
+        spEnergy = comDict["energy"]
+        linkList = [f"--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {spEnergy} int=(grid=fine) SP guess=read geom=check {solventType}\n {chkName}.xyz\n0 1\n" , 
+                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {HNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n {chkName}.xyz\n0 1\n" , 
+                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n{chkName}.xyz\n0 1\n"]
 
     elif comType == 2:
-        linkList = [f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {comDict["HNMR"]} int=(grid=fine) nmr=giao guess=read geom=check {comDict["solvent"]}\n {chkName}.xyz\n0 1\n" , 
-                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {comDict["CNMR"]} int=(grid=fine) nmr=giao guess=read geom=check {comDict["solvent"]}\n{chkName}.xyz\n0 1\n"]
+        linkList = [f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {HNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n {chkName}.xyz\n0 1\n" , 
+                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n{chkName}.xyz\n0 1\n"]
 
     modifiedLines = []
     with open(comFile, 'r') as f:
