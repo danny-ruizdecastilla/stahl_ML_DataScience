@@ -11,16 +11,18 @@ def editComs(comFile , comDict , comType , chkName):
     solventType = comDict["solvent"]
     HNMR = comDict["HNMR"]
     CNMR = comDict["CNMR"]
-    geomTheory = f"# {geomTheory} int=(grid=fine) opt freq=noraman"
+    
     if comType == 1:
+        geomTheory = f"# {geomTheory} int=(grid=fine) opt freq=noraman\n"
         spEnergy = comDict["energy"]
         linkList = [f"--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {spEnergy} int=(grid=fine) SP guess=read geom=check {solventType}\n {chkName}.xyz\n0 1\n" , 
-                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {HNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n {chkName}.xyz\n0 1\n" , 
-                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n{chkName}.xyz\n0 1\n"]
+                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {HNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n\n {chkName}.xyz\n\n0 1\n" , 
+                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n {chkName}.xyz\n0 1\n\n"]
 
     elif comType == 2:
-        linkList = [f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {HNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n {chkName}.xyz\n0 1\n" , 
-                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n{chkName}.xyz\n0 1\n"]
+        geomTheory = f"# {geomTheory} int=(grid=fine) opt freq=noraman {solventType}\n"
+        linkList = [f"--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {HNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n\n {chkName}.xyz\n\n0 1\n" , 
+                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n {chkName}.xyz\n0 1\n\n"]
 
     modifiedLines = []
     with open(comFile, 'r') as f:
@@ -54,4 +56,4 @@ if __name__ == "__main__":
         inputDict = {"geom" : "B3LYP/6-31G(d)" , "energy" : "B3LYP-D3/6-31G(d)" , "solvent": "SCRF=(PCM,Solvent=Generic)" , "HNMR": "WPO4/jul-cc-pVDZ" , "CNMR": "wB97X-D/def2-SVP",  }
     elif comType == 2:
         inputDict = {"geom" : "B3LYP-D3/6-31G(d)" , "energy" : "B3LYP-D3/6-31G(d)" , "solvent": "SCRF=(PCM,Solvent=Generic)" , "HNMR": "WPO4/6-311++G(2d,p)" , "CNMR": "wB97X-D/def2-SVP",  }
-    editComs(comDir , inputDict , comType)
+    readComs(comDir , inputDict , comType)
