@@ -9,20 +9,19 @@ def editComs(comFile , comDict , comType , chkName):
     machineStr = f"%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n"
     geomTheory = comDict["geom"]
     solventType = comDict["solvent"]
-    HNMR = comDict["HNMR"]
     CNMR = comDict["CNMR"]
-    
     if comType == 1:
-        geomTheory = f"# {geomTheory} empiricaldispersion=GD3BJ int=(grid=fine) opt freq=noraman\n"
+        geomTheory = f"# {geomTheory} int=(grid=fine) opt freq=noraman\n"
         spEnergy = comDict["energy"]
-        linkList = [f"--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {spEnergy} int=(grid=fine) SP guess=read geom=check {solventType}\n\n SPE \n\n0 1\n" , 
-                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {HNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n\n proton NMR\n\n0 1\n" , 
-                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n\n c13 NMR\n\n0 1\n\n"]
+        linkList = [f"--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {spEnergy} EmpiricalDispersion=GD3 int=(grid=fine) SP guess=read geom=check {solventType}\n\n SPE \n\n0 1\n" , 
+                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n\n c13 NMR\n\n0 1\n\n" ,
+                     ]
 
     elif comType == 2:
-        geomTheory = f"# {geomTheory} int=(grid=fine) opt freq=noraman {solventType}\n"
-        linkList = [f"--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {HNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n\n proton NMR\n\n0 1\n" , 
-                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n\n c13 NMR\n\n0 1\n\n"]
+        geomTheory = f"# {geomTheory} EmpiricalDispersion=GD3 int=(grid=fine) opt freq=noraman {solventType}\n"
+        linkList = [
+                    f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n\n c13 NMR\n\n0 1\n\n", 
+                 ]
 
     modifiedLines = []
     with open(comFile, 'r') as f:
@@ -53,7 +52,7 @@ if __name__ == "__main__":
         else:
             print("Invalid input. Please enter 1 or 2.")
     if comType == 1:
-        inputDict = {"geom" : "B3LYP/6-31G(d)" , "energy" : "B3LYP-D3/6-31G(d)" , "solvent": "SCRF=(PCM,Solvent=Generic)" , "HNMR": "WPO4/jul-cc-pVDZ" , "CNMR": "wB97X-D/def2-SVP",  }
+        inputDict = {"geom" : "B3LYP/6-31G(d)" , "energy" : "B3LYP/6-31G(d)" , "solvent": "SCRF=(PCM,Solvent=chloroform)" , "CNMR": "wB97XD/def2SVP",  }
     elif comType == 2:
-        inputDict = {"geom" : "B3LYP-D3/6-31G(d)" , "energy" : "B3LYP-D3/6-31G(d)" , "solvent": "SCRF=(PCM,Solvent=Generic)" , "HNMR": "WPO4/6-311++G(2d,p)" , "CNMR": "wB97X-D/def2-SVP",  }
+        inputDict = {"geom" : "B3LYP/6-311G(d)" , "energy" : "B3LYP/6-311G(d)" , "solvent": "SCRF=(PCM,Solvent=chloroform)" ,  "CNMR": "wB97XD/def2SVP",  }
     readComs(comDir , inputDict , comType)
