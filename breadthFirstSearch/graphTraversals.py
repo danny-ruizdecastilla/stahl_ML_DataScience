@@ -70,31 +70,39 @@ def maxPathCompare(molec, g , atomList  , rejections):
             atomicMass = molecWeight(molec , idx)
             pathDict[idx] = deque([ atomicMass , idx])
     termPaths = []
-    while True:
-        paths = list(pathDict.keys())
+    firstPrinciples = [dq[0] for dq in pathDict.values()]
+    pathSame = all(val == firstPrinciples[0] for val in firstPrinciples)
 
-        paths = [path for path in paths if path not in termPaths]
-        if len(paths) == 0:
-            break
-        else:
-            currentWeights = []
-            for atom in paths:
-                currentPath = pathDict[atom]
-                currentAtom = currentPath[-1]
-                contacts = list(g.neighbors(currentAtom))
-                eligibles = [contact for contact in contacts if contact not in rejections]
-                if len(eligibles) == 0:
-                    termPaths.append(atom)
-                else:
-                    nextAtom = getMaxWeight( molec, eligibles)
-                    rejections.append(nextAtom)
-                    currentPath.append(nextAtom)
-                    atomicMass = molecWeight(molec, nextAtom)
-                    newWeight = atomicMass + currentPath[0]
-                    currentPath.appendleft(newWeight)
-                    currentWeights.append(newWeight)
-            # Break if all weights are unique
-            if len(currentWeights) == len(set(currentWeights)):
+    if not pathSame:
+
+        return pathDict
+    else:
+
+        while True:
+            paths = list(pathDict.keys())
+
+            paths = [path for path in paths if path not in termPaths]
+            if len(paths) == 0:
                 break
+            else:
+                currentWeights = []
+                for atom in paths:
+                    currentPath = pathDict[atom]
+                    currentAtom = currentPath[-1]
+                    contacts = list(g.neighbors(currentAtom))
+                    eligibles = [contact for contact in contacts if contact not in rejections]
+                    if len(eligibles) == 0:
+                        termPaths.append(atom)
+                    else:
+                        nextAtom = getMaxWeight( molec, eligibles)
+                        rejections.append(nextAtom)
+                        currentPath.append(nextAtom)
+                        atomicMass = molecWeight(molec, nextAtom)
+                        newWeight = atomicMass + currentPath[0]
+                        currentPath.appendleft(newWeight)
+                        currentWeights.append(newWeight)
+                # Break if all weights are unique
+                if len(currentWeights) == len(set(currentWeights)):
+                    break
     
-    return pathDict
+        return pathDict
