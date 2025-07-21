@@ -52,7 +52,7 @@ def getC1C2(smiles, cutDist):
     wildList = getMaxCoordinate( allPaths,0,[C1 , C2]  )
     return C1 , C2 , wildList
 
-def main(substratesDir:str, contactDist: int  , saveDir):
+def main(substratesDir:str, contactDist: int  , saveDir , fukuiResults):
 
     substratePaths = glob.glob(substratesDir + "/*/identification.dat")
     substrateDF = pd.DataFrame(columns = ["SMILES" , "Canonicals" ,"C1_fuk_neg" , "C1_fuk_pos" ,"C1_fuk_neut" ,
@@ -72,14 +72,15 @@ def main(substratesDir:str, contactDist: int  , saveDir):
         print("C1" , C1 , "C2" , C2)
         wildDict = {}
         mainPath = path.split("identification.dat")[0]
-        fukuiData = glob.glob(mainPath + "/*.csv")[0]
+        fukuiData = glob.glob(mainPath + f"/*{fukuiResults}*.csv")[0]
+        print(fukuiData)
         fukuiPD = pd.read_csv(fukuiData)
         C1List = C2List = None
         max_fneg = max_fpos = max_fneut = 0
 
         for _, row in fukuiPD.iterrows():
-            atom = round(row["atoms"])
-            print(atom)
+            atom = row["atom ID"]
+            #print(atom)
             f_neg, f_pos, f_neut = row["f_neg"], row["f_pos"], row["f_neut"]
             if f_neg > max_fneg:
                 max_fneg = f_neg
@@ -134,8 +135,9 @@ if __name__ == "__main__":
     contactDist = int(sys.argv[2])
     saveDir = str(sys.argv[3])
     saveStr = str(sys.argv[4])
-    substrateDF = main(fukuiOutputs , contactDist , saveDir)
-    charge_theory = str(sys.argv[5])
+    fukuiResults = str(sys.argv[5])
+    substrateDF = main(fukuiOutputs , contactDist , saveDir , fukuiResults)
+    charge_theory = str(sys.argv[6])
     columns = substrateDF.columns.tolist()
     for i, col in enumerate(columns):
         if "fuk" in col:
