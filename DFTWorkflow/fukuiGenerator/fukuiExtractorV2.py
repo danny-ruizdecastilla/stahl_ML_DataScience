@@ -116,11 +116,11 @@ def main(logDir, cationDir, anionDir, substrateCSV, outputDir, densityStr , bltz
         # f- (nucleophilic attack): q(N) - q(N+1) 
         # f+ (electrophilic attack): q(N-1) - q(N)
         # f0 (radical attack): 0.5 * [q(N-1) - q(N+1)]
-        f_Neg = dfMAST["pop_Neut"] - dfMAST["pop_An"]
+        f_Neg = dfMAST["pop_Neut"] - dfMAST["pop_Cat"]
         dfMAST["f_neg"] = f_Neg
-        f_Pos = dfMAST["pop_Cat"] - dfMAST["pop_Neut"]
+        f_Pos = dfMAST["pop_An"] - dfMAST["pop_Neut"]
         dfMAST["f_pos"] = f_Pos
-        f_Neut = 0.5 * (dfMAST["pop_Cat"] - dfMAST["pop_An"])
+        f_Neut = 0.5 * (dfMAST["f_pos"] + dfMAST["f_neg"])
         dfMAST["f_neut"] = f_Neut
         with open(outputDir + "/" + str(substrate) + "/identification.dat", "w") as f:
             f.write(f"{substrate},{substrateSMILES}")
