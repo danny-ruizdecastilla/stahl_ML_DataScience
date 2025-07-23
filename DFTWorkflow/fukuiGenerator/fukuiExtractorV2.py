@@ -34,13 +34,14 @@ def extractChargesByDensity(log, densityStr):
 def processIonLogs(logs, keyword, densityStr):
     result = {}
     for log in logs:
-        try:
+        if keyword in os.path.basename(log):
             name = os.path.basename(log).split(keyword)[0]
-        except Exception:
+        else:
             name = os.path.basename(log).split(".")[0]
         result[name] = extractChargesByDensity(log, densityStr)
     return result
 def consolidatePaths(pathList):
+    #print(pathList)
     split1 = input(f"This is the root of all common files: {pathList[-1]} Enter the front split to find the common suffix: ")
     paths = []
     for log in pathList:
@@ -77,9 +78,9 @@ def main(logDir, cationDir, anionDir, substrateCSV, outputDir, densityStr , bltz
     cationLogs = glob.glob(os.path.join(cationDir, "*.log"))
     anionLogs = glob.glob(os.path.join(anionDir, "*.log"))
 
-    neutrals = processIonLogs(neutralLogs, "neutral", densityStr)
-    anions = processIonLogs(anionLogs, "anion", densityStr)
-    cations = processIonLogs(cationLogs, "cation", densityStr)
+    neutrals = processIonLogs(neutralLogs, "_neutral", densityStr)
+    anions = processIonLogs(anionLogs, "_anion", densityStr)
+    cations = processIonLogs(cationLogs, "_cation", densityStr)
     set1 = list(set(list(neutrals.keys())) & set(list(anions.keys())))
     commonPaths = list(set(set1) & set(list(cations.keys())))         
     
@@ -104,7 +105,13 @@ def main(logDir, cationDir, anionDir, substrateCSV, outputDir, densityStr , bltz
         dfNeut = atomicBoltzmannConstruction(logList , boltzWeights,  neutralCharges, ["atom ID" , "atom Type" , "pop_Neut"]  )
         dfCat = atomicBoltzmannConstruction(logList , boltzWeights,  cationCharges, ["atom ID" , "atom Type" , "pop_Cat"]  )
         dfAnion = atomicBoltzmannConstruction(logList , boltzWeights,  anionCharges, ["atom ID" , "atom Type" , "pop_An"]  )
-        dfMAST = pd.DataFrame(columns = ["atom ID" , "atom Type" , "pop_Neut" , "pop_Cat" , "pop_An"])
+        dfMAST = pd.DataFrame({
+        "atom ID": pd.Series(dtype="str"),
+        "atom Type": pd.Series(dtype="int"),
+        "pop_Neut": pd.Series(dtype="float32"),
+        "pop_Cat": pd.Series(dtype="float32"),
+        "pop_An": pd.Series(dtype="float32"),
+        })
         for index, row in dfNeut.iterrows():
             atomID = row["atom ID"]
             catIdx = dfCat[dfNeut["atom ID"] == atomID].index[0]
