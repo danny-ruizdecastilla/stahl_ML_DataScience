@@ -37,7 +37,7 @@ def extractShifts(logFile: str, extract1:str, extract2:str,location1:str ,locati
 def main(nmrDir, substrateCSV , outputDir):
     substrateScope = pd.read_csv(substrateCSV, encoding='utf-8' )
     nmrPaths = glob.glob(nmrDir + "/*.log")
-    substrateList = consolidatePaths(nmrPaths)
+    
 
     atomList = listInputs(f"Enter the list of all atom types you wnat to extract shifts for Ex: [C,H,O,N] ")
     nmrShifts = {}
@@ -53,7 +53,8 @@ def main(nmrDir, substrateCSV , outputDir):
         shifts = extractShifts(path, extract1, extract2, "earliest", "latest", list(nmrShifts.keys()))
         name = os.path.basename(path).split(".")[0]
         molecularShifts[name] = shifts
-    
+    substrateList = consolidatePaths(list(molecularShifts.keys()))
+
     for substrate in substrateList:
         substrateSMILES = substrateScope.loc[substrateScope['ID'] == substrate, "SMILES"].values[0]
         if not os.path.exists(outputDir + "/" + str(substrate)): 
