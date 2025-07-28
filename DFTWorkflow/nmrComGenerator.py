@@ -13,7 +13,7 @@ def editComs(comFile , comDict , comType , chkName):
     if comType == 1:
         geomTheory = f"# {geomTheory} int=(grid=fine) opt freq=noraman\n"
         spEnergy = comDict["energy"]
-        linkList = [f"--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {spEnergy} EmpiricalDispersion=GD3 int=(grid=fine) SP guess=read geom=check {solventType}\n\n SPE \n\n0 1\n" , 
+        linkList = [f"--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {spEnergy} EmpiricalDispersion=GD3 int=(grid=fine) freq guess=read geom=check {solventType}\n\n SPE \n\n0 1\n" , 
                     f"\n--Link1--\n%nprocs=16\n%mem=48GB\n%chk={chkName}.chk\n# {CNMR} int=(grid=fine) nmr=giao guess=read geom=check {solventType}\n\n c13 NMR\n\n0 1\n\n" ,
                      ]
 
