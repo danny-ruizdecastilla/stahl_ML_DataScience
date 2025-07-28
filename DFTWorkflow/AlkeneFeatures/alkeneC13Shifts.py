@@ -21,7 +21,8 @@ def main(substratesDir:str,  csvStr , theoryStr):
         C1 = CC[0] + 1
         C2 = CC[1] + 1
         #print(path , CC)
-        nmrData = glob.glob(substratesDir + f"/*/*{csvStr}*.csv")[0]
+        mainPath = path.split("identification.dat")[0]
+        nmrData = glob.glob(mainPath + f"/*{csvStr}*.csv")[0]
         nmrDF = pd.read_csv(nmrData)
         for _ , row in nmrDF.iterrows():
             atom = row["atom ID"]
