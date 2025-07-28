@@ -73,7 +73,7 @@ def main(substratesDir:str, contactDist: int  , saveDir , fukuiResults):
         wildDict = {}
         mainPath = path.split("identification.dat")[0]
         fukuiData = glob.glob(mainPath + f"/*{fukuiResults}*.csv")[0]
-        print(fukuiData)
+        #print(fukuiData)
         fukuiPD = pd.read_csv(fukuiData)
         C1List = C2List = None
         max_fneg = max_fpos = max_fneut = 0
