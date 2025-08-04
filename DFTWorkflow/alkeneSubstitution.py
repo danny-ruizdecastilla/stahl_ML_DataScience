@@ -17,7 +17,8 @@ from breadthFirstSearch.radialBasedCorrelation import getCC,getAdjencyMatrix
 from breadthFirstSearch.graphTraversals import minFirstSearch,maxPathCompare
 
 def getSubstitutionList(smilesList):
-    substitutionList = []
+    hCount = []
+    cisTransList = []
     for smiles in smilesList:
         cc , molec = getCC(smiles)
         molec = Chem.AddHs(molec) 
@@ -53,10 +54,12 @@ def getSubstitutionList(smilesList):
         if hydrogens <=2:
             print(smiles)
             addended = cistransterminal(molec, g, ccDict)
-            hydrogens += addended
-        substitutionList.append(hydrogens)
+            cisTransList.append(addended)
+        else:
+            cisTransList.append(0)
+        hCount.append(hydrogens)
          
-    return substitutionList
+    return hCount , cisTransList
 
 def cistransterminal(molec , graph , ccDict):
     idxMAST = []
