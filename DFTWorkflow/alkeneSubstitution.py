@@ -70,7 +70,7 @@ def cistransterminal(molec , graph , ccDict):
         weights = [dq[0] for dq in pathDict.values()]
         if weights[0] == weights[1]:
             #same weights, terminal alkene 
-            return 0
+            return 0.25
         else: 
             for atom , dq in pathDict.items():
                 lstdq = list(dq)
@@ -90,13 +90,13 @@ def cistransterminal(molec , graph , ccDict):
         backslashCount = smiles1.count('\\')
         if slashCount == 2:
             #Z alkene with Z brackets 
-            return -0.5
+            return 0.5
         if backslashCount == 2:
             #Z alkene with Z brackets 
-            return -0.5
+            return 0.5
         if slashCount == 1 and backslashCount == 1:
             #E Alkene
-            return -0.75
+            return 0.75
 
   
 def main(featureDir , outputDir):
