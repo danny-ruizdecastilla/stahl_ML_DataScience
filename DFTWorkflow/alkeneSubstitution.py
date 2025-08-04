@@ -4,6 +4,7 @@ import glob
 import numpy as np
 import os
 from rdkit import Chem
+from rdkit.Chem import AllChem
 from rdkit.Chem.PandasTools import LoadSDF
 import networkx as nx
 from networkx import Graph
@@ -53,15 +54,32 @@ def getSubstitutionList(smilesList):
                 hydrogens += 1
         if hydrogens <=2:
             print(smiles)
-            addended = cistransterminal(molec, g, ccDict)
+            addended = eVszAlkenes(smiles, g, ccDict)
             cisTransList.append(addended)
         else:
             cisTransList.append(0)
         hCount.append(hydrogens)
          
     return hCount , cisTransList
+def smiles_to_xyz(smiles):
+    try:
+        m = Chem.MolFromSmiles(smiles)
+    except:
+        print("could not convert %s to rdkit molecule. Exit!"%(smiles))
+        exit()
+    try:
+        m = Chem.AddHs(m)
+    except:
+        print("ERROR: could not add hydrogen to rdkit molecule of %s. Exit!"%(smiles))
+        exit()
+    try:
+        AllChem.EmbedMolecule(m)
+    except:
+        print("ERROR: could not calculate 3D coordinates from rdkit molecule %s. Exit!"%(smiles))
+        exit()
+     
+def eVszAlkenes(molec , graph , ccDict):
 
-def cistransterminal(molec , graph , ccDict):
     idxMAST = []
     for carbon , startAtoms  in ccDict.items():
         rejections = [carbon , startAtoms[0] , startAtoms[1]]
@@ -106,8 +124,9 @@ def main(featureDir , outputDir):
         stringCols = list(df.select_dtypes(include='object').columns)
         if "SMILES" in stringCols:
             smilesList = df["SMILES"]
-            substitutionList = getSubstitutionList(smilesList)
-            df["alkeneSubstitution"] = substitutionList
+            hCount , cisVstrans = getSubstitutionList(smilesList)
+            df["HCount"] = hCount
+            df["cisVstrans"] = cisVstrans
         else:
             raise ValueError("SMILES column not found in DataFrame")
         createCSV(df , outputDir , outputDir.split("/")[-1].split(".")[0])
