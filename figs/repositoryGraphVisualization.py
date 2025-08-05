@@ -17,21 +17,25 @@ class TreeNode:
     
 def gatherScripts(repoDir , scriptStrs):
     currentDir = Path(repoDir)
-    connections = []
+    connections = [] #overlooks the .git path
     depthDict = {}
     branching = {}
-
+    directoryDict = {}
     while True:
         
-        # Get unvisited subdirectories
-        immediateSubdirs = [p for p in currentDir.iterdir() if p.is_dir()]
-        immediateSubdirs = [d for d in immediateSubdirs if d not in connections]
+        immediateSubdirs = []
+        immediateFiles = []
+        for p in currentDir.iterdir():
+            if p.is_dir() and not p.name.startswith('.') and p not in connections:
+                immediateSubdirs.append(p)
+            elif any(str(p).endswith(ext) for ext in scriptStrs):
+                immediateFiles.append(p)
+        directoryDict[currentDir] = immediateFiles
         connections.append(currentDir)
         headFolder = currentDir.name
         depthDict[headFolder] = len(immediateSubdirs)
         branching[headFolder] = len(immediateSubdirs)
 
-        # If there are subdirectories, go deeper
         if len(immediateSubdirs) > 0:
             nextDir = immediateSubdirs[0]
             connections.append(nextDir)
@@ -55,10 +59,33 @@ def gatherScripts(repoDir , scriptStrs):
                     if visited.name == nextFolderName:
                         currentDir = visited
                         break
+    return directoryDict
+def readScript(file , scriptNames):
+    eligibleLines = []
+    with open(file, 'r') as f:
+        for line in f:
+            if " import " in line:
+                eligibleLines.append(line)
+    newLines = [line for line in eligibleLines if any(scriptName in line for scriptName in scriptNames)]
+
+    dependencies = {}
+    for line in newLines:
+        import_ = line.split(" import ")[-1].split(",")
+
+        if "." in line.split(" import ")[0]:
+            node = line.split(" import ")[0].split(".")[-1].strip()
+        else:
+            node = line.split(" import ")[0].split("from")[-1].strip()
+        
+        for edge in import_:
+            
+        
 
 
 def main(repoDir , scriptStrs):
-    shellTree  , folderDict = gatherScripts(repoDir , scriptStrs)
+    scripts = gatherScripts(repoDir , scriptStrs)
+
+
 
 if __name__ == "__main__":
     repoDir = str(sys.argv[1])
