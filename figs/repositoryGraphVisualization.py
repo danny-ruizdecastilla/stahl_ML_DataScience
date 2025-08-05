@@ -67,7 +67,7 @@ def readScript(file , scriptNames):
             if " import " in line:
                 eligibleLines.append(line)
     newLines = [line for line in eligibleLines if any(scriptName in line for scriptName in scriptNames)]
-
+    pathFile = Path(file)
     dependencies = {}
     for line in newLines:
         import_ = line.split(" import ")[-1].split(",")
@@ -78,13 +78,19 @@ def readScript(file , scriptNames):
             node = line.split(" import ")[0].split("from")[-1].strip()
         
         for edge in import_:
-            
+            dependencies[edge] = [node , str(pathFile.stem)]
+    return dependencies     
         
 
 
 def main(repoDir , scriptStrs):
     scripts = gatherScripts(repoDir , scriptStrs)
-
+    allFiles = []
+    for key, val in scripts.items():
+        if len(val) != 0:
+            for file in val:
+                print(file)
+                allFiles.append(file)
 
 
 if __name__ == "__main__":
