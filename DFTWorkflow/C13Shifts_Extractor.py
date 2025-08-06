@@ -60,7 +60,7 @@ def main(nmrDir, substrateCSV , outputDir):
         if not os.path.exists(outputDir + "/" + str(substrate)): 
             os.makedirs(outputDir + "/" + str(substrate))
         substratePaths = sorted([path for path in nmrPaths if substrate in path])
-        boltzmannDF = getBoltzmannWeightsGauss(substratePaths, 298, "gibbs")
+        boltzmannDF = getBoltzmannWeightsGauss(substratePaths, 298, "electronic")
         createCSV(boltzmannDF ,outputDir + "/" + str(substrate) , "boltzmannWeights" )
         substrateShifts = extractFromKeys(molecularShifts , substrate)
         logList = boltzmannDF["logID"]
