@@ -20,8 +20,11 @@ def main(csvDir , outputDir):
         smiles = row["SMILES"]
         id = row["ID"]
         elements , coords = smiles_to_coords(smiles)
-        xyzDir = outputDir + "/" + str(id) + ".xyz"
-        write_xyz(elements, coords, xyzDir)
+        xyzDir = outputDir + "/" + str(id)
+        xyzFile = xyzDir + "/" + str(id) + ".xyz"
+        if not os.path.exists(xyzDir):
+            os.makedirs(xyzDir)
+        write_xyz(elements, coords, xyzFile)
 
 
 if __name__ == "__main__":
