@@ -61,7 +61,7 @@ def getSubstitutionList(smilesList):
         hCount.append(hydrogens)
          
     return hCount , cisTransList
-def smiles_to_xyz(smiles):
+def smiles_to_coords(smiles):
     try:
         m = Chem.MolFromSmiles(smiles)
     except:
@@ -76,6 +76,21 @@ def smiles_to_xyz(smiles):
         AllChem.EmbedMolecule(m)
     except:
         print("ERROR: could not calculate 3D coordinates from rdkit molecule %s. Exit!"%(smiles))
+        exit()
+    try:
+        block = Chem.MolToMolBlock(m)
+        blocklines=block.split("\n")
+        coords = []
+        elements = []
+        for line in blocklines[4:]:
+            if len(line.split()) == 4:
+                break
+            elements.append(line.split()[3])
+            coords.append([float(line.split()[0]),float(line.split()[1]) , float(line.split()[2])])
+        coords = np.array(coords)
+        return elements , coords
+    except:
+        print("Could not convert SMILES to .xyz")
         exit()
      
 def eVszAlkenes(molec , graph , ccDict):
