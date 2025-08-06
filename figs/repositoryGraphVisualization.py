@@ -78,7 +78,7 @@ def readScript(file , scriptNames):
             node = line.split(" import ")[0].split("from")[-1].strip()
         
         for edge in import_:
-            dependencies[edge] = [node , str(pathFile.stem)]
+            dependencies[edge.strip()] = [node , str(pathFile.stem)]
     return dependencies     
         
 
