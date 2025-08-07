@@ -8,58 +8,43 @@ sys.path.append(parentDir)
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 
 class TreeNode:
-    def __init__(self, value):
-        self.value = value
+    def __init__(self, name ):
+        self.name = name
         self.children = []
+    def add_child(self, name):
+        self.children.append(name)
 
-    def add_child(self, node):
-        self.children.append(node)
-    
-def gatherScripts(repoDir , scriptStrs):
-    currentDir = Path(repoDir)
-    connections = [] #overlooks the .git path
-    depthDict = {}
-    branching = {}
-    directoryDict = {}
-    while True:
-        
-        immediateSubdirs = []
-        immediateFiles = []
-        for p in currentDir.iterdir():
-            if p.is_dir() and not p.name.startswith('.') and p not in connections:
-                immediateSubdirs.append(p)
+def gatherScripts(repoDir, scriptStrs):
+    repoDir = Path(repoDir)
+    root = TreeNode(repoDir.name)
+
+    directoryDict = {}  # Path → list of files
+    visited = set()
+    nodeMap = {repoDir: root}
+
+    def build_tree(currentPath):
+        if currentPath in visited or currentPath.name.startswith('.'):
+            return
+        visited.add(currentPath)
+
+        currentNode = nodeMap[currentPath]
+        scriptFiles = []
+
+        for p in currentPath.iterdir():
+            if p.name.startswith('.'):
+                continue 
+            if p.is_dir():
+                childNode = TreeNode(p.name)
+                currentNode.add_child(childNode)
+                nodeMap[p] = childNode
+                build_tree(p)  # Recurse
             elif any(str(p).endswith(ext) for ext in scriptStrs):
-                immediateFiles.append(p)
-        directoryDict[currentDir] = immediateFiles
-        connections.append(currentDir)
-        headFolder = currentDir.name
-        depthDict[headFolder] = len(immediateSubdirs)
-        branching[headFolder] = len(immediateSubdirs)
+                scriptFiles.append(p)
 
-        if len(immediateSubdirs) > 0:
-            nextDir = immediateSubdirs[0]
-            connections.append(nextDir)
-            currentDir = nextDir
-        else:
-            # If all branches are exhausted, break
-            if all(value == 0 for value in depthDict.values()):
-                break
-            else:
-                # Get folders with unvisited children
-                remainingFolders = [k for k, v in branching.items() if v != 0]
+        directoryDict[currentPath] = scriptFiles
 
-                if not remainingFolders:
-                    break  # failsafe in case something gets stuck
-
-                # Choose one (you can change strategy here)
-                nextFolderName = min(remainingFolders)  # alphabetically smallest
-
-                # Find path to it among connections
-                for visited in connections:
-                    if visited.name == nextFolderName:
-                        currentDir = visited
-                        break
-    return directoryDict
+    build_tree(repoDir)
+    return root, directoryDict
 def readScript(file , scriptNames):
     eligibleLines = []
     with open(file, 'r') as f:
@@ -84,13 +69,15 @@ def readScript(file , scriptNames):
 
 
 def main(repoDir , scriptStrs):
-    scripts = gatherScripts(repoDir , scriptStrs)
+    tree , scripts = gatherScripts(repoDir , scriptStrs)
     allFiles = []
     for key, val in scripts.items():
         if len(val) != 0:
             for file in val:
                 print(file)
                 allFiles.append(file)
+
+
 
 
 if __name__ == "__main__":
