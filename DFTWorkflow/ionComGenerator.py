@@ -103,6 +103,9 @@ def locateinLog(logFile, textStr, returnType: str):
 
         elif returnType == "latest":
             return matchingLines[-1]
+        else:
+            indx = int(input(f"Enter the index of preference for {textStr}"))
+            return matchingLines[indx]
     else:
         print(logFile)
         print("Bad Log File")
