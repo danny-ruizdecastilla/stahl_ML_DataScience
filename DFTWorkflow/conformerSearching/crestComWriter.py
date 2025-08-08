@@ -1,13 +1,8 @@
 import os
 import sys
 import glob
-import shutil
-import re
-from pathlib import Path
 #Danny Ruiz de Castilla
 #writes geom optimization com files from crest 
-parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-sys.path.append(parentDir)
 def energyCutoff(energiesFile):
     energiesDict = {}
     with open(energiesFile , 'r') as file:
@@ -15,7 +10,7 @@ def energyCutoff(energiesFile):
             inputs = line.split("        ")
             energiesDict[idx] = float(inputs[-1].strip())
     if len(list(energiesDict.keys())) >= 50:
-        energyCutoff = float(input(f"Highest energy deviation from L.E.C. is {list(energiesDict.values()[-1])}"))
+        energyCutoff = float(input(f"Highest energy deviation from L.E.C. is {list(energiesDict.values())[-1]}, Enter an energy cutoff for conformers: "))
         finalDict = {key: val for key, val in energiesDict.items() if val <= energyCutoff}
         cutoffKey = list(finalDict.keys())[-1]
     else:
@@ -25,10 +20,11 @@ def xyzExtractor(coordsFile , pathNameMAST , numComs , outputDir , numAtoms ):
     comCount = 0
     confHash = {}
     with open(coordsFile , 'r') as file:
+        coordHash = None
         for idx , line in enumerate(file):
-            if line.strip() == str(numAtoms):
-                if coordHash:
-                    confHash[pathNameMAST + "_conf_" + comCount] = coordHash
+            if line.strip() == str(numAtoms):#new 3d conformer
+                if coordHash is not None:
+                    confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
                     coordHash = {}
                 else:
                     coordHash = {}
@@ -48,7 +44,7 @@ def geomComWriter(saveStr , coords , theory , output , **kwargs):
         chk = str(kwargs["chk"])
         symmetry = str(kwargs['symmetry'])
         correction = str(kwargs['corrections'])
-        netCharge = int(kwargs["electron"])
+        netCharge = int(kwargs["netCharge"])
         spin = int(kwargs["spin"])
     except KeyError as e:
         raise ValueError(f"Missing required parameter: {e}")
@@ -59,7 +55,7 @@ def geomComWriter(saveStr , coords , theory , output , **kwargs):
         f.write(f"%nprocs={nprocs}\n")
         f.write(f"%mem={mem}GB\n")
         f.write(f"%chk={chk}\n")
-        if empiricalDispersion:
+        if empiricalDispersion is not None:
             f.write(f"#{theory} symmetry={symmetry} {empiricalDispersion} scf=tight int=(grid=superfine) opt=calcfc freq\n\n")
         else:
             f.write(f"#{theory} symmetry={symmetry} scf=tight int=(grid=superfine) opt=calcfc freq\n\n")
@@ -73,12 +69,14 @@ def geomComWriter(saveStr , coords , theory , output , **kwargs):
 def main(masterDir , outputDir):
     pathAvailables = glob.glob(masterDir + "/*/crest.energies")
     theory = input("Please enter the level of theory for geom. optimization: ")
+    netCharge = int(input("Please enter the net charge for these jobs: "))
+    spin = int(input("Please enter the spin for these jobs: "))
     for path in pathAvailables:
         pathNameMAST = str(path.split("/")[-2].strip())
         cutoffKey = energyCutoff(path)
         pathDir = path.split("crest.energies")[0]
         pathXYZ = pathDir + "/" + str(pathNameMAST) + ".xyz"
-        coordsFile = pathDir = "/crest_conformers.xyz"
+        coordsFile = pathDir +  "/crest_conformers.xyz"
         if os.path.exists(pathXYZ):
             with open(pathXYZ , 'r') as file:
                 numAtoms =  int(file.readline().strip())
@@ -87,9 +85,12 @@ def main(masterDir , outputDir):
         
         xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey  , outputDir , numAtoms )
         for key , coords in xyzHash.items():
-            geomComWriter(key, coords , theory , outputDir , nprocs = 16 , mem = 25 , chk = str(key) + ".chk")
+            geomComWriter(key, coords , theory , outputDir , nprocs = 16 , mem = 25 , 
+                          chk = str(key) + ".chk" , symmetry = 'tight' , corrections = 'True' , netCharge = netCharge , spin = spin)
 
 if __name__ == "__main__":
     masterDir = str(sys.argv[1])    
     outputDir = str(sys.argv[2])
+    if not os.path.exists(outputDir): 
+        os.makedirs(outputDir)
     main(masterDir , outputDir)
