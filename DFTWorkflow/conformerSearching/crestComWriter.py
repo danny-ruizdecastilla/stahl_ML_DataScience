@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 #Danny Ruiz de Castilla
 #writes geom optimization com files from crest 
+parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+sys.path.append(parentDir)
 def energyCutoff(energiesFile):
     energiesDict = {}
     with open(energiesFile , 'r') as file:
@@ -54,7 +56,7 @@ def main(masterDir , outputDir):
             sys.close()
         
         xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey  , outputDir , numAtoms )
-        
+        geomComWriter()
 
 if __name__ == "__main__":
     masterDir = str(sys.argv[1])    
