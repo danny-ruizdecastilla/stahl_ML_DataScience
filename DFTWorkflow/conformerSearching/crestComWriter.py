@@ -28,7 +28,7 @@ def xyzExtractor(coordsFile , pathNameMAST , numComs , outputDir , numAtoms ):
         for idx , line in enumerate(file):
             if line.strip() == str(numAtoms):
                 if coordHash:
-                    confHash[pathNameMAST + "conf_" + comCount] = coordHash
+                    confHash[pathNameMAST + "_conf_" + comCount] = coordHash
                     coordHash = {}
                 else:
                     coordHash = {}
@@ -40,9 +40,39 @@ def xyzExtractor(coordsFile , pathNameMAST , numComs , outputDir , numAtoms ):
             if comCount == numComs:
                 break
     return confHash
+def geomComWriter(saveStr , coords , theory , output , **kwargs):
+    comFile = str(output) + "/" + str(saveStr) + ".com"
+    try:
+        nprocs = int(kwargs["nprocs"])
+        mem = int(kwargs["mem"])
+        chk = str(kwargs["chk"])
+        symmetry = str(kwargs['symmetry'])
+        correction = str(kwargs['corrections'])
+        netCharge = int(kwargs["electron"])
+        spin = int(kwargs["spin"])
+    except KeyError as e:
+        raise ValueError(f"Missing required parameter: {e}")
+    if correction == "True":
+        empiricalDispersion = 'empiricaldispersion=GD3BJ'
+    with open(comFile, "w") as f:
+        print("writing")
+        f.write(f"%nprocs={nprocs}\n")
+        f.write(f"%mem={mem}GB\n")
+        f.write(f"%chk={chk}\n")
+        if empiricalDispersion:
+            f.write(f"#{theory} symmetry={symmetry} {empiricalDispersion} scf=tight int=(grid=superfine) opt=calcfc freq\n\n")
+        else:
+            f.write(f"#{theory} symmetry={symmetry} scf=tight int=(grid=superfine) opt=calcfc freq\n\n")
+        f.write(" Energy Minimization\n\n")
+        f.write(f"{netCharge} {spin}\n\n")
+        for atom , coordinates in coords.items():
+            f.write(f"{atom} {coordinates[0]}")
+        f.write("\n\n")
+    
 
 def main(masterDir , outputDir):
     pathAvailables = glob.glob(masterDir + "/*/crest.energies")
+    theory = input("Please enter the level of theory for geom. optimization: ")
     for path in pathAvailables:
         pathNameMAST = str(path.split("/")[-2].strip())
         cutoffKey = energyCutoff(path)
@@ -56,7 +86,8 @@ def main(masterDir , outputDir):
             sys.close()
         
         xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey  , outputDir , numAtoms )
-        geomComWriter()
+        for key , coords in xyzHash.items():
+            geomComWriter(key, coords , theory , outputDir , nprocs = 16 , mem = 25 , chk = str(key) + ".chk")
 
 if __name__ == "__main__":
     masterDir = str(sys.argv[1])    
