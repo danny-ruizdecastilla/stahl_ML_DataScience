@@ -3,6 +3,7 @@ import sys
 import glob
 import os
 from pathlib import Path
+from PIL import ImageColor
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
@@ -45,6 +46,42 @@ def gatherScripts(repoDir, scriptStrs):
 
     build_tree(repoDir)
     return root, directoryDict
+def str_to_rgb(colorStr):
+    try:
+        rgb = ImageColor.getrgb(colorStr)
+        return rgb
+    except:
+        return False
+def brighten(rgb, factor):
+    return tuple(min(int(c * factor), 255) for c in rgb)
+def colorNodes(root, nodesColors=None, notFirst=False, prevRGB=None):
+    if nodesColors is None:
+        nodesColors = {}
+    
+    firstNodes = [rnode.name for rnode in root.children]
+
+    for node in firstNodes:
+        if notFirst:
+            # Brighten from parent's color
+            newRGB = brighten(prevRGB, 1.2)
+            nodesColors[node] = newRGB
+        else:
+            colorStr = input(f"Please enter the color name for this subdirectory {node}: ").strip()
+            while True:
+                rgb = str_to_rgb(colorStr)
+                if not rgb:
+                    colorStr = input(f"Please enter a new color name for this subdirectory {node}: ").strip()
+                else:
+                    break
+            nodesColors[node] = rgb
+    for rnode in root.children:
+        colorNodes(
+            rnode,
+            nodesColors=nodesColors,
+            notFirst=True,
+            prevRGB=nodesColors[rnode.name]
+        )
+    return nodesColors
 def readScript(file , scriptNames):
     eligibleLines = []
     with open(file, 'r') as f:
@@ -71,6 +108,7 @@ def readScript(file , scriptNames):
 def main(repoDir , scriptStrs):
     tree , scripts = gatherScripts(repoDir , scriptStrs)
     allFiles = []
+    treeColors = colorNodes(tree)
     for key, val in scripts.items():
         if len(val) != 0:
             for file in val:
