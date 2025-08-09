@@ -16,12 +16,19 @@ def energyCutoff(energiesFile):
     else:
         cutoffKey = len(list(energiesDict.keys())) -1
     return cutoffKey
-def xyzExtractor(coordsFile , pathNameMAST , numComs , outputDir , numAtoms ):
+def is_float(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+def xyzExtractor(coordsFile , pathNameMAST , numComs , numAtoms ):
     comCount = 0
     confHash = {}
     with open(coordsFile , 'r') as file:
         coordHash = None
         for idx , line in enumerate(file):
+            #print(line)
             if line.strip() == str(numAtoms):#new 3d conformer
                 if coordHash is not None:
                     confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
@@ -30,9 +37,14 @@ def xyzExtractor(coordsFile , pathNameMAST , numComs , outputDir , numAtoms ):
                     coordHash = {}
                 comCount +=1
             elif line.split("         ")[0].strip()[:1].isalpha():
-                atom = str(line.split("         ")[0].strip())
-                coords = str(line.split(("         ")[-1]))
-                coordHash[atom] = [coords]
+                
+                #print(comCount , line.split("         ")[0].strip()[:1])
+                lineOptions = line.strip().split("    ")
+                
+                atom = str(lineOptions[0])
+                coords = [num.strip() for num in lineOptions if is_float(num.strip())]
+                coordHash[str(idx) + "," + atom] = coords
+                #print("atom List:" , len(coordHash.keys()))
             if comCount == numComs:
                 break
     return confHash
@@ -60,9 +72,9 @@ def geomComWriter(saveStr , coords , theory , output , **kwargs):
         else:
             f.write(f"#{theory} symmetry={symmetry} scf=tight int=(grid=superfine) opt=calcfc freq\n\n")
         f.write(" Energy Minimization\n\n")
-        f.write(f"{netCharge} {spin}\n\n")
-        for atom , coordinates in coords.items():
-            f.write(f"{atom} {coordinates[0]}")
+        f.write(f"{netCharge} {spin}\n")
+        for atom, coordinates in coords.items():
+            f.write(f"{atom.split(',')[-1]} {coordinates[0]} {coordinates[1]} {coordinates[2]}\n")
         f.write("\n\n")
     
 
@@ -70,7 +82,7 @@ def main(masterDir , outputDir):
     pathAvailables = glob.glob(masterDir + "/*/crest.energies")
     theory = input("Please enter the level of theory for geom. optimization: ")
     netCharge = int(input("Please enter the net charge for these jobs: "))
-    spin = int(input("Please enter the spin for these jobs: "))
+    spin = int(input("Please enter the spin for these jobs: (2s+1)"))
     for path in pathAvailables:
         pathNameMAST = str(path.split("/")[-2].strip())
         cutoffKey = energyCutoff(path)
@@ -83,7 +95,7 @@ def main(masterDir , outputDir):
         else:
             sys.close()
         
-        xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey  , outputDir , numAtoms )
+        xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms )
         for key , coords in xyzHash.items():
             geomComWriter(key, coords , theory , outputDir , nprocs = 16 , mem = 25 , 
                           chk = str(key) + ".chk" , symmetry = 'tight' , corrections = 'True' , netCharge = netCharge , spin = spin)
