@@ -124,14 +124,15 @@ if __name__ == "__main__":
     if not os.path.exists(outputDir): 
         os.makedirs(outputDir)
     main(masterDir , outputDir)
-    link = binaryInput(f"Select if you want to add a --link--\n[0]   No Link\n[1]    Add Link\n")
-    if link:
-        linkStr = input(f"Write out the input line for your --link--\n")
-        linkName = input(f"Enter the title for the --link--: ")
-        netCharge = int(input("Please enter the net charge for these jobs: "))
-        spin = int(input("Please enter the spin for these jobs: (2s+1)"))
-        comFiles = glob.glob(outputDir + "/*.com")
-        for com in comFiles:
-            addLink(com , linkStr , linkName , netCharge , spin)
-    else:
-        sys.exit()
+    while True:
+        link = binaryInput(f"Select if you want to add a --link--\n[0]   No Link\n[1]    Add Link\n")
+        if link:
+            linkStr = input(f"Write out the input line for your --link--\n")
+            linkName = input(f"Enter the title for the --link--: ")
+            netCharge = int(input("Please enter the net charge for these jobs: "))
+            spin = int(input("Please enter the spin for these jobs: (2s+1)"))
+            comFiles = glob.glob(outputDir + "/*.com")
+            for com in comFiles:
+                addLink(com , linkStr , linkName , netCharge , spin)
+        else:
+            break
