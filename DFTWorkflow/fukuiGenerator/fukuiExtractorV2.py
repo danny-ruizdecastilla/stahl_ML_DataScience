@@ -49,7 +49,7 @@ def consolidatePaths(pathList):
         #print(log)
         paths.append(name)
     substrates = list(set(paths))
-    return sorted(substrates)
+    return sorted(substrates) , split1
 def extractFromKeys(dict1 , name1):
     return {key: value.copy() for key, value in dict1.items() if name1 in key}
 def atomicBoltzmannConstruction(masterLogs , boltzWeights,  substratesDict , colList  ):
