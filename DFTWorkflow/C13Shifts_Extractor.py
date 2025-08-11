@@ -53,13 +53,14 @@ def main(nmrDir, substrateCSV , outputDir):
         shifts = extractShifts(path, extract1, extract2, "earliest", "latest", list(nmrShifts.keys()))
         name = os.path.basename(path).split(".")[0]
         molecularShifts[name] = shifts
-    substrateList = consolidatePaths(list(molecularShifts.keys()))
+    substrateList , split1 = consolidatePaths(list(molecularShifts.keys()))
 
     for substrate in substrateList:
+        subStr = substrate + split1
         substrateSMILES = substrateScope.loc[substrateScope['ID'] == substrate, "SMILES"].values[0]
         if not os.path.exists(outputDir + "/" + str(substrate)): 
             os.makedirs(outputDir + "/" + str(substrate))
-        substratePaths = sorted([path for path in nmrPaths if substrate in path])
+        substratePaths = sorted([path for path in nmrPaths if subStr in path ])
         boltzmannDF = getBoltzmannWeightsGauss(substratePaths, 298, "electronic")
         createCSV(boltzmannDF ,outputDir + "/" + str(substrate) , "boltzmannWeights" )
         substrateShifts = extractFromKeys(molecularShifts , substrate)
