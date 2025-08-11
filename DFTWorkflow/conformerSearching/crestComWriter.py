@@ -48,29 +48,23 @@ def xyzExtractor(coordsFile , pathNameMAST , numComs , numAtoms ):
             if comCount == numComs:
                 break
     return confHash
-def geomComWriter(saveStr , coords , theory , output , **kwargs):
+def geomComWriter(saveStr , coords , output , **kwargs):
     comFile = str(output) + "/" + str(saveStr) + ".com"
     try:
         nprocs = int(kwargs["nprocs"])
         mem = int(kwargs["mem"])
         chk = str(kwargs["chk"])
-        symmetry = str(kwargs['symmetry'])
-        correction = str(kwargs['corrections'])
+        InputGeomLine = str(kwargs['geomLine'])
         netCharge = int(kwargs["netCharge"])
         spin = int(kwargs["spin"])
     except KeyError as e:
         raise ValueError(f"Missing required parameter: {e}")
-    if correction == "True":
-        empiricalDispersion = 'empiricaldispersion=GD3BJ'
     with open(comFile, "w") as f:
         print("writing")
         f.write(f"%nprocs={nprocs}\n")
         f.write(f"%mem={mem}GB\n")
         f.write(f"%chk={chk}\n")
-        if empiricalDispersion is not None:
-            f.write(f"#{theory} symmetry={symmetry} {empiricalDispersion} scf=tight int=(grid=superfine) opt=calcfc freq\n\n")
-        else:
-            f.write(f"#{theory} symmetry={symmetry} scf=tight int=(grid=superfine) opt=calcfc freq\n\n")
+        f.write(f"{InputGeomLine}\n\n")
         f.write(" Energy Minimization\n\n")
         f.write(f"{netCharge} {spin}\n")
         for atom, coordinates in coords.items():
@@ -90,23 +84,21 @@ def addLink(comFile , linkStr , linkName , charge , spin):
             elif "nprocs" in line:
                 nproc = int(line.split("=")[-1].strip())
             elif "mem=" in line:
-                mem = int(line.split("=")[-1].strip())
+                mem = str(line.split("=")[-1].strip())
     lnkStr = chkFile.split(".")[0]
     newName = lnkStr + linkName
-    with open(comFile , 'w') as f:
+    with open(comFile, 'a') as f:
         f.write(f"--Link1--\n")
         f.write(f"%nprocs={nproc}\n")
-        f.write(f"%mem={mem}GB\n")
+        f.write(f"%mem={mem}\n")
         f.write(f"%chk={chkFile}\n")
         f.write(f"{linkStr}\n\n")
         f.write(f" {newName}\n\n")
-        f.write(f"{charge} {spin}\n")
-
-
+        f.write(f"{charge} {spin}\n\n")
             
 def main(masterDir , outputDir):
     pathAvailables = glob.glob(masterDir + "/*/crest.energies")
-    theory = input("Please enter the level of theory for geom. optimization: ")
+    geomOpt = str(input("Please enter the geometry optimization line: "))
     netCharge = int(input("Please enter the net charge for these jobs: "))
     spin = int(input("Please enter the spin for these jobs: (2s+1)"))
     for path in pathAvailables:
@@ -123,8 +115,8 @@ def main(masterDir , outputDir):
         
         xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms )
         for key , coords in xyzHash.items():
-            geomComWriter(key, coords , theory , outputDir , nprocs = 16 , mem = 25 , 
-                          chk = str(key) + ".chk" , symmetry = 'tight' , corrections = 'True' , netCharge = netCharge , spin = spin)
+            geomComWriter(key, coords , outputDir , nprocs = 16 , mem = 25 , 
+                          chk = str(key) + ".chk" ,  geomLine = geomOpt , netCharge = netCharge , spin = spin)
 
 if __name__ == "__main__":
     masterDir = str(sys.argv[1])    
