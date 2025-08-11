@@ -75,9 +75,35 @@ def geomComWriter(saveStr , coords , theory , output , **kwargs):
         f.write(f"{netCharge} {spin}\n")
         for atom, coordinates in coords.items():
             f.write(f"{atom.split(',')[-1]} {coordinates[0]} {coordinates[1]} {coordinates[2]}\n")
-        f.write("\n\n")
+        f.write("\n")
     
+def binaryInput(inputStr):
+    binaryVal = input(f"{inputStr}").strip()
+    if binaryVal not in ("0", "1"):
+        raise ValueError("Input must be '0' or '1'")
+    return bool(int(binaryVal))
+def addLink(comFile , linkStr , linkName , charge , spin):
+    with open(comFile, 'r') as f:
+        for idx , line in enumerate(f):
+            if ".chk" in line:
+                chkFile = str(line.split("=")[-1].strip())
+            elif "nprocs" in line:
+                nproc = int(line.split("=")[-1].strip())
+            elif "mem=" in line:
+                mem = int(line.split("=")[-1].strip())
+    lnkStr = chkFile.split(".")[0]
+    newName = lnkStr + linkName
+    with open(comFile , 'w') as f:
+        f.write(f"--Link1--\n")
+        f.write(f"%nprocs={nproc}\n")
+        f.write(f"%mem={mem}GB\n")
+        f.write(f"%chk={chkFile}\n")
+        f.write(f"{linkStr}\n\n")
+        f.write(f" {newName}\n\n")
+        f.write(f"{charge} {spin}\n")
 
+
+            
 def main(masterDir , outputDir):
     pathAvailables = glob.glob(masterDir + "/*/crest.energies")
     theory = input("Please enter the level of theory for geom. optimization: ")
@@ -93,7 +119,7 @@ def main(masterDir , outputDir):
             with open(pathXYZ , 'r') as file:
                 numAtoms =  int(file.readline().strip())
         else:
-            sys.close()
+            sys.exit()
         
         xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms )
         for key , coords in xyzHash.items():
@@ -106,3 +132,14 @@ if __name__ == "__main__":
     if not os.path.exists(outputDir): 
         os.makedirs(outputDir)
     main(masterDir , outputDir)
+    link = binaryInput(f"Select if you want to add a --link--\n[0]   No Link\n[1]    Add Link\n")
+    if link:
+        linkStr = input(f"Write out the input line for your --link--\n")
+        linkName = input(f"Enter the title for the --link--: ")
+        netCharge = int(input("Please enter the net charge for these jobs: "))
+        spin = int(input("Please enter the spin for these jobs: (2s+1)"))
+        comFiles = glob.glob(outputDir + "/*.com")
+        for com in comFiles:
+            addLink(com , linkStr , linkName , netCharge , spin)
+    else:
+        sys.exit()
