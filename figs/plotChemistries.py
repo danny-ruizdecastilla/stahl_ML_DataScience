@@ -29,7 +29,8 @@ def checkSubstratePath(substrateDF):
                 print("Aborting the process\n")
                 return 2
             else:
-                print("⚠️  Invalid input. Please enter 1 (yes) or 2 (no).")
+                userInput = input("⚠️  Invalid input. Please enter 1 (yes) or 2 (no). ").strip()
+
     else:
         print(f"Found existing master dataset at: {substrateDF}")
         return 0
@@ -46,7 +47,7 @@ def createAxisMotifs(axisNum):
                 name = str(num)
                 break
             else:
-                print("⚠️  Invalid input. Please enter 1 (yes) or 2 (no).")
+                naming = input("⚠️  Invalid input. Please enter 1 (yes) or 2 (no).").strip()
         axisDict[name] = motifList
     return axisDict
 def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
@@ -97,37 +98,6 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                     if (groupKey === selectedGroup) {{
                         const above = jsonData.filter(p => p["{partitionStr}"] > threshold);
                         const below = jsonData.filter(p => p["{partitionStr}"] <= threshold);
-                        
-                        if (above.length > 0) {{
-                            const xData = above.map(p => p[xCol]);
-                            const yData = above.map(p => p[yCol]);
-                            allXData.push(...xData);
-                            allYData.push(...yData);
-                            
-                            const traceAbove = {{
-                                x: xData,
-                                y: yData,
-                                mode: 'markers',
-                                type: 'scatter',
-                                name: `${{groupKey}} ("{partitionStr}" > ${{threshold}})`,
-                                text: above.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
-                                customdata: above.map((p, i) => ({{
-                                    id: p.SMILES || `point_${{i}}`, 
-                                    image: p.base64 || null
-                                }})),
-                                hovertemplate:
-                                    '<b>%{{text}}</b><br>' +
-                                    `${{xCol}}: %{{x}}<br>` +
-                                    `${{yCol}}: %{{y}}<br>` +
-                                    '<extra></extra>',
-                                marker: {{
-                                    size: 12,
-                                    color: 'rgba(001, 031, 091, 0.8)',
-                                }}
-                            }};
-                            traces.push(traceAbove);
-                        }}
-                        
                         if (below.length > 0) {{
                             const xData = below.map(p => p[xCol]);
                             const yData = below.map(p => p[yCol]);
@@ -161,6 +131,36 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                             }};
                             traces.push(traceBelow);
                         }}
+                        if (above.length > 0) {{
+                            const xData = above.map(p => p[xCol]);
+                            const yData = above.map(p => p[yCol]);
+                            allXData.push(...xData);
+                            allYData.push(...yData);
+                            
+                            const traceAbove = {{
+                                x: xData,
+                                y: yData,
+                                mode: 'markers',
+                                type: 'scatter',
+                                name: `${{groupKey}} ("{partitionStr}" > ${{threshold}})`,
+                                text: above.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
+                                customdata: above.map((p, i) => ({{
+                                    id: p.SMILES || `point_${{i}}`, 
+                                    image: p.base64 || null
+                                }})),
+                                hovertemplate:
+                                    '<b>%{{text}}</b><br>' +
+                                    `${{xCol}}: %{{x}}<br>` +
+                                    `${{yCol}}: %{{y}}<br>` +
+                                    '<extra></extra>',
+                                marker: {{
+                                    size: 12,
+                                    color: 'rgba(001, 031, 091, 0.8)',
+                                }}
+                            }};
+                            traces.push(traceAbove);
+                        }}
+                        
                     }} else {{
                         const xData = jsonData.map(p => p[xCol]);
                         const yData = jsonData.map(p => p[yCol]);
