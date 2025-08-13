@@ -490,6 +490,8 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
     
     with open(outputDir + "/" + chemStr + "interactiveMASTER.html", "w", encoding="utf-8") as f:
         f.write(html)
+def getBackgrounds(df , smileList , smileStr):
+    return df[~df[smileStr].isin(smileList)].copy()
 def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir , partitionStr):
     cols = masterDF.columns
     if "base64" in cols:
@@ -508,6 +510,7 @@ def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir , part
             masterDF = masterDF.drop(columns=['Unnamed: 0'])
         shutil.rmtree(figDir)
     jsonDict = {}
+    allSmiles = []
     for file in chemistryFiles:
         chemName = file.split("/")[-1].split(".")[0]
         columnList = list(masterDF.columns)
@@ -520,6 +523,7 @@ def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir , part
             canonical = convertCanonical(smiles)
             matches = masterDF[masterDF["canonicalSMILES"] == canonical]
             if not matches.empty:
+                allSmiles.append(canonical)
                 rowMatch = matches.head(1).copy()
                 rowMatch[partitionStr] = float(row[partitionStr])
                 df = pd.concat([df, rowMatch], ignore_index=True)
@@ -529,8 +533,12 @@ def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir , part
         jsonChem = jsonChem.replace('\\/', '/')
         dfName = str(chemistriesDict[chemName])
         jsonDict[dfName] = json.loads(jsonChem)
+    allSmiles = list(set(allSmiles))
+    masterDF = getBackgrounds(masterDF , allSmiles , "canonicalSMILES")
+    jsonRemain = masterDF.to_json(orient='records' , force_ascii= False)
+    jsonRemain = jsonRemain.replace('\\/', '/')
+    jsonDict['Background Molecules'] = json.loads(jsonRemain)
     axisList = masterDF.select_dtypes(include='number').columns
-    print(axisList)
     htmlGenerator2(jsonDict , axisList , chemistry , outputDir, partitionStr)
 
 
