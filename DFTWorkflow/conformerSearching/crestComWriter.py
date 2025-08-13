@@ -14,7 +14,7 @@ def energyCutoff(energiesFile):
         finalDict = {key: val for key, val in energiesDict.items() if val <= energyCutoff}
         cutoffKey = list(finalDict.keys())[-1]
     else:
-        cutoffKey = len(list(energiesDict.keys())) -1
+        cutoffKey = len(list(energiesDict.keys()))
     return cutoffKey
 def is_float(s):
     try:
@@ -29,13 +29,16 @@ def xyzExtractor(coordsFile , pathNameMAST , numComs , numAtoms ):
         coordHash = None
         for idx , line in enumerate(file):
             #print(line)
-            if line.strip() == str(numAtoms):#new 3d conformer
-                if coordHash is not None:
-                    confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
+            if comCount == numComs and coordHash is not None:
+                confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
+                break
+            elif line.strip() == str(numAtoms):#new 3d conformer
+                if coordHash is None:
                     coordHash = {}
                 else:
+                    confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
                     coordHash = {}
-                comCount +=1
+                    comCount +=1
             elif line.split("         ")[0].strip()[:1].isalpha():
                 
                 #print(comCount , line.split("         ")[0].strip()[:1])
@@ -45,8 +48,9 @@ def xyzExtractor(coordsFile , pathNameMAST , numComs , numAtoms ):
                 coords = [num.strip() for num in lineOptions if is_float(num.strip())]
                 coordHash[str(idx) + "," + atom] = coords
                 #print("atom List:" , len(coordHash.keys()))
-            if comCount == numComs:
-                break
+            else:
+                continue
+        confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
     return confHash
 def geomComWriter(saveStr , coords , output , **kwargs):
     comFile = str(output) + "/" + str(saveStr) + ".com"
