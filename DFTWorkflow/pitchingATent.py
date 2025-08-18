@@ -15,7 +15,7 @@ from sklearn.decomposition import PCA
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from DFTWorkflow.featureMaping import savePNG , createCSV
-from DFTWorkflow.expt2_feature_filtering import *
+from DFTWorkflow.expt2_feature_filtering import spearmanr_correlation , correlation_analysis , remove_by_variance
 #Danny Ruiz de Castilla 02.28.2025
 
 #pcaDict = {canonicalSmiles : [ yield]} for local Chemistries 
@@ -214,7 +214,7 @@ def featureFiltering(outDir , X , feature_labels , featureStr):
             f.write(text)
 
             X, feature_labels, drop_group = correlation_analysis(X, feature_labels, threshold=0.95)
-            text = "\n\n\nFeatures drop due correlation: (STILL HAS ISSUES) "
+            text = "\n\n\nFeatures drop due correlation:  "
             #print("97" , type(X))
             import json
             text += json.dumps(drop_group, indent=4).replace('\n', '\n\t')
