@@ -14,11 +14,10 @@ class TreeNode:
         self.children = []
     def add_child(self, name):
         self.children.append(name)
-
 def gatherScripts(repoDir, scriptStrs):
+    allScripts = []
     repoDir = Path(repoDir)
     root = TreeNode(repoDir.name)
-
     directoryDict = {}  # Path → list of files
     visited = set()
     nodeMap = {repoDir: root}
@@ -41,11 +40,13 @@ def gatherScripts(repoDir, scriptStrs):
                 build_tree(p)  # Recurse
             elif any(str(p).endswith(ext) for ext in scriptStrs):
                 scriptFiles.append(p)
-
+                script = Path(p)
+                scriptName = script.name
+                allScripts.append(scriptName)
         directoryDict[currentPath] = scriptFiles
 
     build_tree(repoDir)
-    return root, directoryDict
+    return root, directoryDict , allScripts
 def str_to_rgb(colorStr):
     try:
         rgb = ImageColor.getrgb(colorStr)
@@ -98,27 +99,250 @@ def readScript(file , scriptNames):
             node = line.split(" import ")[0].split(".")[-1].strip()
         else:
             node = line.split(" import ")[0].split("from")[-1].strip()
-        
-        for edge in import_:
-            dependencies[edge.strip()] = [node , str(pathFile.stem)]
-    return dependencies     
-        
+        allEdges = [edge.strip() for edge in import_]
+        if len(allEdges) != 0:
+            dependencies[node] = [edge.strip() for edge in import_]
+    return dependencies   
+def networkGenerator(nodeList , nodeInfo , outputDir): 
+    html = f"""
+    <!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Basic Network Graph (D3)</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <style>
+        :root {{
+        --bg: #0f172a; /* slate-900 */
+        --card: #111827ee; /* gray-900 */
+        --text: #e5e7eb; /* gray-200 */
+        --muted: #94a3b8; /* slate-400 */
+        --accent: #38bdf8; /* sky-400 */
+        }}
+        html, body {{
+        height: 100%;
+        margin: 0;
+        background: radial-gradient(1200px 600px at 70% -10%, #1f2937 0%, var(--bg) 50%);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        }}
+        .app {{
+        max-width: 1100px;
+        margin: 24px auto;
+        padding: 20px;
+        background: var(--card);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0,0,0,.35);
+        border: 1px solid rgba(148,163,184,.18);
+        }}
+        .header {{
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        margin-bottom: 12px;
+        }}
+        .title {{
+        margin: 0; font-size: 20px; letter-spacing: .2px; font-weight: 650;
+        }}
+        .sub {{ color: var(--muted); font-size: 12px; }}
+        .btn {{
+        appearance: none; border: 1px solid rgba(148,163,184,.25); background: transparent; color: var(--text);
+        padding: 8px 12px; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 12px; letter-spacing: .2px;
+        }}
+        .btn:hover {{ border-color: rgba(148,163,184,.45); }}
 
+        #graph {{
+        width: 100%; height: 620px; border-radius: 12px; overflow: hidden; position: relative;
+        background: linear-gradient(180deg, rgba(148,163,184,.05), rgba(148,163,184,.02));
+        }}
+        svg {{ width: 100%; height: 100%; display: block; }}
 
-def main(repoDir , scriptStrs):
-    tree , scripts = gatherScripts(repoDir , scriptStrs)
-    allFiles = []
-    treeColors = colorNodes(tree)
-    for key, val in scripts.items():
+        .link {{ stroke: rgba(148,163,184,.45); stroke-width: 1.5px; }}
+        .node {{ stroke: #0b1020; stroke-width: 1.5px; }}
+        .label {{ font-size: 11px; fill: var(--text); pointer-events: none; text-shadow: 0 1px 2px #000; }}
+
+        .tooltip {{ position: absolute; pointer-events: none; background: rgba(15,23,42,.92); color: var(--text);
+        border: 1px solid rgba(148,163,184,.25); padding: 6px 8px; border-radius: 10px; font-size: 12px; opacity: 0; transform: translate(-50%, -140%);
+        white-space: nowrap; backdrop-filter: blur(6px);
+        }}
+    </style>
+    </head>
+    <body>
+    <div class="app">
+        <div class="header">
+        <div>
+            <h1 class="title">Basic Network Graph</h1>
+            <div class="sub">Drag nodes • Scroll/Tap to zoom • Hover for details</div>
+        </div>
+        <div>
+            <button class="btn" id="shuffle">Shuffle layout</button>
+            <button class="btn" id="reset">Reset zoom</button>
+        </div>
+        </div>
+
+        <div id="graph"></div>
+    </div>
+
+    <script>
+        // ===== 1) Your data goes here =====
+        // Replace nodes/links with your own. Node ids must match link source/target.
+        const graphData = {{
+        nodes: [
+            {{ id: "Alice", group: "Team A" }},
+        ],
+        links: [
+            {{ source: "Alice", target: "Bob", weight: 1 }},
+        ]
+        }};
+
+        // ===== 2) Setup sizes and svg =====
+        const container = document.getElementById('graph');
+        const svg = d3.select(container).append('svg');
+        const g = svg.append('g'); // zoomable group
+        const tooltip = d3.select(container).append('div').attr('class', 'tooltip');
+
+        // defs for gradient-ish halos
+        const defs = svg.append('defs');
+        const glow = defs.append('filter').attr('id','glow');
+        glow.append('feGaussianBlur').attr('stdDeviation', 3.2).attr('result','coloredBlur');
+        const feMerge = glow.append('feMerge');
+        feMerge.append('feMergeNode').attr('in','coloredBlur');
+        feMerge.append('feMergeNode').attr('in','SourceGraphic');
+
+        // color scale by group
+        const groups = Array.from(new Set(graphData.nodes.map(n => n.group)));
+        const color = d3.scaleOrdinal().domain(groups).range(d3.schemeTableau10);
+
+        // ===== 3) Simulation =====
+        const simulation = d3.forceSimulation(graphData.nodes)
+        .force('link', d3.forceLink(graphData.links).id(d => d.id).distance(100).strength(0.2))
+        .force('charge', d3.forceManyBody().strength(-280))
+        .force('collide', d3.forceCollide().radius(22))
+        .force('center', d3.forceCenter())
+        .force('x', d3.forceX().strength(0.05))
+        .force('y', d3.forceY().strength(0.05));
+
+        // ===== 4) Draw links & nodes =====
+        const link = g.selectAll('.link')
+        .data(graphData.links)
+        .enter().append('line')
+        .attr('class', 'link')
+        .attr('stroke-opacity', 0.6);
+
+        const node = g.selectAll('.node')
+        .data(graphData.nodes)
+        .enter().append('circle')
+        .attr('class', 'node')
+        .attr('r', 10)
+        .attr('fill', d => color(d.group))
+        .style('filter','url(#glow)')
+        .call(d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended))
+        .on('mousemove', (event, d) => {{
+            tooltip.style('opacity', 1)
+                .html(`<strong>${{d.id}}</strong><br/><span style="color:#94a3b8">${{d.group}}</span>`)
+                .style('left', event.offsetX + 'px')
+                .style('top', event.offsetY + 'px');
+        }})
+        .on('mouseout', () => tooltip.style('opacity', 0));
+
+        const labels = g.selectAll('.label')
+        .data(graphData.nodes)
+        .enter().append('text')
+        .attr('class', 'label')
+        .attr('text-anchor', 'middle')
+        .attr('dy', -16)
+        .text(d => d.id);
+
+        // ===== 5) Tick update =====
+        simulation.on('tick', () => {{
+        link
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+
+        node
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y);
+
+        labels
+            .attr('x', d => d.x)
+            .attr('y', d => d.y);
+        }});
+
+        // ===== 6) Zoom & resize =====
+        const zoom = d3.zoom().scaleExtent([0.2, 4]).on('zoom', (event) => {{
+        g.attr('transform', event.transform);
+        }});
+        svg.call(zoom);
+
+        function resize() {{
+        const {{ width, height }} = container.getBoundingClientRect();
+        svg.attr('viewBox', `${{-width/2}} ${{-height/2}} ${{width}} ${{height}}`);
+        simulation.force('center', d3.forceCenter(0, 0)).alpha(0.2).restart();
+        }}
+        window.addEventListener('resize', resize);
+        resize();
+
+        // ===== 7) Controls =====
+        document.getElementById('shuffle').addEventListener('click', () => {{
+        // Nudge positions randomly and restart
+        graphData.nodes.forEach(n => {{ n.vx = (Math.random()-.5)*3; n.vy = (Math.random()-.5)*3; }});
+        simulation.alpha(0.6).restart();
+        }});
+        document.getElementById('reset').addEventListener('click', () => {{
+        svg.transition().duration(350).call(zoom.transform, d3.zoomIdentity);
+        }});
+
+        // ===== 8) Drag helpers =====
+        function dragstarted(event, d) {{
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+        }}
+        function dragged(event, d) {{
+        d.fx = event.x; d.fy = event.y;
+        }}
+        function dragended(event, d) {{
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null; d.fy = null;
+        }}
+    </script>
+    </body>
+    </html>
+    """
+    
+    with open(outputDir + "/" + chemStr + "interactiveMASTER.html", "w", encoding="utf-8") as f:
+        f.write(html)
+def main(repoDir , scriptStrs , outputDir):
+    tree , scriptsHash , scriptNames = gatherScripts(repoDir , scriptStrs) #gather code scripts in a hash table with directories 
+    connectionList = []
+    treeColors = colorNodes(tree) #gives each level of the tree structure a color 
+    colorHash = []
+    for key, val in scriptsHash.items():
         if len(val) != 0:
-            for file in val:
-                print(file)
-                allFiles.append(file)
+            if key in list(treeColors.keys()):
+                color = treeColors[key]
+                for file in val:
+                    print(file)
+                    fileName = file.root
+                    colorHash[fileName] = color
+                    fileDir = str(file)
+                    dependenciesHash = readScript(fileDir , scriptNames)
+                    for key, val in dependenciesHash.items():
+                        connectionList.append([fileName ,str(key) , *val])
+
+
+
+    
+    
 
 
 
 
 if __name__ == "__main__":
     repoDir = str(sys.argv[1])
+    outputDir = str(sys.argv[2])
     scriptStrs = listInputs(f"Please enter all the file types for the scripts in this repository: {repoDir} | Ex: .py,.cpp,.html,.js")
-    main(repoDir , scriptStrs)
+    main(repoDir , scriptStrs , outputDir)
