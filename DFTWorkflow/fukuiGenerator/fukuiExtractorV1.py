@@ -17,7 +17,7 @@ def extractEnergies(log: str, energyStr):
 
     # Energy extraction patterns for Gaussian
     patterns = {
-        'electronic':r'SCF Done:\s+E\(RB3LYP\)\s*=\s*([-\d.]+)', 
+        'electronic':r'SCF Done:\s+E\(.B3LYP\)\s*=\s*([-\d.]+)', 
         'gibbs': r'Sum of electronic and thermal Free Energies=\s*([-\d.]+)',
         'enthalpy': r'Sum of electronic and thermal Enthalpies=\s*([-\d.]+)',
         'zpe': r'Sum of electronic and zero-point Energies=\s*([-\d.]+)'
