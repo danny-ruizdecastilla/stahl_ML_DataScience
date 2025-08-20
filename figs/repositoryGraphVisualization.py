@@ -1,6 +1,6 @@
 #Run this code periodically to do a deep analysis on all the repo dependancies to create a graph of the file structure
 import sys
-import glob
+import json
 import os
 from pathlib import Path
 from PIL import ImageColor
@@ -103,243 +103,278 @@ def readScript(file , scriptNames):
         if len(allEdges) != 0:
             dependencies[node] = [edge.strip() for edge in import_]
     return dependencies   
-def networkGenerator(nodeList , nodeInfo , outputDir): 
+from pathlib import Path
+
+def networkGenerator(graphJSON, outputDir): 
+    plotTitle = input("Name this new network graph: ")
     html = f"""
     <!doctype html>
     <html lang="en">
     <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Basic Network Graph (D3)</title>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <style>
-        :root {{
-        --bg: #0f172a; /* slate-900 */
-        --card: #111827ee; /* gray-900 */
-        --text: #e5e7eb; /* gray-200 */
-        --muted: #94a3b8; /* slate-400 */
-        --accent: #38bdf8; /* sky-400 */
-        }}
-        html, body {{
-        height: 100%;
-        margin: 0;
-        background: radial-gradient(1200px 600px at 70% -10%, #1f2937 0%, var(--bg) 50%);
-        color: var(--text);
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-        }}
-        .app {{
-        max-width: 1100px;
-        margin: 24px auto;
-        padding: 20px;
-        background: var(--card);
-        border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0,0,0,.35);
-        border: 1px solid rgba(148,163,184,.18);
-        }}
-        .header {{
-        display: flex; align-items: center; justify-content: space-between; gap: 12px;
-        margin-bottom: 12px;
-        }}
-        .title {{
-        margin: 0; font-size: 20px; letter-spacing: .2px; font-weight: 650;
-        }}
-        .sub {{ color: var(--muted); font-size: 12px; }}
-        .btn {{
-        appearance: none; border: 1px solid rgba(148,163,184,.25); background: transparent; color: var(--text);
-        padding: 8px 12px; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 12px; letter-spacing: .2px;
-        }}
-        .btn:hover {{ border-color: rgba(148,163,184,.45); }}
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Basic Network Graph (D3)</title>
+        <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+        <style>
+            :root {{
+                --bg: #0f172a;
+                --card: #11827e;
+                --text: #ad0c0c;
+                --muted: #94a3b8;
+                --accent: #38bdf8;
+            }}
+            html, body {{
+                height: 100%;
+                margin: 0;
+                background: radial-gradient(1200px 600px at 70% -10%, #060e19 0%, var(--bg) 50%);
+                color: var(--text);
+                font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Arial, Helvetica;
+            }}
+            .app {{
+                max-width: 1100px;
+                margin: 24px auto;
+                padding: 10px;
+                background: var(--card);
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0,0,0,.50);
+                border: 1px solid rgba(148,163,184,0.18);
+            }}
+            .header {{
+                display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            }}
+            .title {{
+                margin: 0; font-size: 20px; letter-spacing: .2px; font-weight: 650;
+            }}
+            .sub {{ color: var(--muted); font-size: 12px; }}
+            .btn {{
+                appearance: none; 
+                border: 1px solid rgba(148,163,184,.5); 
+                background: transparent; 
+                color: var(--text);
+                padding: 8px 12px; 
+                border-radius: 12px; 
+                cursor: pointer; 
+                font-weight: 600; 
+                font-size: 12px; 
+                letter-spacing: .2px;
+            }}
+            .btn:hover {{ border-color: rgba(148,163,184,.45); }}
 
-        #graph {{
-        width: 100%; height: 620px; border-radius: 12px; overflow: hidden; position: relative;
-        background: linear-gradient(180deg, rgba(148,163,184,.05), rgba(148,163,184,.02));
-        }}
-        svg {{ width: 100%; height: 100%; display: block; }}
+            #graph {{
+                width: 100%; 
+                height: 620px; 
+                border-radius: 12px; 
+                overflow: hidden; 
+                position: relative;
+                background: linear-gradient(180deg, rgba(148,163,184,.5), rgba(148,163,184,.5));
+            }}
+            svg {{ width: 100%; height: 100%; display: block; }}
 
-        .link {{ stroke: rgba(148,163,184,.45); stroke-width: 1.5px; }}
-        .node {{ stroke: #0b1020; stroke-width: 1.5px; }}
-        .label {{ font-size: 11px; fill: var(--text); pointer-events: none; text-shadow: 0 1px 2px #000; }}
-
-        .tooltip {{ position: absolute; pointer-events: none; background: rgba(15,23,42,.92); color: var(--text);
-        border: 1px solid rgba(148,163,184,.25); padding: 6px 8px; border-radius: 10px; font-size: 12px; opacity: 0; transform: translate(-50%, -140%);
-        white-space: nowrap; backdrop-filter: blur(6px);
-        }}
-    </style>
+            .tooltip {{
+                position: absolute; 
+                pointer-events: none; 
+                background: rgba(15,23,42,.92); 
+                color: var(--text);
+                border: 1px solid rgba(148,163,184,.25); 
+                padding: 6px 8px; 
+                border-radius: 10px; 
+                font-size: 12px; 
+                opacity: 0; 
+                transform: translate(-50%,-140%);
+                white-space: nowrap; 
+                backdrop-filter: blur(6px);
+            }}
+        </style>
     </head>
     <body>
-    <div class="app">
-        <div class="header">
-        <div>
-            <h1 class="title">Basic Network Graph</h1>
-            <div class="sub">Drag nodes • Scroll/Tap to zoom • Hover for details</div>
+        <div class="app">
+            <div class="header">
+                <div>
+                    <h1 class="title">{plotTitle}</h1>
+                    <div class="sub"> Drag nodes • Scroll/Tap to zoom • Hover for details</div>
+                </div>
+                <div>
+                    <button class="btn" id="shuffle">Shuffle layout</button>
+                    <button class="btn" id="reset">Reset zoom</button>
+                </div>
+            </div>
+            <div id="graph"></div>
         </div>
-        <div>
-            <button class="btn" id="shuffle">Shuffle layout</button>
-            <button class="btn" id="reset">Reset zoom</button>
-        </div>
-        </div>
+        <script>
+            const graphData = {graphJSON};
+            console.log(graphData);
 
-        <div id="graph"></div>
-    </div>
+            const container = document.getElementById('graph');
+            const svg = d3.select(container).append('svg');
+            const g = svg.append('g');
+            const tooltip = d3.select(container).append('div').attr('class', 'tooltip');
 
-    <script>
-        // ===== 1) Your data goes here =====
-        // Replace nodes/links with your own. Node ids must match link source/target.
-        const graphData = {{
-        nodes: [
-            {{ id: "Alice", group: "Team A" }},
-        ],
-        links: [
-            {{ source: "Alice", target: "Bob", weight: 1 }},
-        ]
-        }};
+            svg.append("defs").selectAll("marker")
+            .data(["arrow"])
+            .enter().append("marker")
+                .attr("id", d => d)
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 20)
+                .attr("refY", 0)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto")
+                .append("path")
+                    .attr("d", "M0,-5L10,0L0,5")
+                    .attr("fill", "#999");
 
-        // ===== 2) Setup sizes and svg =====
-        const container = document.getElementById('graph');
-        const svg = d3.select(container).append('svg');
-        const g = svg.append('g'); // zoomable group
-        const tooltip = d3.select(container).append('div').attr('class', 'tooltip');
+            const defs = svg.append('defs');
+            const glow = defs.append('filter').attr('id','glow');
+            glow.append('feGaussianBlur').attr('stdDeviation', 3.2).attr('result', 'coloredBlur');
+            const feMerge = glow.append('feMerge');
+            feMerge.append('feMergeNode').attr('in','coloredBlur');
+            feMerge.append('feMergeNode').attr('in','sourceGraphic');
+            
+            const simulation = d3.forceSimulation(graphData.nodes)
+                .force('link', d3.forceLink(graphData.edges).id(d => d.id).distance(100).strength(0.2))
+                .force('charge', d3.forceManyBody().strength(-280))
+                .force('collide', d3.forceCollide().radius(22))
+                .force('center', d3.forceCenter())
+                .force('x', d3.forceX().strength(0.05))
+                .force('y', d3.forceY().strength(0.05));
 
-        // defs for gradient-ish halos
-        const defs = svg.append('defs');
-        const glow = defs.append('filter').attr('id','glow');
-        glow.append('feGaussianBlur').attr('stdDeviation', 3.2).attr('result','coloredBlur');
-        const feMerge = glow.append('feMerge');
-        feMerge.append('feMergeNode').attr('in','coloredBlur');
-        feMerge.append('feMergeNode').attr('in','SourceGraphic');
+            const link = g.selectAll('.link')
+                .data(graphData.edges)
+                .enter().append('line')
+                .attr('class', 'link')
+                .style('stroke', '#999')
+                .style('stroke-opacity', 0.6)
+                .style('stroke-width', d => d.weight || 1.5)
+                .attr("marker-end", "url(#arrow)");
+        
+            const linkLabels = g.selectAll('.link-label')
+                .data(graphData.edges)
+                .enter().append('text')
+                .attr('class', 'link-label')
+                .attr('text-anchor', 'middle')
+                .attr('dy', -5)
+                .style('font-size', '12px')
+                .style('fill', '#555')
+                .style('opacity', 0) 
+                .text(d => d.label);
 
-        // color scale by group
-        const groups = Array.from(new Set(graphData.nodes.map(n => n.group)));
-        const color = d3.scaleOrdinal().domain(groups).range(d3.schemeTableau10);
+            link.on('mousemove', function(event, d) {{
+                d3.select(this).style('stroke-width', 3);
+                tooltip.style('opacity', 1)
+                    .html(`<strong>${{d.label}}</strong>`)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 20) + 'px');
+            }})
+            .on('mouseout', function() {{
+                d3.select(this).style('stroke-width', 1.5);
+                tooltip.style('opacity', 0);
+            }});
 
-        // ===== 3) Simulation =====
-        const simulation = d3.forceSimulation(graphData.nodes)
-        .force('link', d3.forceLink(graphData.links).id(d => d.id).distance(100).strength(0.2))
-        .force('charge', d3.forceManyBody().strength(-280))
-        .force('collide', d3.forceCollide().radius(22))
-        .force('center', d3.forceCenter())
-        .force('x', d3.forceX().strength(0.05))
-        .force('y', d3.forceY().strength(0.05));
+            const node = g.selectAll('.node')
+                .data(graphData.nodes)
+                .enter().append('circle')
+                .attr('class', 'node')
+                .attr('r', 10)
+                .attr('fill', d => d.color)
+                .style('filter','url(#glow)')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('mousemove', (event, d) => {{
+                    tooltip.style('opacity', 1)
+                        .html(`<strong>${{d.id}}</strong><br/><span style="color:#94a3b8">${{d.group}}</span>`)
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 20) + 'px');
+                }})
+                .on('mouseout', () => tooltip.style('opacity', 0));
 
-        // ===== 4) Draw links & nodes =====
-        const link = g.selectAll('.link')
-        .data(graphData.links)
-        .enter().append('line')
-        .attr('class', 'link')
-        .attr('stroke-opacity', 0.6);
+            simulation.on("tick", () => {{
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
 
-        const node = g.selectAll('.node')
-        .data(graphData.nodes)
-        .enter().append('circle')
-        .attr('class', 'node')
-        .attr('r', 10)
-        .attr('fill', d => color(d.group))
-        .style('filter','url(#glow)')
-        .call(d3.drag()
-            .on('start', dragstarted)
-            .on('drag', dragged)
-            .on('end', dragended))
-        .on('mousemove', (event, d) => {{
-            tooltip.style('opacity', 1)
-                .html(`<strong>${{d.id}}</strong><br/><span style="color:#94a3b8">${{d.group}}</span>`)
-                .style('left', event.offsetX + 'px')
-                .style('top', event.offsetY + 'px');
-        }})
-        .on('mouseout', () => tooltip.style('opacity', 0));
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
 
-        const labels = g.selectAll('.label')
-        .data(graphData.nodes)
-        .enter().append('text')
-        .attr('class', 'label')
-        .attr('text-anchor', 'middle')
-        .attr('dy', -16)
-        .text(d => d.id);
+                linkLabels
+                    .attr("x", d => (d.source.x + d.target.x) / 2)
+                    .attr("y", d => (d.source.y + d.target.y) / 2);
+            }});
 
-        // ===== 5) Tick update =====
-        simulation.on('tick', () => {{
-        link
-            .attr('x1', d => d.source.x)
-            .attr('y1', d => d.source.y)
-            .attr('x2', d => d.target.x)
-            .attr('y2', d => d.target.y);
+            const zoom = d3.zoom().scaleExtent([0.2, 4]).on('zoom', (event) => {{
+                g.attr('transform', event.transform);
+            }});
+            svg.call(zoom);
 
-        node
-            .attr('cx', d => d.x)
-            .attr('cy', d => d.y);
+            function resize() {{
+                const {{ width, height }} = container.getBoundingClientRect();
+                svg.attr('viewBox', `${{-width/2}} ${{-height/2}} ${{width}} ${{height}}`);
+                simulation.force('center', d3.forceCenter(0, 0)).alpha(0.2).restart();
+            }}
+            window.addEventListener('resize', resize);
+            resize();
 
-        labels
-            .attr('x', d => d.x)
-            .attr('y', d => d.y);
-        }});
+            document.getElementById('shuffle').addEventListener('click', () => {{
+                graphData.nodes.forEach(n => {{ n.vx = (Math.random()-.5)*3; n.vy = (Math.random()-.5)*3; }});
+                simulation.alpha(0.6).restart();
+            }});
+            document.getElementById('reset').addEventListener('click', () => {{
+                svg.transition().duration(350).call(zoom.transform, d3.zoomIdentity);
+            }});
 
-        // ===== 6) Zoom & resize =====
-        const zoom = d3.zoom().scaleExtent([0.2, 4]).on('zoom', (event) => {{
-        g.attr('transform', event.transform);
-        }});
-        svg.call(zoom);
-
-        function resize() {{
-        const {{ width, height }} = container.getBoundingClientRect();
-        svg.attr('viewBox', `${{-width/2}} ${{-height/2}} ${{width}} ${{height}}`);
-        simulation.force('center', d3.forceCenter(0, 0)).alpha(0.2).restart();
-        }}
-        window.addEventListener('resize', resize);
-        resize();
-
-        // ===== 7) Controls =====
-        document.getElementById('shuffle').addEventListener('click', () => {{
-        // Nudge positions randomly and restart
-        graphData.nodes.forEach(n => {{ n.vx = (Math.random()-.5)*3; n.vy = (Math.random()-.5)*3; }});
-        simulation.alpha(0.6).restart();
-        }});
-        document.getElementById('reset').addEventListener('click', () => {{
-        svg.transition().duration(350).call(zoom.transform, d3.zoomIdentity);
-        }});
-
-        // ===== 8) Drag helpers =====
-        function dragstarted(event, d) {{
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x; d.fy = d.y;
-        }}
-        function dragged(event, d) {{
-        d.fx = event.x; d.fy = event.y;
-        }}
-        function dragended(event, d) {{
-        if (!event.active) simulation.alphaTarget(0);
-        d.fx = null; d.fy = null;
-        }}
-    </script>
+            function dragstarted(event, d) {{
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x; d.fy = d.y;
+            }}
+            function dragged(event, d) {{
+                d.fx = event.x; d.fy = event.y;
+            }}
+            function dragended(event, d) {{
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null; d.fy = null;
+            }}
+        </script>
     </body>
     </html>
     """
     
-    with open(outputDir + "/" + chemStr + "interactiveMASTER.html", "w", encoding="utf-8") as f:
+    networkHTMLPath = Path(outputDir) / f"{plotTitle}.html"
+    with open(networkHTMLPath, "w", encoding="utf-8") as f:
         f.write(html)
+
 def main(repoDir , scriptStrs , outputDir):
+    trunkMAST = Path(repoDir).name
     tree , scriptsHash , scriptNames = gatherScripts(repoDir , scriptStrs) #gather code scripts in a hash table with directories 
-    connectionList = []
+    print(scriptsHash)
+    edgeMAST = []
     treeColors = colorNodes(tree) #gives each level of the tree structure a color 
-    colorHash = []
+    print(treeColors)
+    nodeMAST = []
     for key, val in scriptsHash.items():
         if len(val) != 0:
             if key in list(treeColors.keys()):
                 color = treeColors[key]
                 for file in val:
                     print(file)
-                    fileName = file.root
-                    colorHash[fileName] = color
-                    fileDir = str(file)
-                    dependenciesHash = readScript(fileDir , scriptNames)
-                    for key, val in dependenciesHash.items():
-                        connectionList.append([fileName ,str(key) , *val])
-
-
-
-    
-    
-
-
-
+                    fileName = file.name
+                    fileStr = str(file)
+                    firstDir = str(Path(fileStr.split(trunkMAST)[1]).parts[1])
+                    node = { "id": fileName , "color": color , "group": firstDir}
+                    nodeMAST.append(node)
+                    dependenciesHash = readScript(fileStr, scriptNames)
+                    for source , shared in dependenciesHash.values():
+                        weight = len(shared)
+                        allScripts = "\n".join(script for script in shared) + "\n"
+                        edge = {"source" : source , "target": fileName , "label": allScripts , "weight" : 2*weight}
+                        edgeMAST.append(edge)
+    graphData = {"nodes": nodeMAST , "edges": edgeMAST}
+    print(graphData)
+    graphJSON = json.dumps(graphData)
+    networkGenerator(graphJSON , outputDir)
 
 if __name__ == "__main__":
     repoDir = str(sys.argv[1])
