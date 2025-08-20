@@ -364,7 +364,7 @@ def main(repoDir , scriptStrs , outputDir):
                     fileName = file.name
                     fileStr = str(file)
                     firstDir = str(Path(fileStr.split(trunkMAST)[1]).parts[1])
-                    node = { "id": fileName , "color": color , "group": firstDir}
+                    node = { "id": fileName , "color": f"rgba({color[0]},{color[1]},{color[2]},0.9)", "group": firstDir}
                     nodeMAST.append(node)
                     dependenciesHash = readScript(fileStr, scriptNames)
                     for source , shared in dependenciesHash.values():
