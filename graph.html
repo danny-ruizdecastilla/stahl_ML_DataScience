@@ -1,0 +1,234 @@
+
+    <!doctype html>
+    <html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Basic Network Graph (D3)</title>
+        <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+        <style>
+            :root {
+                --bg: #0f172a; /* slate-900 */
+                --card: #111827ee; /* gray-900 */
+                --text: #ad0c0c; /* gray-200 */
+                --muted: #94a3b8; /* slate-400 */
+                --accent: #38bdf8; /* sky-400 */
+            }
+            html, body {
+                height: 100%;
+                margin: 0;
+                background: radial-gradient(1200px 600px at 70% -10%, #060e19 0%, var(--bg) 50%);
+                color: var(--text);
+                font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Arial, Helvetica;
+            }
+            .app {
+                max-width: 1100px;
+                margin: 24px auto;
+                padding: 10px;
+                background: var(--card);
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0,0,0,.50);
+                border: 1px solid rgba(148,163,184,0.18);
+            }
+            .header {
+                display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            }
+            .title {
+                margin: 0; font-size: 20px; letter-spacing: .2px; font-weight: 650;
+            }
+            .sub { color: var(--muted); font-size: 12px; }
+            .btn {
+                appearance: none; 
+                border: 1px solid rgba(148,163,184,.5); 
+                background: transparent; 
+                color: var(--text);
+                padding: 8px 12px; 
+                border-radius: 12px; 
+                cursor: pointer; 
+                font-weight: 600; 
+                font-size: 12px; 
+                letter-spacing: .2px;
+            }
+            .btn:hover { border-color: rgba(148,163,184,.45); }
+
+            #graph {
+                width: 100%; 
+                height: 620px; 
+                border-radius: 12px; 
+                overflow: hidden; 
+                position: relative;
+                background: linear-gradient(180deg, rgba(4, 34, 76, 0.5), rgba(9, 44, 93, 0.5));
+            }
+            svg { width: 100%; height: 100%; display: block; }
+
+            .tooltip {
+                position: absolute; 
+                pointer-events: none; 
+                background: rgba(15,23,42,.92); 
+                color: var(--text);
+                border: 1px solid rgba(148,163,184,.25); 
+                padding: 6px 8px; 
+                border-radius: 10px; 
+                font-size: 12px; 
+                opacity: 0; 
+                transform: translate(-50%,-140%);
+                white-space: nowrap; 
+                backdrop-filter: blur(6px);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="app">
+            <div class="header">
+                <div>
+                    <h1 class="title">stahl_ML_repo</h1>
+                    <div class="sub"> Drag nodes • Scroll/Tap to zoom • Hover for details</div>
+                </div>
+                <div>
+                    <button class="btn" id="shuffle">Shuffle layout</button>
+                    <button class="btn" id="reset">Reset zoom</button>
+                </div>
+            </div>
+            <div id="graph"></div>
+        </div>
+        <script>
+            const graphData = {"nodes": [{"id": "radialBasedCorrelation", "color": "rgba(255,0,0,0.9)", "group": "breadthFirstSearch"}, {"id": "graphTraversals", "color": "rgba(255,0,0,0.9)", "group": "breadthFirstSearch"}, {"id": "fukuiExtractor_Alkenes", "color": "rgba(255,0,0,0.9)", "group": "breadthFirstSearch"}, {"id": "motifExtractorGifGen", "color": "rgba(255,0,0,0.9)", "group": "breadthFirstSearch"}, {"id": "stericvselectroPCA", "color": "rgba(255,255,0,0.9)", "group": "figs"}, {"id": "repositoryGraphVisualization", "color": "rgba(255,255,0,0.9)", "group": "figs"}, {"id": "plotSubstrates", "color": "rgba(255,255,0,0.9)", "group": "figs"}, {"id": "featureCorrelation", "color": "rgba(255,255,0,0.9)", "group": "figs"}, {"id": "chemPlotlyV2", "color": "rgba(255,255,0,0.9)", "group": "figs"}, {"id": "chemPlotlyV1", "color": "rgba(255,255,0,0.9)", "group": "figs"}, {"id": "plotChemistries", "color": "rgba(255,255,0,0.9)", "group": "figs"}, {"id": "featurePlotter", "color": "rgba(255,255,0,0.9)", "group": "figs"}, {"id": "reaxysCompFeatureMaping", "color": "rgba(0,0,255,0.9)", "group": "reaxysProcessing"}, {"id": "expt2_create_features", "color": "rgba(0,0,255,0.9)", "group": "reaxysProcessing"}, {"id": "loadingData", "color": "rgba(0,0,255,0.9)", "group": "reaxysProcessing"}, {"id": "expt2_feature_filtering", "color": "rgba(0,0,255,0.9)", "group": "reaxysProcessing"}, {"id": "reaxysAlkeneMaping", "color": "rgba(0,0,255,0.9)", "group": "reaxysProcessing"}, {"id": "reaxys_PostProcessing", "color": "rgba(0,0,255,0.9)", "group": "reaxysProcessing"}, {"id": "reaxysSubstrateExtractorV2", "color": "rgba(0,0,255,0.9)", "group": "reaxysProcessing"}, {"id": "alkeneC13Shifts", "color": "rgba(0,153,0,0.9)", "group": "DFTWorkflow"}, {"id": "smiles_to_xyz", "color": "rgba(0,153,0,0.9)", "group": "DFTWorkflow"}, {"id": "crestComWriter", "color": "rgba(0,153,0,0.9)", "group": "DFTWorkflow"}, {"id": "fukuiExtractorV1", "color": "rgba(0,153,0,0.9)", "group": "DFTWorkflow"}, {"id": "fukuiExtractorV2", "color": "rgba(0,153,0,0.9)", "group": "DFTWorkflow"}, {"id": "addSCF", "color": "rgba(0,153,0,0.9)", "group": "DFTWorkflow"}, {"id": "randomSampling", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "sortPool", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "C13Shifts_Extractor", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "featureDistributionGenerator", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "expt2_feature_filtering", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "ionComGenerator", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "__init__", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "featureMaping", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "changeBasis", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "pitchingATent", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "nmrComGenerator", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "alkeneSubstitution", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "alkeneWildConsolidate", "color": "rgba(0,128,0,0.9)", "group": "DFTWorkflow"}, {"id": "getDeltas", "color": "rgba(255,165,0,0.9)", "group": "ml_Regression"}, {"id": "ML_RegressionV1", "color": "rgba(255,165,0,0.9)", "group": "ml_Regression"}, {"id": "reactivityFeatures", "color": "rgba(128,0,128,0.9)", "group": "dimensionalityReduction"}, {"id": "featurePCA", "color": "rgba(128,0,128,0.9)", "group": "dimensionalityReduction"}, {"id": "datasetRemoval", "color": "rgba(128,0,128,0.9)", "group": "dimensionalityReduction"}], "edges": [{"source": "motifExtractorGifGen", "target": "fukuiExtractor_Alkenes", "label": "motifExtract\n", "weight": 2}, {"source": "addSCF", "target": "fukuiExtractor_Alkenes", "label": "readDat\n", "weight": 2}, {"source": "pitchingATent", "target": "fukuiExtractor_Alkenes", "label": "convertCanonical\n", "weight": 2}, {"source": "featureMaping", "target": "fukuiExtractor_Alkenes", "label": "createCSV\n", "weight": 2}, {"source": "reaxysSubstrateExtractorV2", "target": "stericvselectroPCA", "label": "listInputs\n", "weight": 2}, {"source": "featurePlotter", "target": "stericvselectroPCA", "label": "getFeaturePairs\nstandardCols\n", "weight": 4}, {"source": "chemPlotlyV1", "target": "stericvselectroPCA", "label": "insertIntoDataframe\n", "weight": 2}, {"source": "chemPlotlyV2", "target": "stericvselectroPCA", "label": "plotly_template\ninteractiveFigGenerator\n", "weight": 4}, {"source": "pitchingATent", "target": "stericvselectroPCA", "label": "compressData\nlocateNans\neliminateNans\nconvertCanonical\nfeatureFiltering\n", "weight": 10}, {"source": "reaxysSubstrateExtractorV2", "target": "repositoryGraphVisualization", "label": "listInputs\n", "weight": 2}, {"source": "reaxysSubstrateExtractorV2", "target": "plotSubstrates", "label": "listInputs\n", "weight": 2}, {"source": "chemPlotlyV2", "target": "plotSubstrates", "label": "createPNGDF\npng64\n", "weight": 4}, {"source": "stericvselectroPCA", "target": "plotSubstrates", "label": "pcafeatureSplitter\n", "weight": 2}, {"source": "pitchingATent", "target": "plotSubstrates", "label": "compressData\nlocateNans\neliminateNans\nconvertCanonical\nfeatureFiltering\n", "weight": 10}, {"source": "featureMaping", "target": "plotSubstrates", "label": "createCSV\n", "weight": 2}, {"source": "featureMaping", "target": "chemPlotlyV2", "label": "createCSV\n", "weight": 2}, {"source": "reaxysSubstrateExtractorV2", "target": "plotChemistries", "label": "listInputs\n", "weight": 2}, {"source": "chemPlotlyV2", "target": "plotChemistries", "label": "createPNGDF\npng64\n", "weight": 4}, {"source": "chemPlotlyV1", "target": "plotChemistries", "label": "convertCanonical\n", "weight": 2}, {"source": "plotSubstrates", "target": "plotChemistries", "label": "safeStringHTML\nplotSubstratesMain\n", "weight": 4}, {"source": "pitchingATent", "target": "plotChemistries", "label": "compressData\nlocateNans\neliminateNans\nconvertCanonical\nfeatureFiltering\n", "weight": 10}, {"source": "featureMaping", "target": "plotChemistries", "label": "createCSV\n", "weight": 2}, {"source": "chemPlotlyV2", "target": "featurePlotter", "label": "createPNGDF\npng64\nplotly_template\n", "weight": 6}, {"source": "featureMaping", "target": "featurePlotter", "label": "savePNG\ncreateCSV\n", "weight": 4}, {"source": "pitchingATent", "target": "featurePlotter", "label": "compressData\nlocateNans\neliminateNans\nconvertCanonical\n", "weight": 8}, {"source": "expt2_create_features", "target": "reaxysCompFeatureMaping", "label": "*\n", "weight": 2}, {"source": "expt2_feature_filtering", "target": "reaxysCompFeatureMaping", "label": "*\n", "weight": 2}, {"source": "expt2_create_features", "target": "reaxysAlkeneMaping", "label": "*\n", "weight": 2}, {"source": "expt2_feature_filtering", "target": "reaxysAlkeneMaping", "label": "*\n", "weight": 2}, {"source": "featureMaping", "target": "reaxysSubstrateExtractorV2", "label": "createCSV\n", "weight": 2}, {"source": "pitchingATent", "target": "reaxysSubstrateExtractorV2", "label": "convertCanonical\n", "weight": 2}, {"source": "radialBasedCorrelation", "target": "alkeneC13Shifts", "label": "getCC\n", "weight": 2}, {"source": "featureMaping", "target": "alkeneC13Shifts", "label": "createCSV\n", "weight": 2}, {"source": "pitchingATent", "target": "alkeneC13Shifts", "label": "convertCanonical\n", "weight": 2}, {"source": "addSCF", "target": "alkeneC13Shifts", "label": "readDat\n", "weight": 2}, {"source": "alkeneSubstitution", "target": "smiles_to_xyz", "label": "smiles_to_coords\n", "weight": 2}, {"source": "ionComGenerator", "target": "fukuiExtractorV1", "label": "locateinLog\n", "weight": 2}, {"source": "featureMaping", "target": "fukuiExtractorV1", "label": "createCSV\n", "weight": 2}, {"source": "featureMaping", "target": "fukuiExtractorV2", "label": "createCSV\n", "weight": 2}, {"source": "fukuiExtractorV1", "target": "fukuiExtractorV2", "label": "getBoltzmannWeightsGauss\nextractChargesCHELPG_Mull_NBO_Hirsh\n", "weight": 4}, {"source": "reaxysSubstrateExtractorV2", "target": "C13Shifts_Extractor", "label": "listInputs\n", "weight": 2}, {"source": "featureMaping", "target": "C13Shifts_Extractor", "label": "createCSV\n", "weight": 2}, {"source": "fukuiExtractorV1", "target": "C13Shifts_Extractor", "label": "getBoltzmannWeightsGauss\n", "weight": 2}, {"source": "fukuiExtractorV2", "target": "C13Shifts_Extractor", "label": "consolidatePaths\nextractFromKeys\natomicBoltzmannConstruction\n", "weight": 6}, {"source": "ionComGenerator", "target": "C13Shifts_Extractor", "label": "locateinLog\n", "weight": 2}, {"source": "featureMaping", "target": "featureDistributionGenerator", "label": "savePNG\ncreateCSV\n", "weight": 4}, {"source": "featureMaping", "target": "pitchingATent", "label": "savePNG\ncreateCSV\n", "weight": 4}, {"source": "expt2_feature_filtering", "target": "pitchingATent", "label": "spearmanr_correlation\ncorrelation_analysis\nremove_by_variance\n", "weight": 6}, {"source": "featureMaping", "target": "alkeneSubstitution", "label": "createCSV\n", "weight": 2}, {"source": "radialBasedCorrelation", "target": "alkeneSubstitution", "label": "getCC\ngetAdjencyMatrix\n", "weight": 4}, {"source": "graphTraversals", "target": "alkeneSubstitution", "label": "minFirstSearch\nmaxPathCompare\n", "weight": 4}, {"source": "chemPlotlyV1", "target": "alkeneWildConsolidate", "label": "dat2List\n", "weight": 2}, {"source": "featureMaping", "target": "alkeneWildConsolidate", "label": "createCSV\n", "weight": 2}, {"source": "reaxysSubstrateExtractorV2", "target": "alkeneWildConsolidate", "label": "listInputs\n", "weight": 2}, {"source": "getDeltas", "target": "alkeneWildConsolidate", "label": "abstractFeats\n", "weight": 2}, {"source": "chemPlotlyV1", "target": "getDeltas", "label": "dat2List\n", "weight": 2}, {"source": "featureMaping", "target": "getDeltas", "label": "createCSV\n", "weight": 2}, {"source": "featureMaping", "target": "ML_RegressionV1", "label": "savePNG\ncreateCSV\n", "weight": 4}, {"source": "pitchingATent", "target": "ML_RegressionV1", "label": "compressData\nlocateNans\neliminateNans\n", "weight": 6}, {"source": "reaxysSubstrateExtractorV2", "target": "reactivityFeatures", "label": "listInputs\n", "weight": 2}, {"source": "pitchingATent", "target": "reactivityFeatures", "label": "convertCanonical\n", "weight": 2}, {"source": "chemPlotlyV1", "target": "reactivityFeatures", "label": "plotly_template\n", "weight": 2}, {"source": "chemPlotlyV2", "target": "featurePCA", "label": "createPNGDF\npng64\nplotly_template\n", "weight": 6}, {"source": "featureMaping", "target": "featurePCA", "label": "savePNG\ncreateCSV\n", "weight": 4}, {"source": "pitchingATent", "target": "featurePCA", "label": "compressData\nlocateNans\neliminateNans\nconvertCanonical\n", "weight": 8}, {"source": "motifExtractorGifGen", "target": "datasetRemoval", "label": "motifExtract\n", "weight": 2}]};
+            console.log(graphData);
+
+            const container = document.getElementById('graph');
+            const svg = d3.select(container).append('svg');
+            const g = svg.append('g');
+            const tooltip = d3.select(container).append('div').attr('class', 'tooltip');
+
+            svg.append("defs").selectAll("marker")
+            .data(["arrow"])
+            .enter().append("marker")
+                .attr("id", d => d)
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 20)
+                .attr("refY", 0)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto")
+                .append("path")
+                    .attr("d", "M0,-5L10,0L0,5")
+                    .attr("fill", "#999");
+
+            const defs = svg.append('defs');
+            const glow = defs.append('filter').attr('id','glow');
+            glow.append('feGaussianBlur').attr('stdDeviation', 3.2).attr('result', 'coloredBlur');
+            const feMerge = glow.append('feMerge');
+            feMerge.append('feMergeNode').attr('in','coloredBlur');
+            feMerge.append('feMergeNode').attr('in','sourceGraphic');
+            
+            const simulation = d3.forceSimulation(graphData.nodes)
+                .force('link', d3.forceLink(graphData.edges).id(d => d.id).distance(100).strength(0.2))
+                .force('charge', d3.forceManyBody().strength(-280))
+                .force('collide', d3.forceCollide().radius(22))
+                .force('center', d3.forceCenter())
+                .force('x', d3.forceX().strength(0.05))
+                .force('y', d3.forceY().strength(0.05));
+
+            const link = g.selectAll('.link')
+                .data(graphData.edges)
+                .enter().append('line')
+                .attr('class', 'link')
+                .style('stroke', '#999')
+                .style('stroke-opacity', 0.6)
+                .style('stroke-width', d => d.weight || 1.5)
+                .attr("marker-end", "url(#arrow)");
+        
+            const linkLabels = g.selectAll('.link-label')
+                .data(graphData.edges)
+                .enter().append('text')
+                .attr('class', 'link-label')
+                .attr('text-anchor', 'middle')
+                .attr('dy', -5)
+                .style('font-size', '12px')
+                .style('fill', '#555')
+                .style('opacity', 0) 
+                .text(d => d.label);
+
+            link.on('mousemove', function(event, d) {
+                d3.select(this).style('stroke-width', 3);
+                tooltip.style('opacity', 1)
+                    .html(`<strong>${d.label}</strong>`)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 20) + 'px');
+            })
+            .on('mouseout', function() {
+                d3.select(this).style('stroke-width', 1.5);
+                tooltip.style('opacity', 0);
+            });
+
+            const node = g.selectAll('.node')
+                .data(graphData.nodes)
+                .enter().append('circle')
+                .attr('class', 'node')
+                .attr('r', 10)
+                .attr('fill', d => d.color)
+                .style('filter','url(#glow)')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('mousemove', (event, d) => {
+                    tooltip.style('opacity', 1)
+                        .html(`<strong>${d.id}</strong><br/><span style="color:#94a3b8">${d.group}</span>`)
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 20) + 'px');
+                })
+                .on('mouseout', () => tooltip.style('opacity', 0));
+
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+
+                linkLabels
+                    .attr("x", d => (d.source.x + d.target.x) / 2)
+                    .attr("y", d => (d.source.y + d.target.y) / 2);
+            });
+
+            const zoom = d3.zoom().scaleExtent([0.2, 4]).on('zoom', (event) => {
+                g.attr('transform', event.transform);
+            });
+            svg.call(zoom);
+
+            function resize() {
+                const { width, height } = container.getBoundingClientRect();
+                svg.attr('viewBox', `${-width/2} ${-height/2} ${width} ${height}`);
+                simulation.force('center', d3.forceCenter(0, 0)).alpha(0.2).restart();
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            document.getElementById('shuffle').addEventListener('click', () => {
+                graphData.nodes.forEach(n => { n.vx = (Math.random()-.5)*3; n.vy = (Math.random()-.5)*3; });
+                simulation.alpha(0.6).restart();
+            });
+            document.getElementById('reset').addEventListener('click', () => {
+                svg.transition().duration(350).call(zoom.transform, d3.zoomIdentity);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x; d.fy = d.y;
+            }
+            function dragged(event, d) {
+                d.fx = event.x; d.fy = event.y;
+            }
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null; d.fy = null;
+            }
+        </script>
+    </body>
+    </html>
+    
