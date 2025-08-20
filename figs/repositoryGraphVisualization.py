@@ -356,8 +356,9 @@ def main(repoDir , scriptStrs , outputDir):
     nodeMAST = []
     for key, val in scriptsHash.items():
         if len(val) != 0:
-            if key in list(treeColors.keys()):
-                color = treeColors[key]
+            mainFolder = str(key.name)
+            if mainFolder in list(treeColors.keys()):
+                color = treeColors[mainFolder]
                 for file in val:
                     print(file)
                     fileName = file.name
