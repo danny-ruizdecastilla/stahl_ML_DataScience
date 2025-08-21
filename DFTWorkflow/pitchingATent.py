@@ -16,6 +16,7 @@ parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from DFTWorkflow.featureMaping import savePNG , createCSV
 from DFTWorkflow.expt2_feature_filtering import spearmanr_correlation , correlation_analysis , remove_by_variance
+from figs.featureCorrelation import correlationGenerator
 #Danny Ruiz de Castilla 02.28.2025
 
 #pcaDict = {canonicalSmiles : [ yield]} for local Chemistries 
@@ -207,20 +208,21 @@ def featureFiltering(outDir , X , feature_labels , featureStr):
             f.write(f"Total starting feature count: {len(feature_labels)}")
             f.write("".join([f'\n\t{label}' for label in feature_labels]))
             
-            X, feature_labels, dropped_features = remove_by_variance(X, feature_labels)
+            X, feature_labels, dropped_features , pearsonDF = remove_by_variance(X, feature_labels)
             #print("90" , type(X))
-
+            pearsonFig = correlationGenerator(pearsonDF, "pearsonGrid",template = None , savePath = outDir + "/pearsonMatrix.html" )
             text = "\n\n\nFeatures drop due to low variance: " + "".join([f'\n\t{label}' for label in dropped_features])
             f.write(text)
 
-            X, feature_labels, drop_group = correlation_analysis(X, feature_labels, threshold=0.95)
+            X, feature_labels, drop_group = correlation_analysis(X, threshold=0.95)
             text = "\n\n\nFeatures drop due correlation:  "
             #print("97" , type(X))
             import json
             text += json.dumps(drop_group, indent=4).replace('\n', '\n\t')
             f.write(text)
 
-            X, feature_labels  = spearmanr_correlation(X, feature_labels, threshold=0.95)
+            X, feature_labels , spearmanDF  = spearmanr_correlation(X, threshold=0.95)
+            spearmanFig = correlationGenerator(spearmanDF, "spearmanGrid",template = None , savePath = outDir + "/spearmanMatrix.html" )
             #print("103" , type(X))
     return X , feature_labels
 def locateNans(df):
