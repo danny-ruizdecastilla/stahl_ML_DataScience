@@ -3,6 +3,7 @@ import sys
 import glob
 import pandas as pd
 import numpy as np
+from pathlib import Path
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__) , "../.."))
 sys.path.append(parentDir)
 from breadthFirstSearch.radialBasedCorrelation import getCC
@@ -91,7 +92,9 @@ def main(nboDir , substrateCSV , outputDir):
         molecStr = row[idCol] 
         fileBase = str(molecStr) + str(fileSplit)
         eligibleLogs = [log for log in logFiles if fileBase in log]
-        nboHash = alkeneNBOExtractor(eligibleLogs , C1 , C2 , 'electronic'  )
+        oneLog = eligibleLogs[0]
+        mainStr = str(Path(oneLog).name.split(fileSplit)[0])
+        nboHash = alkeneNBOExtractor(eligibleLogs , C1 , C2 , 'electronic' , mainStr )
         dfMAST = pd.concat([dfMAST , pd.DataFrame([nboHash])] , ignore_index=True)
     dfMAST["NBO_mean"]  = (dfMAST["NBO_Cmax"] + dfMAST["NBO_Cmin"]) / 2
     dfMAST["NBO_delta"]  = (dfMAST["NBO_Cmax"] - dfMAST["NBO_Cmin"]) 
@@ -101,4 +104,6 @@ if __name__ == "__main__":
     nboDir = str(sys.argv[1])
     substrateCSV = str(sys.argv[2])
     outputDir = str(sys.argv[3])
+    if not os.path.exists(outputDir ): 
+        os.makedirs(outputDir) 
     main(nboDir , substrateCSV , outputDir)
