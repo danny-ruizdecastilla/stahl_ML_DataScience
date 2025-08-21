@@ -29,11 +29,47 @@ def diagonalChecker(matrix):
             if val1 != val2:
                 isDiagonal = False
     return isDiagonal 
-def correlationGenerator(matrx , corrStr , plotTemplate):
-    isSymmetric = diagonalChecker(matrx)
-    if isSymmetric:
-        fig = go.Figure(layout=dict(template=plotTemplate()))
-        
+def correlationGenerator(corrDF, corrStr , **kwargs):
+    if kwargs["template"] is None:
+        plotTemplate = openPlotlyTemplate
+    if kwargs["savePath"] is None:
+        save_path = False
 
-    else:
-        print("Error in correlation Generator. Input correlation matrix is not symmetric")
+    isSymmetric = diagonalChecker(corrDF.values)
+    if not isSymmetric:
+        print("Error: Input correlation matrix is not symmetric")
+        return None
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=corrDF.values,
+            x=corrDF.columns,
+            y=corrDF.columns,
+            colorscale="RdBu", 
+            colorbar=dict(title=corrStr, titleside="right")
+        ),
+        layout=dict(template=plotTemplate())
+    )
+    annotations = []
+    for i, row in enumerate(corrDF.values):
+        for j, val in enumerate(row):
+            annotations.append(
+                dict(
+                    x=corrDF.columns[j],
+                    y=corrDF.index[i],
+                    text=str(round(val, 2)),
+                    showarrow=False,
+                    font=dict(color="black" if abs(val) < 0.6 else "white") # contrast for readability
+                )
+            )
+    
+    fig.update_layout(
+        title=f"{corrStr} Correlation Matrix",
+        xaxis=dict(tickangle=45),
+        yaxis=dict(autorange="reversed"),
+        annotations=annotations
+    )
+    if save_path:
+        fig.write_html(save_path)
+        print(f"✅ Correlation matrix saved to {save_path}")
+    
+    return fig
