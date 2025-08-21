@@ -41,7 +41,7 @@ def gatherScripts(repoDir, scriptStrs):
             elif any(str(p).endswith(ext) for ext in scriptStrs):
                 scriptFiles.append(p)
                 script = Path(p)
-                scriptName = script.name
+                scriptName = str(script.name.split(".")[0])
                 allScripts.append(scriptName)
         directoryDict[currentPath] = scriptFiles
 
@@ -117,11 +117,11 @@ def networkGenerator(graphJSON, outputDir):
         <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
         <style>
             :root {{
-                --bg: #0f172a;
-                --card: #11827e;
-                --text: #ad0c0c;
-                --muted: #94a3b8;
-                --accent: #38bdf8;
+                --bg: #0f172a; /* slate-900 */
+                --card: #111827ee; /* gray-900 */
+                --text: #ad0c0c; /* gray-200 */
+                --muted: #94a3b8; /* slate-400 */
+                --accent: #38bdf8; /* sky-400 */
             }}
             html, body {{
                 height: 100%;
@@ -166,7 +166,7 @@ def networkGenerator(graphJSON, outputDir):
                 border-radius: 12px; 
                 overflow: hidden; 
                 position: relative;
-                background: linear-gradient(180deg, rgba(148,163,184,.5), rgba(148,163,184,.5));
+                background: linear-gradient(180deg, rgba(4, 34, 76, 0.5), rgba(9, 44, 93, 0.5));
             }}
             svg {{ width: 100%; height: 100%; display: block; }}
 
@@ -361,13 +361,13 @@ def main(repoDir , scriptStrs , outputDir):
                 color = treeColors[mainFolder]
                 for file in val:
                     print(file)
-                    fileName = file.name
+                    fileName = str(file.name.split(".")[0])
                     fileStr = str(file)
                     firstDir = str(Path(fileStr.split(trunkMAST)[1]).parts[1])
                     node = { "id": fileName , "color": f"rgba({color[0]},{color[1]},{color[2]},0.9)", "group": firstDir}
                     nodeMAST.append(node)
                     dependenciesHash = readScript(fileStr, scriptNames)
-                    for source , shared in dependenciesHash.values():
+                    for source , shared in dependenciesHash.items():
                         weight = len(shared)
                         allScripts = "\n".join(script for script in shared) + "\n"
                         edge = {"source" : source , "target": fileName , "label": allScripts , "weight" : 2*weight}
