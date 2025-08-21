@@ -5,12 +5,14 @@ import numpy as np
 #import plotly.graph_objects as go
 
 
-def correlation_analysis(X, feature_labels: list[str], threshold: float = 0.98, output: bool = False): #X is a Pandas array
-    
+def correlation_analysis(X, threshold: float = 0.98, output: bool = False): #X is a Pandas array
+    feature_labels = list(X.columns)
     numFeatures = X.shape[1]
     scaleWindow = 500 * numFeatures / 6
 
-    correlation_matrix = np.corrcoef(X, rowvar=False)
+    correlationMatrix = np.corrcoef(X.values, rowvar=False)
+    pearsonDF = pd.DataFrame(correlationMatrix, index=X.columns, columns=X.columns)
+
 
     # Identify features with high correlation and deleting them
     # TODO: need to fix multiple correlation
@@ -23,7 +25,7 @@ def correlation_analysis(X, feature_labels: list[str], threshold: float = 0.98, 
 
         group_features[feature] = []
         for j in range(i + 1, numFeatures):
-            if abs(correlation_matrix[i, j]) > threshold:
+            if abs(correlationMatrix[i, j]) > threshold:
                 drop_set.add(j)
                 group_features[feature].append(feature_labels[j])
 
@@ -35,10 +37,11 @@ def correlation_analysis(X, feature_labels: list[str], threshold: float = 0.98, 
     drop_features = [label for i, label in enumerate(feature_labels) if i in drop_set]
     print("\t" + ", ".join(drop_features))
 
-    return X, list(group_features.keys()), group_features
+    return X, list(group_features.keys()), group_features , pearsonDF
 
 
-def spearmanr_correlation(X: np.ndarray, feature_labels: list[str], threshold: float = 0.98, output: bool = False):
+def spearmanr_correlation(X: np.ndarray, threshold: float = 0.98, output: bool = False):
+    feature_labels = list(X.columns)
     """
     The Spearman rank-order correlation coefficient is a nonparametric measure of the monotonicity of the relationship
     between two datasets. Like other correlation coefficients, this one varies between -1 and +1 with 0 implying
@@ -49,9 +52,9 @@ def spearmanr_correlation(X: np.ndarray, feature_labels: list[str], threshold: f
     scaleWindow = 500 * numFeatures / 6
 
     from scipy import stats
-    result = stats.spearmanr(X, axis=0)
-    correlation_matrix = result.correlation
-
+    result = stats.spearmanr(X.values, axis=0)
+    correlationMatrix = result.correlation
+    spearmanDF = pd.DataFrame(correlationMatrix, index=X.columns, columns=X.columns)
 
     # Identify features with high correlation and deleting them
     # TODO: need to fix multiple correlation
@@ -64,7 +67,7 @@ def spearmanr_correlation(X: np.ndarray, feature_labels: list[str], threshold: f
 
         group_features[feature] = []
         for j in range(i + 1, numFeatures):
-            if abs(correlation_matrix[i, j]) > threshold:
+            if abs(correlationMatrix[i, j]) > threshold:
                 drop_set.add(j)
                 group_features[feature].append(feature_labels[j])
 
@@ -78,7 +81,7 @@ def spearmanr_correlation(X: np.ndarray, feature_labels: list[str], threshold: f
 
     xMAST = pd.DataFrame(X, columns=group_features)
 
-    return xMAST , drop_features
+    return xMAST , drop_features , spearmanDF
 
 
 def remove_by_variance(X: np.ndarray, feature_labels: list[str], threshold: float = 0) -> tuple[np.ndarray, list[str], list[str]]:
