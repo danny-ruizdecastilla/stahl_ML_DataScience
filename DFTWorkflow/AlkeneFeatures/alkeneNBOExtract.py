@@ -41,7 +41,7 @@ def extractPiBond(logPath , C1 , C2):
                 occupancy = float(matchLine.split("BD")[0].split("(")[1].split(")")[0].strip())
                 return occupancy
 
-def alkeneNBOExtractor(logList , C1 , C2 , energyStr , logNameMAST):
+def alkeneNBOExtractor(logList , C1 , C2 , energyStr , logNameMAST , smiles):
     weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr)
     Cmin_NBO = []
     Cmax_NBO = []
@@ -67,7 +67,7 @@ def alkeneNBOExtractor(logList , C1 , C2 , energyStr , logNameMAST):
     weightsDF["piBond"] = piBond
     finalHash = {}
     finalHash["ID"] = logNameMAST
-
+    finalHash["SMILES"] = smiles
     finalHash["NBO_Cmax"] =((weightsDF["NBO_Cmax"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     finalHash["NBO_Cmin"] =((weightsDF["NBO_Cmin"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     finalHash["piBond"] =((weightsDF["piBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
@@ -91,11 +91,12 @@ def main(nboDir , substrateCSV , outputDir):
 
         molecStr = row[idCol] 
         fileBase = str(molecStr) + str(fileSplit)
+        #print(fileBase)
         eligibleLogs = [log for log in logFiles if fileBase in log]
-        oneLog = eligibleLogs[0]
-        mainStr = str(Path(oneLog).name.split(fileSplit)[0])
-        nboHash = alkeneNBOExtractor(eligibleLogs , C1 , C2 , 'electronic' , mainStr )
-        dfMAST = pd.concat([dfMAST , pd.DataFrame([nboHash])] , ignore_index=True)
+        if len(eligibleLogs) != 0:
+            #print(eligibleLogs)
+            nboHash = alkeneNBOExtractor(eligibleLogs , C1 , C2 , 'electronic' , molecStr, smiles )
+            dfMAST = pd.concat([dfMAST , pd.DataFrame([nboHash])] , ignore_index=True)
     dfMAST["NBO_mean"]  = (dfMAST["NBO_Cmax"] + dfMAST["NBO_Cmin"]) / 2
     dfMAST["NBO_delta"]  = (dfMAST["NBO_Cmax"] - dfMAST["NBO_Cmin"]) 
     dfMAST.to_csv(outputDir  +"/AlkeneNBO.csv")
