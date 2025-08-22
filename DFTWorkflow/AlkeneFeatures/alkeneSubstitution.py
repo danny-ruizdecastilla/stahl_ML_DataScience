@@ -19,7 +19,7 @@ from breadthFirstSearch.graphTraversals import minFirstSearch,maxPathCompare
 
 def getSubstitutionList(smilesList):
     hCount = []
-    cisTransList = []
+    EvsZList = []
     for smiles in smilesList:
         cc , molec = getCC(smiles)
         molec = Chem.AddHs(molec) 
@@ -52,15 +52,13 @@ def getSubstitutionList(smilesList):
             atom1 = str(atom.GetSymbol())
             if atom1 == "H":
                 hydrogens += 1
-        if hydrogens <=2:
-            print(smiles)
-            addended = eVszAlkenes(smiles, g, ccDict)
-            cisTransList.append(addended)
-        else:
-            cisTransList.append(0)
         hCount.append(hydrogens)
-         
-    return hCount , cisTransList
+        if hydrogens <=2: #Easy check for E vs Z 
+            alkeneType = eVszAlkenes(molec , g , ccDict)# 0 if neither E or Z, -1 if Z, 1 if E
+        else:
+            alkeneType = 0
+        EvsZList.append(alkeneType)          
+    return hCount , EvsZList
 def smiles_to_coords(smiles):
     try:
         m = Chem.MolFromSmiles(smiles)
@@ -94,7 +92,6 @@ def smiles_to_coords(smiles):
         exit()
      
 def eVszAlkenes(molec , graph , ccDict):
-
     idxMAST = []
     for carbon , startAtoms  in ccDict.items():
         rejections = [carbon , startAtoms[0] , startAtoms[1]]
@@ -103,7 +100,7 @@ def eVszAlkenes(molec , graph , ccDict):
         weights = [dq[0] for dq in pathDict.values()]
         if weights[0] == weights[1]:
             #same weights, terminal alkene 
-            return 0.25
+            return 0
         else: 
             for atom , dq in pathDict.items():
                 lstdq = list(dq)
@@ -123,13 +120,13 @@ def eVszAlkenes(molec , graph , ccDict):
         backslashCount = smiles1.count('\\')
         if slashCount == 2:
             #Z alkene with Z brackets 
-            return 0.5
+            return -1
         if backslashCount == 2:
             #Z alkene with Z brackets 
-            return 0.5
+            return -1
         if slashCount == 1 and backslashCount == 1:
             #E Alkene
-            return 0.75
+            return 1
 
   
 def main(featureDir , outputDir):
@@ -139,9 +136,9 @@ def main(featureDir , outputDir):
         stringCols = list(df.select_dtypes(include='object').columns)
         if "SMILES" in stringCols:
             smilesList = df["SMILES"]
-            hCount , cisVstrans = getSubstitutionList(smilesList)
+            hCount , EvsZ = getSubstitutionList(smilesList)
             df["HCount"] = hCount
-            df["cisVstrans"] = cisVstrans
+            df["EvzZ"] = EvsZ
         else:
             raise ValueError("SMILES column not found in DataFrame")
         createCSV(df , outputDir , outputDir.split("/")[-1].split(".")[0])
