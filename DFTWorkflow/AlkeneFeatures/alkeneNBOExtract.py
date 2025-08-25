@@ -68,8 +68,8 @@ def alkeneNBOExtractor(logList , C1 , C2 , energyStr , logNameMAST , smiles):
     finalHash = {}
     finalHash["ID"] = logNameMAST
     finalHash["SMILES"] = smiles
-    finalHash["NBO_Cmax"] =((weightsDF["NBO_Cmax"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-    finalHash["NBO_Cmin"] =((weightsDF["NBO_Cmin"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["NBO_mxAlk"] =((weightsDF["NBO_Cmax"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["NBO_mnAlk"] =((weightsDF["NBO_Cmin"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     finalHash["piBond"] =((weightsDF["piBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     return finalHash
 def main(nboDir , substrateCSV , outputDir):
