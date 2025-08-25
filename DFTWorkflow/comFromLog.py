@@ -47,14 +47,20 @@ def main(logDir  , outputDir ):
         os.makedirs(outputDir)
     geomOpt = str(input("Please enter the geometry optimization line: "))
     netCharge = int(input("Please enter the net charge for these jobs: "))
-    spin = int(input("Please enter the spin for these jobs: (2s+1)"))
+    spin = int(input("Please enter the spin for these jobs: (2s+1): "))
+    if netCharge < 0:
+        addendum = "_anion.com"
+    elif netCharge > 0:
+        addendum = "_cation.com"
+    else:
+        addendum = ".com"
     for log in logs:
         file = log.split("/")[-1]
         fileName = file.split(".")[0]
 
         chkFile = fileName + ".chk"
         #print(chkFile)
-        fileName = str(fileName) +".com"
+        fileName = str(fileName) + str(addendum)
         if not os.path.exists(chkFile):
             print("Missing .chk file for " + fileName)
             atomsDict = getAtomCoords(log , "GINC-COMPUTE" , 5)
@@ -76,7 +82,7 @@ if __name__ == "__main__":
             linkStr = input(f"Write out the input line for your --link--\n")
             linkName = input(f"Enter the title for the --link--: ")
             netCharge = int(input("Please enter the net charge for these jobs: "))
-            spin = int(input("Please enter the spin for these jobs: (2s+1)"))
+            spin = int(input("Please enter the spin for these jobs: (2s+1): "))
             comFiles = glob.glob(comDir + "/*.com")
             for com in comFiles:
                 addLink(com , linkStr , linkName , netCharge , spin)
