@@ -571,7 +571,7 @@ if __name__ == "__main__":
                 content = file.read()
                 eliminatedPhrases = [item.strip() for item in content.split(',') if item.strip()]
         else: 
-            eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType",  "Unnamed" ]
+            eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType",  "Unnamed" , "ID" , "Canonicals"]
         figDir = input("Enter the figure Directory: ")
         if not os.path.exists(figDir):
             os.makedirs(figDir)
@@ -579,4 +579,11 @@ if __name__ == "__main__":
         masterDF = plotSubstratesMain(datasetsDir,chemistry , figDir  , axisMotifs, eliminatedPhrases , outputDir)
     elif dataOption== 0:
         masterDF = pd.read_csv(substrateFile , encoding='utf-8')
+    if not "canonicalSMILES" in list(masterDF.columns):
+        smilesList = masterDF["SMILES"]
+        canonicals = []
+        for smiles in smilesList:
+            canonical = convertCanonical(smiles)
+            canonicals.append(canonical)
+        masterDF["canonicalSMILES"] = canonicals
     main(initDataSets , masterDF , chemistriesDict, chemistry, outputDir , partitionStr)
