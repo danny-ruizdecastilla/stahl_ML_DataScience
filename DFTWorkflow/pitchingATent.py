@@ -15,7 +15,7 @@ from sklearn.decomposition import PCA
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from DFTWorkflow.featureMaping import savePNG , createCSV
-from DFTWorkflow.expt2_feature_filtering import spearmanr_correlation , correlation_analysis , remove_by_variance
+from DFTWorkflow.featureFiltering import spearmanr_correlation , correlation_analysis , remove_by_variance
 from figs.featureCorrelation import correlationGenerator
 #Danny Ruiz de Castilla 02.28.2025
 
