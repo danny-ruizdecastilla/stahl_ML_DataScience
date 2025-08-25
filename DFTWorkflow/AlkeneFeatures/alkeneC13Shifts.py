@@ -15,6 +15,7 @@ def main(substratesDir:str,  csvStr , theoryStr):
     substratePaths = glob.glob(substratesDir + "/*/identification.dat")
     substrateDF = pd.DataFrame()
     for i , path in enumerate(substratePaths):
+        print(path)
         identifications = readDat(path)
         smiles = identifications[-1]
         CC , molec = getCC(smiles)
@@ -36,8 +37,8 @@ def main(substratesDir:str,  csvStr , theoryStr):
         cDelta = abs(cMax - cMin)
         canonical = convertCanonical(smiles)
         newRow = pd.DataFrame([{
-            "SMILES": smiles, "Canonicals": canonical, "Cmax_NMR_" + str(theoryStr) : cMax , 
-            "Cmin_NMR_" + str(theoryStr) : cMin , theoryStr + "_NMR_Mean" : cMean , 
+            "SMILES": smiles, "Canonicals": canonical, "C13_mx_NMR" + str(theoryStr) : cMax , 
+            "C13_mn_NMR" + str(theoryStr) : cMin , theoryStr + "_NMR_Mean" : cMean , 
             theoryStr + "_Delta_CAlk" : cDelta
         }])
         substrateDF = pd.concat([substrateDF , newRow] , ignore_index=True)
