@@ -23,7 +23,8 @@ def getConfNum(numStr):
             pass
     num = int(num)
     return num
-def getAlkeneFukuiFunctions(neutralFiles , cationFiles , anionFiles , weightsDF , C1 , C2 , chargeStr ):
+def getAlkeneFukuiFunctions(neutralFiles , cationFiles , anionFiles , weightsDF , C1 , C2 , chargeStr , logNameMAST , smiles ):
+    print(logNameMAST)
     f_pos_Cmin = []
     f_neg_Cmin = []
     f_neut_Cmin = []
@@ -40,8 +41,8 @@ def getAlkeneFukuiFunctions(neutralFiles , cationFiles , anionFiles , weightsDF 
         confNum = getConfNum(numStr)
 
         neutralStr = str(name) + ".log"
-        cationStr = "_" + confNum + "_cation"
-        anionStr = "_" + confNum + "_anion"
+        cationStr = "_" + str(confNum) + "_cation"
+        anionStr = "_" + str(confNum) + "_anion"
 
         neutralFile = [file for file in neutralFiles if neutralStr in file][0]
         cationFile = [file for file in cationFiles if cationStr in file][0]
@@ -69,17 +70,47 @@ def getAlkeneFukuiFunctions(neutralFiles , cationFiles , anionFiles , weightsDF 
                 fukuiNeut.append(f_neut)
                 if atomIdx == C1:
                     f_min_C1 = f_minus
+                    f_neg_Cmin.append(f_min_C1)
                     f_plus_C1 = f_plus
+                    f_pos_Cmin.append(f_plus_C1)
                     f_neut_C1 = f_neut
+                    f_neut_Cmin.append(f_neut_C1)
                 elif atomIdx == C2:
                     f_min_C2 = f_minus
+                    f_neg_Cmax.append(f_min_C2)
                     f_plus_C2 = f_plus
-                    f_neut_C2 = f_neut 
-        f_neg_Scaled.append(np.mean([f_min_C1 , f_min_C2]) - np.mean(fukuiNeg) )/ np.max(fukuiNeg)
-        f_pos_Scaled.append(np.mean([f_plus_C1 , f_plus_C2]) - np.mean(fukuiPlus) )/ np.max(fukuiPlus)
-        f_neut_Scaled.append(np.mean([f_neut_C1 , f_neut_C2]) - np.mean(fukuiNeut) )/ np.max(fukuiNeut)
+                    f_pos_Cmax.append(f_plus_C2)
+                    f_neut_C2 = f_neut
+                    f_neut_Cmax.append(f_neut_C2)
+        f_neg_Scaled.append(np.mean([f_min_C1 , f_min_C2]) - np.mean(fukuiNeg) / np.max(fukuiNeg))
+        f_pos_Scaled.append(np.mean([f_plus_C1 , f_plus_C2]) - np.mean(fukuiPlus) / np.max(fukuiPlus))
+        f_neut_Scaled.append(np.mean([f_neut_C1 , f_neut_C2]) - np.mean(fukuiNeut) / np.max(fukuiNeut))
+    weightsDF["f_neg_mxAlk"] = f_neg_Cmax
+    weightsDF["f_pos_mxAlk"] = f_pos_Cmax
+    weightsDF["f_neut_mxAlk"] = f_neut_Cmax
+    weightsDF["f_neg_mnAlk"] = f_neg_Cmin
+    weightsDF["f_pos_mnAlk"] = f_pos_Cmin
+    weightsDF["f_neut_mnAlk"] = f_neut_Cmin
+    weightsDF["f_neg_scaledAlk"] = f_neg_Scaled
+    weightsDF["f_pos_scaledAlk"] = f_pos_Scaled
+    weightsDF["f_neut_scaledAlk"] = f_neut_Scaled
 
+    finalHash = {}
+    finalHash["ID"] = logNameMAST
+    finalHash["SMILES"] = smiles
+    finalHash["f_neg_mxAlk"] =((weightsDF["f_neg_mxAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["f_pos_mxAlk"] =((weightsDF["f_pos_mxAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["f_neut_mxAlk"] =((weightsDF["f_neut_mxAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
 
+    finalHash["f_neg_mnAlk"] =((weightsDF["f_neg_mnAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["f_pos_mnAlk"] =((weightsDF["f_pos_mnAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["f_neut_mnAlk"] =((weightsDF["f_neut_mnAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+
+    finalHash["f_neg_scaledAlk"] =((weightsDF["f_neg_scaledAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["f_pos_scaledAlk"] =((weightsDF["f_pos_scaledAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["f_neut_scaledAlk"] =((weightsDF["f_neut_scaledAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    
+    return finalHash
 
 def main(logDir , cationDir , anionDir , substrateCSV , outputDir , chargeStr , bltzmannStr):
     dfMAST = pd.DataFrame()
@@ -88,6 +119,7 @@ def main(logDir , cationDir , anionDir , substrateCSV , outputDir , chargeStr , 
     idCol = selectColumns(substrateScopeDF , "Select the colunn name for molecule ID: ")
 
     neutralLogs = glob.glob(os.path.join(logDir, "*.log"))
+    #print("neutral Logs" , neutralLogs)
     cationLogs = glob.glob(os.path.join(cationDir, "*.log"))
     anionLogs = glob.glob(os.path.join(anionDir, "*.log"))
     log1 = neutralLogs[0]
@@ -103,15 +135,15 @@ def main(logDir , cationDir , anionDir , substrateCSV , outputDir , chargeStr , 
         
         molecStr = row[idCol] 
         fileBase = str(molecStr) + str(fileSplit)
-        #print(fileBase)
-        eligibleNeutrals = [log for log in neutralLogs if fileBase in log].sort()
-        eligibleCations = [log for log in cationLogs if fileBase in log].sort()
-        eligibleAnions = [log for log in anionLogs if fileBase in log].sort()
-        if len(eligibleNeutrals) == len(eligibleCations) == len(eligibleAnions):
+        #print("fileBase" , fileBase)
+        eligibleNeutrals = sorted([log for log in neutralLogs if fileBase in os.path.basename(log)])
+        eligibleCations = sorted([log for log in cationLogs if fileBase in os.path.basename(log)])
+        eligibleAnions = sorted([log for log in anionLogs if fileBase in os.path.basename(log)])
+        if len(eligibleNeutrals) == len(eligibleCations) == len(eligibleAnions) and len(eligibleNeutrals) != 0:
             weightsDF = getBoltzmannWeightsGauss(eligibleNeutrals , 298 , bltzmannStr)
-            weightsDF = getAlkeneFukuiFunctions(eligibleNeutrals , eligibleCations , eligibleAnions, weightsDF , C1 , C2 , chargeStr )
-
-
+            mainHash = getAlkeneFukuiFunctions(eligibleNeutrals , eligibleCations , eligibleAnions, weightsDF , C1 , C2 , chargeStr , molecStr , smiles )
+            dfMAST = pd.concat([dfMAST , pd.DataFrame([mainHash])] , ignore_index=True)
+    dfMAST.to_csv(outputDir  +"/AlkenefukuiMAST.csv")
 if __name__ == "__main__":
     neutralDir = str(sys.argv[1])
     cationDir = str(sys.argv[2])
