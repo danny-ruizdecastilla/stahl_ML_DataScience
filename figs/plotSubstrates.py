@@ -246,6 +246,7 @@ def plotSubstratesMain(substrateData,chemistry ,  figDir , axisMotifs, eliminate
     initdataSets = glob.glob(substrateData + "/*.csv")
     initdataSets = sorted(initdataSets)
     Xdataframe , smileList  , yieldList_= compressData(initdataSets , "Yield" , eliminatedPhrases , outputDir , "rawUnprocessed")
+    print(isinstance(Xdataframe, pd.DataFrame))
     nanDict = locateNans(Xdataframe)
     if len(nanDict) != 0:
         Xdataframe["SMILES"] = smileList
@@ -257,6 +258,7 @@ def plotSubstratesMain(substrateData,chemistry ,  figDir , axisMotifs, eliminate
         canonical = convertCanonical(smile)
         canonicalSMILES.append(canonical)
     featureLabels = list(Xdataframe.columns)
+    print(isinstance(Xdataframe, pd.DataFrame))
     X , featureLabels  = featureFiltering(outputDir, Xdataframe ,featureLabels , chemistry)
 
     axisDF , axisMotifs = pcafeatureSplitter(X , axisMotifs , 1 , outputDir)
