@@ -29,11 +29,11 @@ def diagonalChecker(matrix):
             if val1 != val2:
                 isDiagonal = False
     return isDiagonal 
-def correlationGenerator(corrDF, corrStr , **kwargs):
-    if kwargs["template"] is None:
+def correlationGenerator(corrDF, corrStr ,  template: str = None, savePath: bool = True,**kwargs):
+    if template is None:
         plotTemplate = openPlotlyTemplate
-    if kwargs["savePath"] is None:
-        save_path = False
+    if savePath is None:
+        save_path = True
 
     isSymmetric = diagonalChecker(corrDF.values)
     if not isSymmetric:
