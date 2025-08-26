@@ -216,7 +216,7 @@ def featureFiltering(outDir , X , feature_labels , featureStr):
             text += json.dumps(drop_group, indent=4).replace('\n', '\n\t')
             f.write(text)
 
-            pearsonFig = correlationGenerator(pearsonDF, "pearsonGrid",template = None , savePath = outDir + "/pearsonMatrix.html" )
+            pearsonFig = correlationGenerator(pearsonDF, "pearsonGrid" , savePath = outDir + "/pearsonMatrix.html" ,template = None)
 
             #print("97" , type(X))
             X, dropFeats, spearmanDF  = spearmanr_correlation(X, threshold=0.95)
@@ -224,7 +224,7 @@ def featureFiltering(outDir , X , feature_labels , featureStr):
             text += json.dumps(dropFeats, indent=4).replace('\n', '\n\t')
             f.write(text)
             
-            spearmanFig = correlationGenerator(spearmanDF, "spearmanGrid",template = None , savePath = outDir + "/spearmanMatrix.html" )
+            spearmanFig = correlationGenerator(spearmanDF, "spearmanGrid", savePath = outDir + "/spearmanMatrix.html",template = None  )
             #print("103" , type(X))
     return X , feature_labels
 def locateNans(df):
