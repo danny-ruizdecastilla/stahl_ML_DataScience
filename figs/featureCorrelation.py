@@ -37,10 +37,6 @@ def correlationGenerator(corrDF, corrStr , savePath , template: str = None):
     else:
         save_path = True
 
-    isSymmetric = diagonalChecker(corrDF.values)
-    if not isSymmetric:
-        print("Error: Input correlation matrix is not symmetric")
-        return None
     fig = go.Figure(
         data=go.Heatmap(
             z=corrDF.values,
