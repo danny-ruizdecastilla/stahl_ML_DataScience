@@ -5,19 +5,19 @@ import numpy as np
 #import plotly.graph_objects as go
 
 
-def correlation_analysis(X, threshold: float = 0.98, output: bool = False): #X is a Pandas array
+
+def correlation_analysis(X: pd.DataFrame, threshold: float = 0.98, output: bool = False):
     feature_labels = list(X.columns)
     numFeatures = X.shape[1]
-    scaleWindow = 500 * numFeatures / 6
 
+    # Pearson correlation matrix
     correlationMatrix = np.corrcoef(X.values, rowvar=False)
-    pearsonDF = pd.DataFrame(correlationMatrix, index=X.columns, columns=X.columns)
+    pearsonDF = pd.DataFrame(correlationMatrix, index=feature_labels, columns=feature_labels)
 
-
-    # Identify features with high correlation and deleting them
-    # TODO: need to fix multiple correlation
     group_features = dict()
     drop_set = set()
+
+    # Identify groups of highly correlated features
     for i in range(numFeatures):
         feature = feature_labels[i]
         if i in drop_set:
@@ -29,18 +29,20 @@ def correlation_analysis(X, threshold: float = 0.98, output: bool = False): #X i
                 drop_set.add(j)
                 group_features[feature].append(feature_labels[j])
 
-    mask = np.zeros(numFeatures, dtype=bool)
-    mask[list(drop_set)] = True
-    X = np.delete(X, mask, axis=1)
+    drop_features = [feature_labels[i] for i in drop_set]
 
-    print("Features removed due to correlation:", len(drop_set))
-    drop_features = [label for i, label in enumerate(feature_labels) if i in drop_set]
-    print("\t" + ", ".join(drop_features))
+    X_reduced = X.drop(columns=drop_features)
 
-    return X, list(group_features.keys()), group_features , pearsonDF
+    if output:
+        print("Features removed due to correlation:", len(drop_set))
+        if drop_features:
+            print("\t" + ", ".join(drop_features))
+
+    return X_reduced, list(group_features.keys()), group_features, pearsonDF
 
 
-def spearmanr_correlation(X: np.ndarray, threshold: float = 0.98, output: bool = False):
+def spearmanr_correlation(X: pd.DataFrame, threshold: float = 0.98, output: bool = False):
+    from scipy import stats
     feature_labels = list(X.columns)
     """
     The Spearman rank-order correlation coefficient is a nonparametric measure of the monotonicity of the relationship
@@ -49,15 +51,13 @@ def spearmanr_correlation(X: np.ndarray, threshold: float = 0.98, output: bool =
     that as x increases, so does y. Negative correlations imply that as x increases, y decreases.
     """
     numFeatures = X.shape[1]
-    scaleWindow = 500 * numFeatures / 6
 
-    from scipy import stats
+    # Compute correlation matrix
     result = stats.spearmanr(X.values, axis=0)
     correlationMatrix = result.correlation
-    spearmanDF = pd.DataFrame(correlationMatrix, index=X.columns, columns=X.columns)
+    spearmanDF = pd.DataFrame(correlationMatrix, index=feature_labels, columns=feature_labels)
 
-    # Identify features with high correlation and deleting them
-    # TODO: need to fix multiple correlation
+    # Identify features with high correlation
     group_features = dict()
     drop_set = set()
     for i in range(numFeatures):
@@ -71,20 +71,20 @@ def spearmanr_correlation(X: np.ndarray, threshold: float = 0.98, output: bool =
                 drop_set.add(j)
                 group_features[feature].append(feature_labels[j])
 
-    mask = np.zeros(numFeatures, dtype=bool)
-    mask[list(drop_set)] = True
-    X = np.delete(X, mask, axis=1)
+    # Features to drop
+    drop_features = [feature_labels[i] for i in drop_set]
 
-    print("Features removed due to spearmanr_correlation:", len(drop_set))
-    drop_features = [label for i, label in enumerate(feature_labels) if i in drop_set]
-    print("\t" + ", ".join(drop_features))
+    # Keep as DataFrame
+    X_reduced = X.drop(columns=drop_features)
 
-    xMAST = pd.DataFrame(X, columns=group_features)
+    if output:
+        print("Features removed due to spearmanr_correlation:", len(drop_set))
+        print("\t" + ", ".join(drop_features))
 
-    return xMAST , drop_features , spearmanDF
+    return X_reduced, drop_features, spearmanDF
 
 
-def remove_by_variance(X: np.ndarray, feature_labels: list[str], threshold: float = 0) -> tuple[np.ndarray, list[str], list[str]]:
+def remove_by_variance(X, feature_labels: list[str], threshold: float = 0) -> tuple[np.ndarray, list[str], list[str]]:
     from sklearn.feature_selection import VarianceThreshold
     sel = VarianceThreshold(threshold=threshold)
     X = sel.fit_transform(X)
@@ -93,7 +93,9 @@ def remove_by_variance(X: np.ndarray, feature_labels: list[str], threshold: floa
 
     print(f"Features removed due to low variance <{threshold}: {len(drop)}")
     print("\t" + ", ".join(drop))
-    return X, keep, drop
+
+    XDF = pd.DataFrame(X, columns=keep, index=X.index)
+    return XDF, keep, drop
 
 
 def main():
