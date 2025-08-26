@@ -87,14 +87,14 @@ def spearmanr_correlation(X: pd.DataFrame, threshold: float = 0.98, output: bool
 def remove_by_variance(X, feature_labels: list[str], threshold: float = 0) -> tuple[np.ndarray, list[str], list[str]]:
     from sklearn.feature_selection import VarianceThreshold
     sel = VarianceThreshold(threshold=threshold)
-    X = sel.fit_transform(X)
+    X_reduced = sel.fit_transform(X)
     keep = sel.get_feature_names_out(feature_labels)
     drop = [label for label in feature_labels if label not in keep]
 
     print(f"Features removed due to low variance <{threshold}: {len(drop)}")
     print("\t" + ", ".join(drop))
 
-    XDF = pd.DataFrame(X, columns=keep, index=X.index)
+    XDF = pd.DataFrame(X_reduced, columns=keep, index=X.index)
     return XDF, keep, drop
 
 
