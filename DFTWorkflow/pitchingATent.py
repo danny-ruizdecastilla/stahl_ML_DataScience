@@ -6,7 +6,7 @@ import os
 import pandas as pd
 #from rdkit.Chem.PandasTools import LoadSDF
 import matplotlib.pyplot as plt
-import random
+import json
 import umap
 from itertools import combinations
 from sklearn.cluster import KMeans
@@ -208,20 +208,22 @@ def featureFiltering(outDir , X , feature_labels , featureStr):
             f.write(f"Total starting feature count: {len(feature_labels)}")
             f.write("".join([f'\n\t{label}' for label in feature_labels]))
             
-            X, feature_labels, dropped_features , pearsonDF = remove_by_variance(X, feature_labels)
-            #print("90" , type(X))
-            pearsonFig = correlationGenerator(pearsonDF, "pearsonGrid",template = None , savePath = outDir + "/pearsonMatrix.html" )
+            X, feature_labels, dropped_features = remove_by_variance(X, feature_labels)
             text = "\n\n\nFeatures drop due to low variance: " + "".join([f'\n\t{label}' for label in dropped_features])
-            f.write(text)
 
-            X, feature_labels, drop_group = correlation_analysis(X, threshold=0.95)
-            text = "\n\n\nFeatures drop due correlation:  "
-            #print("97" , type(X))
-            import json
+            X, feature_labels, drop_group , pearsonDF = correlation_analysis(X, threshold=0.95)
+            text = "\n\n\nFeatures drop due Pearson correlation:  "
             text += json.dumps(drop_group, indent=4).replace('\n', '\n\t')
             f.write(text)
 
-            X, feature_labels , spearmanDF  = spearmanr_correlation(X, threshold=0.95)
+            pearsonFig = correlationGenerator(pearsonDF, "pearsonGrid",template = None , savePath = outDir + "/pearsonMatrix.html" )
+
+            #print("97" , type(X))
+            X, dropFeats, spearmanDF  = spearmanr_correlation(X, threshold=0.95)
+            text = "\n\n\nFeatures drop due Spearman correlation:  "
+            text += json.dumps(dropFeats, indent=4).replace('\n', '\n\t')
+            f.write(text)
+            
             spearmanFig = correlationGenerator(spearmanDF, "spearmanGrid",template = None , savePath = outDir + "/spearmanMatrix.html" )
             #print("103" , type(X))
     return X , feature_labels
