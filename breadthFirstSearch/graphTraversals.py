@@ -106,6 +106,7 @@ def maxPathCompare(molec, g , atomList  , rejections):
                     break
     
         return pathDict
+    
 def checkWeights(hash1 , hash2 , tolerance):
     print(hash1)
     print(hash2)
@@ -121,15 +122,16 @@ def checkWeights(hash1 , hash2 , tolerance):
         return True
     else:
         return False
-def getEligibleAtoms(molec ,graph,  contacts , badAtoms):
+def getEligibleAtoms(molec , contacts , badAtoms):
     currentEligibles = [contact for contact in contacts if contact not in badAtoms]
-    #print(currentEligibles)
+    print("getEligibles" , currentEligibles)
     if currentEligibles != 0:
         newEligibles = {}
         contactWeight = 0
         protonCount = 0
         for atom in currentEligibles:
-            symbol = molec.GetAtomWithIdx(atom)
+            symbol = molec.GetAtomWithIdx(atom).GetSymbol()
+            print(symbol)
             if symbol != "H": #avoid protons
                 contactWeight += molecWeight(molec, atom)
                 newEligibles[atom] = molecWeight(molec, atom)
@@ -144,6 +146,7 @@ def getEligibleAtoms(molec ,graph,  contacts , badAtoms):
     else:
         return 12.01 , contacts , True
 def reversePaths(atomHash): 
+    #print("reversePath" , atomHash)
     nextoptions = []
     for atom , info in atomHash.items():
         availableContacts = list(info["openContacts"])
@@ -154,8 +157,8 @@ def reversePaths(atomHash):
     else:
         nextKey = nextoptions[-1]
         nextContacts = atomHash[nextKey]["openContacts"]
-        nextAtom = max(nextContacts.items(), key=lambda x: x[1])
-        nextWeight = float(nextContacts[nextAtom])
+        #print("nextContacts" , nextContacts)
+        nextAtom , nextWeight = max(nextContacts.items(), key=lambda x: x[1])
         del atomHash[nextKey]["openContacts"][nextAtom]
         return nextAtom , atomHash , nextWeight
     
@@ -164,18 +167,21 @@ def EvsZCompare(molec, g , path1 , path2 , badAtoms1,badAtoms2, diffTolerance):
     isDifferent = checkWeights(path1, path2, diffTolerance)
     
     if isDifferent:
-        return path1 , path2  
         print("isDifferentExit")
+        return path1 , path2  
+        
     else: 
         currentAtom1 = list(path1.keys())[-1]
-        print(currentAtom1)
+        #print(currentAtom1)
         contacts1 = list(g.neighbors(currentAtom1))
-        contactWeights1 , eligibleAtoms1 , isTerminal1 = getEligibleAtoms(molec, g, contacts1 , badAtoms1)
-        #print(eligibleAtoms1)
+        #print("contacts1" , contacts1)
+        contactWeights1 , eligibleAtoms1 , isTerminal1 = getEligibleAtoms(molec,contacts1 , badAtoms1)
+        #print("isTerminal1" , isTerminal1)
         if isTerminal1:#get nextAtom from another path
+            #print("CH3")
             nextAtom1 , path1 , nextWeight1 = reversePaths(path1)
             if nextAtom1 is None:
-                print("nextAtom1Exit")
+                #print("nextAtom1Exit")
                 return path1 , path2
         else:
             nextAtom1 , nextWeight1 = max(eligibleAtoms1.items(), key=lambda x: x[1])
@@ -184,11 +190,11 @@ def EvsZCompare(molec, g , path1 , path2 , badAtoms1,badAtoms2, diffTolerance):
         
         currentAtom2 = list(path2.keys())[-1]
         contacts2 = list(g.neighbors(currentAtom2))
-        contactWeights2 , eligibleAtoms2 , isTerminal2  = getEligibleAtoms(molec,g ,  contacts2 , badAtoms2)
+        contactWeights2 , eligibleAtoms2 , isTerminal2  = getEligibleAtoms(molec, contacts2 , badAtoms2)
         if isTerminal2:#get nextAtom from another path
             nextAtom2 , path2 , nextWeight2 = reversePaths(path2)    
             if nextAtom2 is None:
-                print("nextAtom2Exit")
+                #print("nextAtom2Exit")
                 return path1 , path2
         else:
             nextAtom2  , nextWeight2 = max(eligibleAtoms2.items(), key=lambda x: x[1])
@@ -201,3 +207,4 @@ def EvsZCompare(molec, g , path1 , path2 , badAtoms1,badAtoms2, diffTolerance):
                             "PrevWeight" : contactWeights2 , "atomWeight" : nextWeight2 }
         print("nextLoop")
         return EvsZCompare(molec, g , path1 , path2 , badAtoms1,badAtoms2, diffTolerance)
+
