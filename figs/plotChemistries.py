@@ -211,8 +211,12 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                             const yFit = xFit.map(x => linearFn(x));
                             const slope = linearRegression.m.toFixed(3);
                             const intercept = linearRegression.b.toFixed(3);
+                            const yTrue = dataPoints.map(([x, y]) => y);
+                            const yPred = dataPoints.map(([x, y]) => linearFn(x));
+                            const rmse = Math.sqrt(ss.mean(yTrue.map((y, i) => Math.pow(y - yPred[i], 2))));
+                            const rmseText = rmse.toFixed(4);
                             const r2Text = r2.toFixed(4);
-                            const equation = `y = ${{slope}}x + ${{intercept}}<br>R² = ${{r2Text}}`;
+                            const equation = `y = ${{slope}}x + ${{intercept}}<br> RMSE = ${{rmseText}}`;
 
                             lineTrace = {{
                                 x: xFit,
@@ -571,7 +575,7 @@ if __name__ == "__main__":
                 content = file.read()
                 eliminatedPhrases = [item.strip() for item in content.split(',') if item.strip()]
         else: 
-            eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType",  "Unnamed" , "ID" , "Canonicals"]
+            eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType",  "Unnamed" , "ID" , "Canonicals" , "canonicalSMILES"]
         figDir = input("Enter the figure Directory: ")
         if not os.path.exists(figDir):
             os.makedirs(figDir)
