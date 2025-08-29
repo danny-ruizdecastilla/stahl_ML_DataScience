@@ -27,7 +27,7 @@ def modularPCA(X , numDim: int, outputDir , saveStr):
     xPCAFullRank = pca.fit_transform(scaledX)
     explainedVar = pca.explained_variance_ratio_
     print(explainedVar)
-    if not os.path.exists(outputDir + "/" + "explainedVarr.dat"):
+    if not os.path.exists(outputDir + "/" + f"{saveStr}_explainedVarr.dat"):
         with open(outputDir + "/" + "explainedVarr.dat", "w") as file:
             for i in range (len(explainedVar)):
                 file.write(f"explained variance ratio: PC {i + 1} {explainedVar[i]:.6f}\n")
@@ -45,7 +45,7 @@ def modularPCA(X , numDim: int, outputDir , saveStr):
     if not os.path.exists(outputDir + "/PC_featureExp"):
         os.makedirs(outputDir + "/PC_featureExp")
 
-    while j <= numDim: #get N dimensional explained features 
+    while j <= numDim + 1: #get N dimensional explained features 
         pcStr = "PC" + str(j)
         pcFeatures = loadings[pcStr].abs().sort_values(ascending=False)
         with open(outputDir + "/PC_featureExp/" + str(pcStr) + saveStr + "loadings.dat", "w") as f:
