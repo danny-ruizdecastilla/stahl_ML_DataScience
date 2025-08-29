@@ -23,7 +23,8 @@ def modularPCA(X , numDim: int, outputDir , saveStr):
     np.random.seed(42)
     scaler = StandardScaler()
     scaledX = scaler.fit_transform(X)
-    pca = PCA(n_components = X.shape[1] ,svd_solver="full" )
+    componentNum = min(numDim, X.shape[0], X.shape[1])
+    pca = PCA(n_components=componentNum, svd_solver="full")
     xPCAFullRank = pca.fit_transform(scaledX)
     explainedVar = pca.explained_variance_ratio_
     print(explainedVar)
