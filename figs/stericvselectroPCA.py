@@ -19,42 +19,53 @@ from figs.chemPlotlyV2 import plotly_template , interactiveFigGenerator
 from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans , convertCanonical , featureFiltering
 #Danny Ruiz de Castilla 05.08.
 #Splits features into sterics vs electronics, reduces to PC1 and plots 
-def modularPCA(X , numDim: int, outputDir , saveStr):
+def modularPCA(X, numDim: int, outputDir, saveStr):
     np.random.seed(42)
+
+    # Standardize features
     scaler = StandardScaler()
     scaledX = scaler.fit_transform(X)
-    componentNum = min(numDim, X.shape[0], X.shape[1])
-    pca = PCA(n_components=componentNum, svd_solver="full")
-    xPCAFullRank = pca.fit_transform(scaledX)
+
+    # Max possible PCs
+    componentFull = min(X.shape[0], X.shape[1])
+
+    # Fit full PCA
+    pca = PCA(n_components=componentFull, svd_solver="full")
+    xPCAFull = pca.fit_transform(scaledX)
+
+    # Explained variance ratios
     explainedVar = pca.explained_variance_ratio_
-    print(explainedVar)
-    if not os.path.exists(outputDir + "/" + f"{saveStr}_explainedVarr.dat"):
-        with open(outputDir + "/" + "explainedVarr.dat", "w") as file:
-            for i in range (len(explainedVar)):
-                file.write(f"explained variance ratio: PC {i + 1} {explainedVar[i]:.6f}\n")
+    print("Explained variance ratio:", explainedVar)
 
-    topN = np.argsort(explainedVar)[-numDim:][::-1] 
-    #print(top2)
-    topNPCA = pca.components_[topN]
-    xPCA_ = scaledX @ topNPCA.T + 11
-            
-    loadings = pd.DataFrame(pca.components_.T * np.sqrt(pca.explained_variance_), columns=[f'PC{i+1}' for i in range(pca.n_components_)] , index = X.columns)
-    columns_ = [f"PCA{i+1}" for i in range(numDim)]
+    # Save explained variance ratios
+    explainedVarFile = os.path.join(outputDir, f"{saveStr}_explainedVarr.dat")
+    if not os.path.exists(explainedVarFile):
+        with open(explainedVarFile, "w") as file:
+            for i, ev in enumerate(explainedVar, start=1):
+                file.write(f"explained variance ratio: PC{i} {ev:.6f}\n")
 
-    dfPCA = pd.DataFrame(xPCA_, columns=columns_)
-    j = 1
-    if not os.path.exists(outputDir + "/PC_featureExp"):
-        os.makedirs(outputDir + "/PC_featureExp")
+    # Build loadings for all PCs
+    loadings = pd.DataFrame(
+        pca.components_.T * np.sqrt(pca.explained_variance_),
+        columns=[f'PC{i+1}' for i in range(componentFull)],
+        index=X.columns
+    )
 
-    while j <= numDim + 1: #get N dimensional explained features 
-        pcStr = "PC" + str(j)
+    dfPCA = pd.DataFrame(
+        xPCAFull[:, :numDim],
+        columns=[f"PCA{i+1}" for i in range(numDim)]
+    )
+
+    featureExpDir = os.path.join(outputDir, "PC_featureExp")
+    os.makedirs(featureExpDir, exist_ok=True)
+
+    for j in range(componentFull):
+        pcStr = f"PC{j+1}"
         pcFeatures = loadings[pcStr].abs().sort_values(ascending=False)
-        with open(outputDir + "/PC_featureExp/" + str(pcStr) + saveStr + "loadings.dat", "w") as f:
-            for key, values in pcFeatures.items():
-                print(values)
-                line = f"{key}\t{values}\n"
-                f.write(line)
-        j += 1 
+        filePath = os.path.join(featureExpDir, f"{pcStr}_{saveStr}_loadings.dat")
+        with open(filePath, "w") as f:
+            for key, value in pcFeatures.items():
+                f.write(f"{key}\t{value:.6f}\n")
 
     return dfPCA
 
