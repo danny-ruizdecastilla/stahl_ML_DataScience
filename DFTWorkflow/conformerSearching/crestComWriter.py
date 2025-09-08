@@ -22,20 +22,17 @@ def is_float(s):
         return True
     except ValueError:
         return False
-def xyzExtractor(coordsFile , pathNameMAST , numComs , numAtoms ):
+def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
     comCount = 0
     confHash = {}
     with open(coordsFile , 'r') as file:
         coordHash = None
         for idx , line in enumerate(file):
             #print(line)
-            if comCount == numComs and coordHash is not None:
-                confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
-                break
-            elif line.strip() == str(numAtoms):#new 3d conformer
-                if coordHash is None:
+            if line.strip() == str(numAtoms):#Begin
+                if coordHash is None:#intialize
                     coordHash = {}
-                else:
+                else: #new 3d conformer
                     confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
                     coordHash = {}
                     comCount +=1
@@ -48,10 +45,14 @@ def xyzExtractor(coordsFile , pathNameMAST , numComs , numAtoms ):
                 coords = [num.strip() for num in lineOptions if is_float(num.strip())]
                 coordHash[str(idx) + "," + atom] = coords
                 #print("atom List:" , len(coordHash.keys()))
-            else:
+            elif is_float(line.strip()):
+                #Energy level
+                energyLevel = float(line.strip())
+                
                 continue
         confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
-    return confHash
+    confHashMAST = boltzmannDownsize(confHash , 10 , 500 , 20)
+    return confHashMAST
 def geomComWriter(saveStr , coords , output , **kwargs):
     comFile = str(output) + "/" + str(saveStr) + ".com"
     try:
@@ -99,7 +100,13 @@ def addLink(comFile , linkStr , linkName , charge , spin):
         f.write(f"{linkStr}\n\n")
         f.write(f" {newName}\n\n")
         f.write(f"{charge} {spin}\n\n")
-            
+def boltzmannDownsize(xyzHash , reduceFactor, popThresh, numBins):
+    population = list(xyzHash.keys())
+    if population >= popThresh:
+        #We must downsize by reducing the number of keys
+
+    else:
+        return xyzHash      
 def main(masterDir , outputDir):
     pathAvailables = glob.glob(masterDir + "/*/crest.energies")
     geomOpt = str(input("Please enter the geometry optimization line: "))
@@ -107,24 +114,26 @@ def main(masterDir , outputDir):
     spin = int(input("Please enter the spin for these jobs: (2s+1)"))
     for path in pathAvailables:
         pathNameMAST = str(path.split("/")[-2].strip())
-        cutoffKey = energyCutoff(path)
         pathDir = path.split("crest.energies")[0]
         pathXYZ = pathDir + "/" + str(pathNameMAST) + ".xyz"
         coordsFile = pathDir +  "/crest_conformers.xyz"
-        if os.path.exists(pathXYZ):
+        if os.path.exists(pathXYZ) and os.path.exists(pathXYZ + ".log"):
             with open(pathXYZ , 'r') as file:
                 numAtoms =  int(file.readline().strip())
+            with open(pathXYZ + ".log" , 'r') as f:
+                for idx , line in enumerate(f):
+                    if "number of unique conformers for further calc" in line:
+                        numComs = int(line.split("number of unique conformers for further calc")[-1].strip())
         else:
             sys.exit()
-        
-        xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms )
+        xyzHash = xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms )
         for key , coords in xyzHash.items():
             geomComWriter(key, coords , outputDir , nprocs = 16 , mem = 25 , 
                           chk = str(key) + ".chk" ,  geomLine = geomOpt , netCharge = netCharge , spin = spin)
 
 if __name__ == "__main__":
-    masterDir = str(sys.argv[1])    
-    outputDir = str(sys.argv[2])
+    masterDir = str(sys.argv[1])#xyz Dir
+    outputDir = str(sys.argv[2])#ComDir
     if not os.path.exists(outputDir): 
         os.makedirs(outputDir)
     main(masterDir , outputDir)
