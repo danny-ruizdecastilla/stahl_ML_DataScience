@@ -22,21 +22,32 @@ def is_float(s):
         return True
     except ValueError:
         return False
-def xyzExtractor(coordsFile , pathNameMAST , numComs , numAtoms ):
+def groupThresh(values, threshold):
+    values = sorted(values)
+    groups = [[values[0]]]
+    
+    for v in values[1:]:
+        if abs(v - groups[-1][-1]) <= threshold:
+            groups[-1].append(v)
+        else:
+            groups.append([v])
+    
+    return groups
+def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
     comCount = 0
     confHash = {}
     with open(coordsFile , 'r') as file:
         coordHash = None
         for idx , line in enumerate(file):
             #print(line)
-            if comCount == numComs and coordHash is not None:
-                confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
+            if comCount ==numComs and coordHash is not None:
+                confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
                 break
-            elif line.strip() == str(numAtoms):#new 3d conformer
-                if coordHash is None:
+            elif line.strip() == str(numAtoms):#Begin
+                if coordHash is None:#intialize
                     coordHash = {}
-                else:
-                    confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
+                else: #new 3d conformer
+                    confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
                     coordHash = {}
                     comCount +=1
             elif line.split("         ")[0].strip()[:1].isalpha():
@@ -48,10 +59,35 @@ def xyzExtractor(coordsFile , pathNameMAST , numComs , numAtoms ):
                 coords = [num.strip() for num in lineOptions if is_float(num.strip())]
                 coordHash[str(idx) + "," + atom] = coords
                 #print("atom List:" , len(coordHash.keys()))
-            else:
+            elif is_float(line.strip()):
+                #Energy level
+                energyLevel = float(line.strip())
+                
                 continue
-        confHash[pathNameMAST + "_conf_" + str(comCount)] = coordHash
+        confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
+        confHash = conformerDownsize(confHash , 500)
     return confHash
+def conformerDownsize(xyzHash , popThresh):
+    population = list(xyzHash.keys())
+    if len(population) >= popThresh:
+        #We must downsize by reducing the number of keys
+        print(len(population))
+        energyList = []
+        for key , val in xyzHash.items():
+            try:
+                energy = val["EnergyLevel"]
+                energyList.append(energy)
+            except:
+                print(key , "no energy")
+        energyGroups = groupThresh(energyList ,0.000001)
+        allowedEnergies = []
+        for group in energyGroups:
+            energy = min(group)
+            allowedEnergies.append(float(energy))
+        newHash = {key: conf for key, conf in xyzHash.items() if float(conf["EnergyLevel"]) in allowedEnergies}
+        return newHash
+    else:
+        return xyzHash
 def geomComWriter(saveStr , coords , output , **kwargs):
     comFile = str(output) + "/" + str(saveStr) + ".com"
     try:
@@ -118,7 +154,8 @@ def main(masterDir , outputDir):
             sys.exit()
         
         xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms )
-        for key , coords in xyzHash.items():
+        for key , vals in xyzHash.items():
+            coords = vals["coordinates"]
             geomComWriter(key, coords , outputDir , nprocs = 16 , mem = 25 , 
                           chk = str(key) + ".chk" ,  geomLine = geomOpt , netCharge = netCharge , spin = spin)
 
