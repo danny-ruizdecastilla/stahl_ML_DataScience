@@ -36,12 +36,14 @@ def groupThresh(values, threshold):
 def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
     comCount = 0
     confHash = {}
+    termMiddle = False
     with open(coordsFile , 'r') as file:
         coordHash = None
         for idx , line in enumerate(file):
             #print(line)
             if comCount ==numComs and coordHash is not None:
                 confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
+                termMiddle = True
                 break
             elif line.strip() == str(numAtoms):#Begin
                 if coordHash is None:#intialize
@@ -62,10 +64,9 @@ def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
             elif is_float(line.strip()):
                 #Energy level
                 energyLevel = float(line.strip())
-                
-                continue
-        confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
-        confHash = conformerDownsize(confHash , 500)
+        if not termMiddle:
+            confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
+    confHash = conformerDownsize(confHash , 500)
     return confHash
 def conformerDownsize(xyzHash , popThresh):
     population = list(xyzHash.keys())
