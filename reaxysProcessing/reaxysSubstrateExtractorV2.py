@@ -99,7 +99,11 @@ def dataframeDivide(extractingCols , reagentList, reagentSplits, dataframeMAST, 
                         yieldMast = np.mean(yieldList)
                         smilesString = str(row[extractingCols[1]].split(">>")[0])
                         if "." not in smilesString:
-                            canonical = convertCanonical(smilesString)
+                            #print(smilesString)
+                            try:
+                                canonical = convertCanonical(smilesString)
+                            except:
+                                canonical = smilesString
                             newRow = pd.DataFrame([{str(extractingCols[0]): row[extractingCols[0]], 'SMILES': canonical, 'Yield' : yieldMast ,"Reagent" : chemStr + reagents_ , str(extractingCols[4]) : "Nan" ,str(extractingCols[5]) : row[extractingCols[5]] ,str(extractingCols[6]) : row[extractingCols[6]]  }])
 
                             reagentDF= pd.concat([reagentDF, newRow], ignore_index=True)
@@ -119,7 +123,10 @@ def dataframeDivide(extractingCols , reagentList, reagentSplits, dataframeMAST, 
                     yieldMast = np.mean(yieldList)
                     smilesString = str(row[extractingCols[1]].split(">>")[0])
                     if "." not in smilesString:
-                        canonical = convertCanonical(smilesString)
+                        try:
+                            canonical = convertCanonical(smilesString)
+                        except:
+                            canonical = smilesString
                         if pd.notna(row[extractingCols[4]]):
                             catalyst = row[extractingCols[4]]
                         else:
