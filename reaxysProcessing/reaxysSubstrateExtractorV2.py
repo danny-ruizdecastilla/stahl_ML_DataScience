@@ -35,7 +35,7 @@ def getPartitions(chemistryType: str):
         partitionList = listInputs(promptChemistries)
         if str(partitionList[0]) == str(chemistryType):
             partitionDict["NoCats"] = ["empty"]
-            print("hit")
+            #print("hit")
             i += 1
         else:
             key = min(partitionList , key = len)
@@ -55,7 +55,7 @@ def partitionDF(df , groupVar:str):
         dfList.append(smallDF)
     return dfList
 def dataframeDivide(extractingCols , reagentList, reagentSplits, dataframeMAST, chemistry):
-    print(reagentSplits.keys())
+    #print(reagentSplits.keys())
     refinedDF = dataframeMAST[dataframeMAST[extractingCols[2]].notna()].copy()
     refinedDF = refinedDF[refinedDF[extractingCols[1]].notna()].copy()
     refinedDF = refinedDF.drop(columns=[col for col in refinedDF.columns if col not in extractingCols])
