@@ -7,6 +7,7 @@ import pandas as pd
 from rdkit.Chem.PandasTools import LoadSDF
 import matplotlib.pyplot as plt
 import random
+import re
 import networkx as nx
 from networkx import Graph
 from itertools import combinations
@@ -78,10 +79,14 @@ def dataframeDivide(extractingCols , reagentList, reagentSplits, dataframeMAST, 
         if reagent == "NoCats":
             chemStr = chemistry 
             #return only empty catalysts and empty clean reagents
+            forbiddenPhrases = ["Mn" , "Fe" , "Ni" , "Ti" , "iron", "anganese" , "ickel" , "ium" , "fe" , "mn" , "Co" , "obalt"]
             allChemistries = [s for sublist in reagentSplits.values() for s in sublist]
 
             for substrateDF in substrateList:
                 dfNoCat = substrateDF[substrateDF[extractingCols[4]].isna()]
+                pattern = "|".join(map(re.escape, forbiddenPhrases))
+                dfNoCat = dfNoCat[~dfNoCat[extractingCols[3]].str.contains(pattern, na=False)]
+                reagents_ = ""
                 if len(dfNoCat) != 0:
                     yieldList = []
                     for ind , row in dfNoCat.iterrows():
@@ -90,9 +95,9 @@ def dataframeDivide(extractingCols , reagentList, reagentSplits, dataframeMAST, 
                             print("hit")
                             yieldList.append(float(row[extractingCols[2]]))
                             if ";" in reagents:
-                                reagents_ = ""
                                 reagentList = reagents.split(";")
                                 for r in reagentList:
+
                                     if not any(sub in r for sub in reagentSplits[reagent]):
                                         reagents_ += " " + r
                     if len(yieldList) != 0:
