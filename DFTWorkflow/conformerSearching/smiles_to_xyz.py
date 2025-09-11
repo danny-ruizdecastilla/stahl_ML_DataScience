@@ -6,7 +6,7 @@ import os
 import pandas as pd
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(parentDir)
-from DFTWorkflow.alkeneSubstitution import  smiles_to_coords
+from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import  smiles_to_coords
 def write_xyz(elements, coords, xyzPath):
     numAtoms = len(elements)
     with open(xyzPath, "w") as f:
@@ -17,7 +17,7 @@ def write_xyz(elements, coords, xyzPath):
 def main(csvDir , outputDir):
     df = pd.read_csv(csvDir)
     for _, row in df.iterrows():
-        smiles = row["SMILES"]
+        smiles = row["canonicals"]
         id = row["ID"]
         elements , coords = smiles_to_coords(smiles)
         xyzDir = outputDir + "/" + str(id)
