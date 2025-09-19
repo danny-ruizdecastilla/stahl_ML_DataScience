@@ -12,6 +12,7 @@ from DFTWorkflow.featureMaping import createCSV
 from DFTWorkflow.fukuiGenerator.fukuiExtractorV1 import  getBoltzmannWeightsGauss
 from DFTWorkflow.fukuiGenerator.fukuiExtractorV2 import consolidatePaths , extractFromKeys , atomicBoltzmannConstruction
 from DFTWorkflow.ionComGenerator import locateinLog
+from DFTWorkflow.cleanLogs import basicTerm
 
 def extractShifts(logFile: str, extract1:str, extract2:str,location1:str ,location2, atomList ):
     lowerInd = locateinLog(logFile , extract1, location1)
@@ -50,9 +51,11 @@ def main(nmrDir, substrateCSV , outputDir):
     extract1 = "SCF GIAO Magnetic shielding tensor (ppm):"
     extract2 = "Eigenvalues:  "
     for path in nmrPaths:
-        shifts = extractShifts(path, extract1, extract2, "earliest", "latest", list(nmrShifts.keys()))
-        name = os.path.basename(path).split(".")[0]
-        molecularShifts[name] = shifts
+        termError = basicTerm("Error termination")
+        if not termError:
+            shifts = extractShifts(path, extract1, extract2, "earliest", "latest", list(nmrShifts.keys()))
+            name = os.path.basename(path).split(".")[0]
+            molecularShifts[name] = shifts
     substrateList , split1 = consolidatePaths(list(molecularShifts.keys()))
 
     for substrate in substrateList:
