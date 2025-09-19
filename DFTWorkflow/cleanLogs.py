@@ -8,9 +8,15 @@ import pandas as pd
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(parentDir)
 
-def basicTerm(logFile, errorPhrase):
+def basicTerm(logFile, errorPhrase , termPhrase):
+    termCount = 0
     with open(logFile, 'r') as f:
         for line in f:
             if errorPhrase in line:
                 return True
-    return False
+            elif termPhrase in line:
+                termCount +=1
+    if termCount == 0:
+        return True
+    else:
+        return False

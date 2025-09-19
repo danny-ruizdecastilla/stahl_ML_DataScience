@@ -8,6 +8,7 @@ import numpy as np
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 sys.path.append(parentDir)
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
+from dimensionalityReduction.reactivityFeatures import boxGen
 from DFTWorkflow.featureMaping import createCSV
 from DFTWorkflow.fukuiGenerator.fukuiExtractorV1 import  getBoltzmannWeightsGauss
 from DFTWorkflow.fukuiGenerator.fukuiExtractorV2 import consolidatePaths , extractFromKeys , atomicBoltzmannConstruction
@@ -37,6 +38,13 @@ def extractShifts(logFile: str, extract1:str, extract2:str,location1:str ,locati
     return atomShifts  
 def main(nmrDir, substrateCSV , outputDir):
     substrateScope = pd.read_csv(substrateCSV, encoding='utf-8' )
+    colList = list(substrateScope.columns)
+    while True:
+        smilesCol = input(f"Please enter the name of the column that corresponds to the smiles string of the molecules {colList}\n").strip()
+        if smilesCol in colList:
+            break
+        else:
+            print("Chosen Column not in dataframe")
     nmrPaths = glob.glob(nmrDir + "/*.log")
     
 
@@ -50,9 +58,11 @@ def main(nmrDir, substrateCSV , outputDir):
     molecularShifts = {}
     extract1 = "SCF GIAO Magnetic shielding tensor (ppm):"
     extract2 = "Eigenvalues:  "
+    filteredPaths = []
     for path in nmrPaths:
-        termError = basicTerm("Error termination")
+        termError = basicTerm(path , "Error termination" , "Normal termination")
         if not termError:
+            filteredPaths.append(path)
             shifts = extractShifts(path, extract1, extract2, "earliest", "latest", list(nmrShifts.keys()))
             name = os.path.basename(path).split(".")[0]
             molecularShifts[name] = shifts
@@ -60,10 +70,10 @@ def main(nmrDir, substrateCSV , outputDir):
 
     for substrate in substrateList:
         subStr = substrate + split1
-        substrateSMILES = substrateScope.loc[substrateScope['ID'] == substrate, "SMILES"].values[0]
+        substrateSMILES = substrateScope.loc[substrateScope['ID'] == substrate, smilesCol].values[0]
         if not os.path.exists(outputDir + "/" + str(substrate)): 
             os.makedirs(outputDir + "/" + str(substrate))
-        substratePaths = sorted([path for path in nmrPaths if subStr in path ])
+        substratePaths = sorted([path for path in filteredPaths if subStr in path ])
         boltzmannDF = getBoltzmannWeightsGauss(substratePaths, 298, "electronic")
         createCSV(boltzmannDF ,outputDir + "/" + str(substrate) , "boltzmannWeights" )
         substrateShifts = extractFromKeys(molecularShifts , substrate)
