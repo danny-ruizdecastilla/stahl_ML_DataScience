@@ -18,6 +18,7 @@ def main(substratesDir:str,  csvStr , theoryStr):
         print(path)
         identifications = readDat(path)
         smiles = identifications[-1]
+        ID = identifications[0]
         CC , molec = getCC(smiles)
         C1 = CC[0] + 1
         C2 = CC[1] + 1
@@ -36,7 +37,7 @@ def main(substratesDir:str,  csvStr , theoryStr):
         cMean = np.mean([c1NMR , c2NMR])
         cDelta = abs(cMax - cMin)
         canonical = convertCanonical(smiles)
-        newRow = pd.DataFrame([{
+        newRow = pd.DataFrame([{ "ID" : ID,
             "SMILES": smiles, "Canonicals": canonical, "C13_mx_NMR" + str(theoryStr) : cMax , 
             "C13_mn_NMR" + str(theoryStr) : cMin , theoryStr + "_NMR_Mean" : cMean , 
             theoryStr + "_Delta_CAlk" : cDelta
