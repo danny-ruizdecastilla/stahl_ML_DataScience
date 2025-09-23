@@ -68,8 +68,7 @@ def smiles_to_coords(smiles):
     try:
         m = Chem.AddHs(m)
     except:
-        print("ERROR: could not add hydrogen to rdkit molecule of %s. Exit!"%(smiles))
-        exit()
+        print("Warning: could not add hydrogen to rdkit molecule of %s. Exit!"%(smiles))
     try:
         AllChem.EmbedMolecule(m)
     except:
