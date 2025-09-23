@@ -61,7 +61,7 @@ if __name__ == "__main__":
     functionStr = sys.argv[2]
 
     p = Path(logDir)
-    logFiles = list(p.glob("*.log"))
+    logFiles = list(glob.glob(logDir + "/*.log"))
 
     if functionStr == "resub":
         while True:
@@ -72,5 +72,5 @@ if __name__ == "__main__":
             else:
                 print(f"The chosen path {comDir} does not exist")
 
-        comFiles = list(comP.glob("*.com"))
+        comFiles = list(glob.glob(comDir + "/*.com"))
         resub(logFiles, comFiles)
