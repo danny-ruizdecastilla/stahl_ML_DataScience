@@ -139,12 +139,21 @@ def soapFromxyz(dfDir , xyzDir):
             print("Error: please enter an appropriate integer")
     dfMAST = pd.DataFrame()
     soap = SOAP(species=masterAtoms,r_cut=rCut,n_max=rho,l_max=l,)
-    for alkene , info in alkeneHash.items:
-        
-
-
-    
-        
+    for alkene , info in alkeneHash.items():
+        soapHash = {}
+        soapHash["SMILES"] = alkene
+        soapHash["idYield"] = info["metric"]
+        mol = info["alkeneAce"]
+        alkene = info["alkeneCenters"]
+        soapParameters = soap.create(mol , centers = alkene)
+        for i in range(len(soapParameters)):
+            alk = "C" + str(i+1)
+            for j in range(len(soapParameters[i])):
+                soapStr = alk + "_soap_" + str(j)
+                soapVal = soapParameters[i][j]
+                soapHash[soapStr] = soapVal
+        dfMAST = pd.concat([df, pd.DataFrame([soapHash])], ignore_index=True)
+    return dfMAST
             
 if __name__ == "__main__":
     smilesCSV = str(sys.argv[1])
