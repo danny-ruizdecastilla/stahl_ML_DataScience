@@ -42,18 +42,25 @@ def extractAlkenefromCoords(coordHash):
         coords1 = carbons[pair[0]]
         coords2 = carbons[pair[1]]
         euclidDist = distance_3d_np(coords1 , coords2)
-def trackIdxSMiles_Coords(smile, molec, idxList):
+def trackIdxSMiles_Coords(smiles, molec, idxList):
     try:
         m = Chem.AddHs(molec)
     except Exception as e:
-        print(f"ERROR: failed to prepare molecule from SMILES {smile}: {e}")
+        print(f"ERROR: failed to prepare molecule from SMILES {smiles}: {e}")
         return {}
     try:
         AllChem.EmbedMolecule(m)
     except Exception as e:
-        print(f"ERROR: could not embed 3D coordinates for {smile}: {e}")
+        print(f"ERROR: could not embed 3D coordinates for {smiles}: {e}")
         return {}
-    conf = m.GetConformer()
+    print(smiles)
+    try:
+        AllChem.EmbedMolecule(m, AllChem.ETKDG())
+        AllChem.MMFFOptimizeMolecule(m)
+        conf = m.GetConformer()
+    except Exception as e:
+        print(f"ERROR: failed to find a conformer for {smiles}: {e}" )
+        return {}
     coordHash = {}
     for idx in idxList:
         try:
@@ -63,14 +70,12 @@ def trackIdxSMiles_Coords(smile, molec, idxList):
             print(f"Warning: could not extract coordinates for atom {idx}: {e}")
 
     return coordHash
-def soapFromxyz(dfDir , xyzDir):
-    if not os.path.exists(xyzDir):
-        os.makedirs(xyzDir)
+def soapFromxyz(dfDir):
     df = pd.read_csv(dfDir)
     colList = list(df.columns)
     colBox = boxGen(colList)
     while True:
-        smileIdx = input(f"Here are the columns provided in the dataframe: {dfDir} Enter the number for the column corresponding to the SMILES strings {colBox}")
+        smileIdx = input(f"Here are the columns provided in the dataframe: {dfDir}\n{colBox}\n Enter the number for the column corresponding to the SMILES strings: ")
         try:
             smilesIdx = int(smileIdx)
             smilesCol = colList[smilesIdx]
@@ -78,7 +83,7 @@ def soapFromxyz(dfDir , xyzDir):
         except:
             print("Error: please enter an appropriate integer")
     while True:
-        yieldIdx = input(f"Here are the columns provided in the dataframe: {dfDir} Enter the number for the column corresponding to the reaction metrix {colBox}")
+        yieldIdx = input(f"Here are the columns provided in the dataframe: {dfDir}\n{colBox}\n Enter the number for the column corresponding to the reaction metric: ")
         try:
             idIdx = int(yieldIdx)
             idYield = colList[idIdx]
@@ -99,6 +104,8 @@ def soapFromxyz(dfDir , xyzDir):
             idxList.append(idx)
         if smiles not in list(alkeneHash.keys()):
             coordHash = trackIdxSMiles_Coords(smiles , mol , idxList)
+            if len(list(coordHash.keys())) == 0:
+                continue
             alkeneSymbols = []
             alkeneCoords = []
             aceIdx = 0
@@ -138,7 +145,7 @@ def soapFromxyz(dfDir , xyzDir):
         except:
             print("Error: please enter an appropriate integer")
     dfMAST = pd.DataFrame()
-    soap = SOAP(species=masterAtoms,r_cut=rCut,n_max=rho,l_max=l,)
+    soap = SOAP(species=masterAtoms,r_cut=rfloat,n_max=rho,l_max=l_,)
     for alkene , info in alkeneHash.items():
         soapHash = {}
         soapHash["SMILES"] = alkene
@@ -158,12 +165,16 @@ def soapFromxyz(dfDir , xyzDir):
 if __name__ == "__main__":
     smilesCSV = str(sys.argv[1])
     while True:
-        coordType = input(f"Here are the options for importing coordinates\n\n[1]  From .xyz file\n\n[2] From crest_conformer\n\n[3] From DFT log output file\n Select the integer that corresponds to the output file you are importing from").strip()
+        coordType = input(f"Here are the options for importing coordinates\n\n[1]  From .xyz file\n\n[2] From crest_conformer\n\n[3] From DFT log output file\n Select the integer that corresponds to the output file you are importing from: ").strip()
         optionList = ["1" , "2" , "3"]
         if coordType in optionList:
             break
         else:
             print("You must pick either 1, 2, or 3")
     if coordType == "1":
-        xyzDir = input(f"Enter the directory where the .xyz files for {smilesCSV} are contained or are going to be stored")
-        alkeneSoapFeatures = soapFromxyz(smilesCSV , xyzDir)
+        outputDir = input(f"Enter the output directory for {smilesCSV}: ")
+        if not os.path.exists(outputDir):
+            os.makedirs(outputDir)
+        alkeneSoapFeatures = soapFromxyz(smilesCSV)
+        print(alkeneSoapFeatures.shape)
+        alkeneSoapFeatures.to_csv(outputDir + "/soapFeatures.csv")
