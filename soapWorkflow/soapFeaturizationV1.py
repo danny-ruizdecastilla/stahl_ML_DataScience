@@ -53,7 +53,7 @@ def trackIdxSMiles_Coords(smiles, molec, idxList):
     except Exception as e:
         print(f"ERROR: could not embed 3D coordinates for {smiles}: {e}")
         return {}
-    print(smiles)
+    #print(smiles)
     try:
         AllChem.EmbedMolecule(m, AllChem.ETKDG())
         AllChem.MMFFOptimizeMolecule(m)
@@ -96,6 +96,8 @@ def soapFromxyz(dfDir):
         smiles = row[smilesCol]
         metric = row[idYield]
         cc , mol = getCC(smiles)
+        if cc[0] == "Error":
+            continue
         c1Idx = cc[0]
         c2Idx = cc[1]
         idxList = []
@@ -145,21 +147,22 @@ def soapFromxyz(dfDir):
         except:
             print("Error: please enter an appropriate integer")
     dfMAST = pd.DataFrame()
+    print("allatoms" , len(masterAtoms))
     soap = SOAP(species=masterAtoms,r_cut=rfloat,n_max=rho,l_max=l_,)
     for alkene , info in alkeneHash.items():
         soapHash = {}
         soapHash["SMILES"] = alkene
-        soapHash["idYield"] = info["metric"]
+        soapHash["Y"] = info["metric"]
         mol = info["alkeneAce"]
-        alkene = info["alkeneCenters"]
-        soapParameters = soap.create(mol , centers = alkene)
+        alkeneID = info["alkeneCenters"]
+        soapParameters = soap.create(mol , centers = alkeneID)
         for i in range(len(soapParameters)):
             alk = "C" + str(i+1)
             for j in range(len(soapParameters[i])):
                 soapStr = alk + "_soap_" + str(j)
                 soapVal = soapParameters[i][j]
                 soapHash[soapStr] = soapVal
-        dfMAST = pd.concat([df, pd.DataFrame([soapHash])], ignore_index=True)
+        dfMAST = pd.concat([dfMAST, pd.DataFrame([soapHash])], ignore_index=True)
     return dfMAST
             
 if __name__ == "__main__":
