@@ -8,13 +8,11 @@ from rdkit.Chem import AllChem
 from dscribe.descriptors import SOAP
 from ase import Atoms
 import sparse
-import re
 import math
 import pandas as pd
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from breadthFirstSearch.radialBasedCorrelation import getCC
-from DFTWorkflow.conformerSearching.smiles_to_xyz import write_xyz
 from dimensionalityReduction.reactivityFeatures import boxGen
 def distance_3d_np(point1: list[float], point2: list[float]) -> float:
     p1 = np.array(point1, dtype=float)
@@ -80,45 +78,71 @@ def soapFromxyz(dfDir , xyzDir):
         except:
             print("Error: please enter an appropriate integer")
     while True:
-        idIdx = input(f"Here are the columns provided in the dataframe: {dfDir} Enter the number for the column corresponding to the ID strings {colBox}")
+        yieldIdx = input(f"Here are the columns provided in the dataframe: {dfDir} Enter the number for the column corresponding to the reaction metrix {colBox}")
         try:
-            idIdx = int(idIdx)
-            idCol = colList[idIdx]
+            idIdx = int(yieldIdx)
+            idYield = colList[idIdx]
             break
         except:
             print("Error: please enter an appropriate integer")
     alkeneHash = {}
-    for _, row in df.iterrows():
+    masterAtoms = []
+    for _ , row in df.iterrows():
         smiles = row[smilesCol]
+        metric = row[idYield]
         cc , mol = getCC(smiles)
         c1Idx = cc[0]
         c2Idx = cc[1]
-        id = row[idCol]
         idxList = []
         for atom in mol.GetAtoms():
             idx = atom.GetIdx()  
             idxList.append(idx)
         if smiles not in list(alkeneHash.keys()):
-            xyzFile = xyzDir + "/" + str(id) + ".xyz"
             coordHash = trackIdxSMiles_Coords(smiles , mol , idxList)
-            atomSymbols = []
-            atomCoordinates = []
-            for atomIdx , coords in coordHash.items():
-                atom = mol.GetAtomWithIdx(atomIdx)
+            alkeneSymbols = []
+            alkeneCoords = []
+            aceIdx = 0
+            for id , coords in coordHash.items():
+                atom = mol.GetAtomWithIdx(id)
                 symbol = atom.GetSymbol()
-                atomSymbols.append(str(symbol))
-                atomCoordinates.append(coords)
-                if atomIdx == c1Idx:
-                    c1_x = coords[0]
-                    c1_y = coords[1]
-                    c1_z = coords[2]
-                elif atomIdx == c2Idx:
-                    c2_x = coords[0]
-                    c2_y = coords[1]
-                    c2_z = coords[2]
-            alkeneHash[smiles] = {"ID" : id , "file" : xyzFile, "c1Coords" : [c1_x, c1_y, c1_z] , "c2Coords" : [c2_x, c2_y, c2_z] ,}
-            write_xyz(atomSymbols, atomCoordinates, xyzFile)
-    dfMASt = pd.DataFrame()
+                if symbol not in masterAtoms:
+                    masterAtoms.append(symbol)
+                alkeneSymbols.append(symbol)
+                alkeneCoords.append(np.array(coords))
+                if id == c1Idx:
+                    aceC1 = aceIdx
+                elif id ==c2Idx:
+                    aceC2 = aceIdx
+                aceIdx += 1
+            aceObj = Atoms(symbols=alkeneSymbols, positions=alkeneCoords)
+            alkeneHash[smiles] = {"alkeneAce" : aceObj , "alkeneCenters" : [aceC1,aceC2] , "metric" : metric  }
+    while True:
+        rCut = input(f"Enter the radial cutoff for these SOAP descriptors in Angstroms:")
+        try:
+            rfloat = float(rCut)
+            break
+        except:
+            print("Error: please enter an appropriate integer/float")
+    while True:
+        rho = input(f"Enter the number of basis functions for these SOAP descriptors in Angstroms:")
+        try:
+            rho = int(rho)
+            break
+        except:
+            print("Error: please enter an appropriate integer")
+    while True:
+        l = input(f"Enter the degree of spherical harmonics for these SOAP descriptors in Angstroms:")
+        try:
+            l_ = int(l)
+            break
+        except:
+            print("Error: please enter an appropriate integer")
+    dfMAST = pd.DataFrame()
+    soap = SOAP(species=masterAtoms,r_cut=rCut,n_max=rho,l_max=l,)
+    for alkene , info in alkeneHash.items:
+        
+
+
     
         
             
