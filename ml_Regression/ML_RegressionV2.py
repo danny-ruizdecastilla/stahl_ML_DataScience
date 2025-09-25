@@ -1,0 +1,284 @@
+#!/usr/bin/env python3
+import sys
+import glob
+import numpy as np
+import os
+import pandas as pd
+from pathlib import Path
+import json
+from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.svm import SVR
+from sklearn.metrics import mean_squared_error, r2_score
+
+# Custom error
+class CustomError(Exception):
+    pass
+
+def stratifiedRegressionSplit(y, n_splits=5, n_bins=10):
+    """
+    Create stratified folds for regression by binning the continuous target.
+    Returns the generator from StratifiedKFold.split
+    """
+    # Ensure y is a pandas Series for pd.cut behavior
+    y_ser = pd.Series(y).reset_index(drop=True)
+    # Use quantile-based binning to avoid empty bins if distribution is skewed
+    try:
+        # pd.qcut is often better for stratification when data is uneven
+        yBinned = pd.qcut(y_ser, q=n_bins, labels=False, duplicates='drop')
+    except Exception:
+        # fallback to equal width
+        yBinned = pd.cut(y_ser, bins=n_bins, labels=False)
+
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+    return skf.split(range(len(y_ser)), yBinned)
+
+def stratifiedRegressionCV(X, y, model, n_splits=5):
+    """
+    X can be a pandas DataFrame or numpy array.
+    Returns lists of MSE and R2 for each fold.
+    """
+    # preserve if X is DataFrame for column names later
+    is_df = isinstance(X, pd.DataFrame)
+    # use numpy arrays for fitting/predicting to be consistent
+    X_arr = X.values if is_df else np.asarray(X)
+    y_arr = np.asarray(y)
+
+    fold_generator = stratifiedRegressionSplit(y_arr, n_splits=n_splits)
+
+    mse_scores = []
+    r2_scores = []
+
+    for fold_idx, (train_idx, val_idx) in enumerate(fold_generator):
+        X_train_fold, X_val_fold = X_arr[train_idx], X_arr[val_idx]
+        y_train_fold, y_val_fold = y_arr[train_idx], y_arr[val_idx]
+
+        model.fit(X_train_fold, y_train_fold)
+        y_pred = model.predict(X_val_fold)
+
+        mse = mean_squared_error(y_val_fold, y_pred)
+        r2 = r2_score(y_val_fold, y_pred)
+
+        mse_scores.append(mse)
+        r2_scores.append(r2)
+
+    return mse_scores, r2_scores
+
+def randomForestRegression(X, y, hyperParmFile, outputDir):
+    # keep DataFrame so we can get column names for feature importances
+    X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    if hyperParmFile.exists():
+        with open(hyperParmFile, "r") as f:
+            savedParms = json.load(f)
+        best_params = savedParms["best_params"]
+        rfMAST = RandomForestRegressor(**best_params, random_state=42)
+        rfFinal = RandomForestRegressor(**best_params, random_state=42)
+    else:
+        rfGrid = {
+            'n_estimators': [100, 200, 300],
+            'max_depth': [2, 4, 8, None],
+            'max_features': ['sqrt', 0.5, None]
+        }
+        rf = RandomForestRegressor(random_state=42)
+        gridSearch = GridSearchCV(rf, rfGrid, cv=5, scoring="neg_mean_squared_error", n_jobs=-1)
+        gridSearch.fit(X_train_CV, y_train_CV)
+        with open(hyperParmFile, "w") as f:
+            json.dump({"best_score": gridSearch.best_score_, "best_params": gridSearch.best_params_}, f, indent=4)
+        rfMAST = RandomForestRegressor(**gridSearch.best_params_, random_state=42)
+        rfFinal = RandomForestRegressor(**gridSearch.best_params_, random_state=42)
+
+    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, rfMAST, n_splits=5)
+
+    cvFile = Path(outputDir) / "randomForest" / "crossvalidation" / "scores.dat"
+    cvFile.parent.mkdir(parents=True, exist_ok=True)
+    with open(cvFile, "w") as f:
+        for i in range(len(mseCV)):
+            f.write(f"Fold {i} Results: mse {mseCV[i]} | r2 {r2CV[i]}\n")
+
+    rfFinal.fit(X_train_CV, y_train_CV)
+    yPred = rfFinal.predict(X_test)
+
+    rmse = float(np.sqrt(mean_squared_error(y_test, yPred)))
+    r2 = float(r2_score(y_test, yPred))
+
+    testFile = Path(outputDir) / "randomForest" / "testEval" / "scores.dat"
+    testFile.parent.mkdir(parents=True, exist_ok=True)
+    with open(testFile, "w") as f:
+        f.write(f"Test Results: rmse {rmse} | r2 {r2}\n")
+
+    importances = rfFinal.feature_importances_
+    if isinstance(X_train_CV, pd.DataFrame):
+        feature_names = X_train_CV.columns
+    else:
+        feature_names = [f"f{i}" for i in range(importances.shape[0])]
+    featDF = pd.DataFrame({"feature": feature_names, "importance": importances}).sort_values(by="importance", ascending=False)
+    featFile = Path(outputDir) / "randomForest" / "testEval" / "weights.csv"
+    featDF.to_csv(featFile, index=False)
+
+def supportVectorRegression(kernelStr, X, y, hyperParmFile, outputDir):
+    X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    if kernelStr == "linear":
+        svrGrid = {'kernel': ['linear'], 'C': [0.1, 1, 10, 100, 1000], 'epsilon': [0.01, 0.1, 0.2, 0.5]}
+    elif kernelStr == "rbf":
+        svrGrid = {'kernel': ['rbf'], 'C': [0.1, 1, 10, 100, 1000], 'gamma': ['scale', 0.001, 0.01, 0.1, 1], 'epsilon': [0.01, 0.1, 0.2, 0.5]}
+    elif kernelStr == "poly":
+        svrGrid = {'kernel': ['poly'], 'C': [0.1, 1, 10, 100], 'gamma': ['scale', 0.01, 0.1, 1], 'degree': [2, 3, 4], 'epsilon': [0.01, 0.1, 0.2]}
+    else:
+        raise ValueError("Unsupported kernel string")
+
+    if hyperParmFile.exists():
+        with open(hyperParmFile, "r") as f:
+            savedParms = json.load(f)
+        best_params = savedParms["best_params"]
+        # SVR doesn't accept random_state, so just pass params directly
+        svrMAST = SVR(**best_params)
+        svrFinal = SVR(**best_params)
+    else:
+        svr = SVR()
+        gridSearch = GridSearchCV(svr, svrGrid, cv=5, scoring="neg_mean_squared_error", n_jobs=-1)
+        gridSearch.fit(X_train_CV, y_train_CV)
+        with open(hyperParmFile, "w") as f:
+            json.dump({"best_score": gridSearch.best_score_, "best_params": gridSearch.best_params_}, f, indent=4)
+        svrMAST = SVR(**gridSearch.best_params_)
+        svrFinal = SVR(**gridSearch.best_params_)
+
+    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, svrMAST, n_splits=5)
+
+    cvFile = Path(outputDir) / "supportVector" / "crossvalidation" / "scores.dat"
+    cvFile.parent.mkdir(parents=True, exist_ok=True)
+    with open(cvFile, "w") as f:
+        for i in range(len(mseCV)):
+            f.write(f"Fold {i} Results: mse {mseCV[i]} | r2 {r2CV[i]}\n")
+
+    svrFinal.fit(X_train_CV, y_train_CV)
+    yPred = svrFinal.predict(X_test)
+
+    rmse = float(np.sqrt(mean_squared_error(y_test, yPred)))
+    r2 = float(r2_score(y_test, yPred))
+
+    testFile = Path(outputDir) / "supportVector" / "testEval" / "scores.dat"
+    testFile.parent.mkdir(parents=True, exist_ok=True)
+    with open(testFile, "w") as f:
+        f.write(f"Test Results: rmse {rmse} | r2 {r2}\n")
+
+def gradientBoostRegression(X, y, hyperParmFile, outputDir):
+    X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    if hyperParmFile.exists():
+        with open(hyperParmFile, "r") as f:
+            savedParms = json.load(f)
+        best_params = savedParms["best_params"]
+        gbMAST = GradientBoostingRegressor(**best_params, random_state=42)
+        gbFinal = GradientBoostingRegressor(**best_params, random_state=42)
+    else:
+        gbGrid = {
+            'n_estimators': [100, 200, 300],
+            'max_depth': [2, 4, 8, None],
+            'learning_rate': [0.01, 0.05, 0.1, 0.2],
+            'max_features': ['sqrt', 0.5, None]
+        }
+        gb = GradientBoostingRegressor(random_state=42)
+        gridSearch = GridSearchCV(gb, gbGrid, cv=5, scoring="neg_mean_squared_error", n_jobs=-1)
+        gridSearch.fit(X_train_CV, y_train_CV)
+        with open(hyperParmFile, "w") as f:
+            json.dump({"best_score": gridSearch.best_score_, "best_params": gridSearch.best_params_}, f, indent=4)
+        gbMAST = GradientBoostingRegressor(**gridSearch.best_params_, random_state=42)
+        gbFinal = GradientBoostingRegressor(**gridSearch.best_params_, random_state=42)
+
+    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, gbMAST, n_splits=5)
+
+    cvFile = Path(outputDir) / "gradientBoost" / "crossvalidation" / "scores.dat"
+    cvFile.parent.mkdir(parents=True, exist_ok=True)
+    with open(cvFile, "w") as f:
+        for i in range(len(mseCV)):
+            f.write(f"Fold {i} Results: mse {mseCV[i]} | r2 {r2CV[i]}\n")
+
+    gbFinal.fit(X_train_CV, y_train_CV)
+    yPred = gbFinal.predict(X_test)
+
+    rmse = float(np.sqrt(mean_squared_error(y_test, yPred)))
+    r2 = float(r2_score(y_test, yPred))
+
+    testFile = Path(outputDir) / "gradientBoost" / "testEval" / "scores.dat"
+    testFile.parent.mkdir(parents=True, exist_ok=True)
+    with open(testFile, "w") as f:
+        f.write(f"Test Results: rmse {rmse} | r2 {r2}\n")
+
+    importances = gbFinal.feature_importances_
+    if isinstance(X_train_CV, pd.DataFrame):
+        feature_names = X_train_CV.columns
+    else:
+        feature_names = [f"f{i}" for i in range(importances.shape[0])]
+    featDF = pd.DataFrame({"feature": feature_names, "importance": importances}).sort_values(by="importance", ascending=False)
+    featFile = Path(outputDir) / "gradientBoost" / "testEval" / "weights.csv"
+    featDF.to_csv(featFile, index=False)
+
+def chooseRegressionModels():
+    models = {
+        0: "Support Vector Machine (SVR)",
+        1: "Random Forest Regressor",
+        2: "Gradient Boosting Regressor",
+    }
+
+    print("Select from the available regression models (separate multiple choices with commas):")
+    for i, name in models.items():
+        print(f"[{i}] {name}")
+
+    choice_str = input("Enter your choice(s): ")
+    try:
+        choices = [int(c.strip()) for c in choice_str.split(",")]
+    except ValueError:
+        print("Invalid input. Please enter integers separated by commas.")
+        return []
+    valid_choices = [c for c in choices if c in models]
+    if not valid_choices:
+        print("No valid models selected.")
+        return []
+    return valid_choices, models
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        raise CustomError("Usage: script.py <datasetDir> <outputDir>")
+
+    datasetDir = str(sys.argv[1])
+    datasets = glob.glob(os.path.join(datasetDir, "*.csv"))
+    mainOutputDir = str(sys.argv[2])
+
+    if len(datasets) == 1:
+        dfMAST = pd.read_csv(datasets[0])
+        regressionStr = input(f"Please enter the name of the column in {datasets[0]} that corresponds to the regression metric: ").strip()
+        if regressionStr not in dfMAST.columns:
+            raise CustomError(f"Column {regressionStr} not found in {datasets[0]}")
+
+        y = dfMAST[regressionStr]
+        smilesStr = input(f"Please enter the name of the column in {datasets[0]} that corresponds to SMILES strings (or press Enter if none): ").strip()
+        if smilesStr:
+            if smilesStr not in dfMAST.columns:
+                raise CustomError(f"Column {smilesStr} not found in {datasets[0]}")
+            Xdataframe = dfMAST.drop(columns=[smilesStr])
+        else:
+            # no SMILES column specified
+            Xdataframe = dfMAST.drop(columns=[regressionStr])
+        hyperFileRF = Path(mainOutputDir) / "randomForest" / "hyperParameter" / "params.dat"
+        hyperFileRF.parent.mkdir(parents=True, exist_ok=True)
+        hyperFileSVM = Path(mainOutputDir) / "supportVector" / "hyperParameter" / "params.dat"
+        hyperFileSVM.parent.mkdir(parents=True, exist_ok=True)
+        hyperFileGB = Path(mainOutputDir) / "gradientBoost" / "hyperParameter" / "params.dat"
+        hyperFileGB.parent.mkdir(parents=True, exist_ok=True)
+        j = 0
+        while j < 4:
+            newOutputDir = Path(mainOutputDir) / f"trial{j}"
+            newOutputDir.mkdir(parents=True, exist_ok=True)
+            gradientBoostRegression(Xdataframe, y, hyperFileGB, newOutputDir)
+            randomForestRegression(Xdataframe, y, hyperFileRF, newOutputDir)
+            supportVectorRegression("rbf", Xdataframe, y, hyperFileSVM, newOutputDir)
+            j +=1
+
+    elif len(datasets) == 0:
+        raise CustomError(f"{datasetDir} does not have any CSV files")
+    else:
+        regressionStr = input(f"Please enter the name of the column in the datasets that corresponds to the regression metric: ").strip()
+        colDrops = ["SMILES", "Unnamed"]
+        Xdataframe, smileList, yieldList = compressData(sorted(datasets), regressionStr, colDrops)
