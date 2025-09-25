@@ -47,23 +47,22 @@ def gradientBoostingOptimization(X , Y ):
     gbrParameters = []
     gbrParmScores = []
     i = 0
-    parameterDict  = { 'n_estimators': [50 , 100, 150 , 200 , 250] , 'max_depth' : [2,3,4,5,6] , 'criterion' : ['friedman_mse' , 'squared_error'] , 'loss' : ['squared_error' , 'absolute_error' , 'huber']}
+    parameterDict  = { 'n_estimators': [50 , 100, 150 , 200 , 250] , 'max_depth' : [2,3,4,5,6]}
     cvStrategy = KFold(n_splits=5 , shuffle = True , random_state = 42)
     gbr = GradientBoostingRegressor()
     while True:
-        grid_search = GridSearchCV(gbr, parameterDict, scoring = 'neg_mean_squared_error' , cv = cvStrategy )
+        grid_search = GridSearchCV(gbr, parameterDict, scoring = 'neg_root_mean_squared_error' , cv = cvStrategy )
         grid_search.fit(X , Y)
         gbrParameters.append(grid_search.best_params_)
         gbrParmScores.append(grid_search.best_score_)
         i += 1 
-        if i == 7:
+        if i == 3:
             break
     optimalParameters = getOptimalParameters(gbrParameters)
     optimalParameters['random_state'] = 42
 
     return optimalParameters
 def gradientBoostingRegression(optParms , X  , Y , saveDir , saveID , regressionStr):
-#{'criterion': 'friedman_mse', 'loss': 'squared_error', 'max_depth': 2, 'n_estimators': 100}
     gbrOpt = GradientBoostingRegressor(**optParms)
     cvStrategy = KFold(n_splits=5 , shuffle = True , random_state = 42)
     X_train_CV, X_test_CV, y_train_CV, y_test_CV = train_test_split(X, Y, test_size=0.2, random_state=42)
@@ -110,7 +109,13 @@ if __name__ == "__main__":
     featureDataSets = glob.glob(datasetDir + "*.csv")
     dfMASTDir = str(sys.argv[4])
     initdataSets = sorted(featureDataSets)
-    Xdataframe , smileList  , yieldList = compressData(initdataSets , regressionStr)
+    if len(featureDataSets) == 1:
+        Xdataframe = pd.read_csv(initdataSets[0])
+        smileList = Xdataframe["SMILES"]
+        yieldList = Xdataframe[regressionStr]
+        Xdataframe = Xdataframe.drop("SMILES", axis=1)
+    else:
+        Xdataframe , smileList  , yieldList = compressData(initdataSets , regressionStr)
     nanDict = locateNans(Xdataframe)
     if len(nanDict) != 0:
         Xdataframe[regressionStr] = yieldList
@@ -130,5 +135,5 @@ if __name__ == "__main__":
         gradientBoostingRegression(gbrOptParms , X  , yields , outputDir , str(k), regressionStr)
         k += 1
 
-        if k == 10: 
+        if k == 4: 
             break
