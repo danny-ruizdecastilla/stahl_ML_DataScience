@@ -19,6 +19,7 @@ Eliminate any duplicates that were formed out of the post processing as well
 def getCC(smiles):
     #returns the index of C1 and C2 double bond 
     molec = Chem.MolFromSmiles(smiles)
+    molec = Chem.AddHs(molec)
     for bond in molec.GetBonds():
         atom1 = bond.GetBeginAtom()
         atom2 = bond.GetEndAtom()
