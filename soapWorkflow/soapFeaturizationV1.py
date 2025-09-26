@@ -42,12 +42,7 @@ def extractAlkenefromCoords(coordHash):
         coords1 = carbons[pair[0]]
         coords2 = carbons[pair[1]]
         euclidDist = distance_3d_np(coords1 , coords2)
-def trackIdxSMiles_Coords(smiles, molec, idxList):
-    try:
-        m = Chem.AddHs(molec)
-    except Exception as e:
-        print(f"ERROR: failed to prepare molecule from SMILES {smiles}: {e}")
-        return {}
+def trackIdxSMiles_Coords(smiles, m, idxList):
     try:
         AllChem.EmbedMolecule(m)
     except Exception as e:
