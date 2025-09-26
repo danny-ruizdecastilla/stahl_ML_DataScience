@@ -29,13 +29,7 @@ def stratifiedRegressionSplit(y, n_splits=5, n_bins=10):
     return skf.split(range(len(y_ser)), yBinned)
 
 def stratifiedRegressionCV(X, y, model, n_splits=5):
-    """
-    X can be a pandas DataFrame or numpy array.
-    Returns lists of MSE and R2 for each fold.
-    """
-    # preserve if X is DataFrame for column names later
     is_df = isinstance(X, pd.DataFrame)
-    # use numpy arrays for fitting/predicting to be consistent
     X_arr = X.values if is_df else np.asarray(X)
     y_arr = np.asarray(y)
 
