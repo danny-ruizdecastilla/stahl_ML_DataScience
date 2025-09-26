@@ -14,20 +14,12 @@ from sklearn.metrics import mean_squared_error, r2_score
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from DFTWorkflow.pitchingATent import featureFiltering
-# Custom error
 class CustomError(Exception):
     pass
 
 def stratifiedRegressionSplit(y, n_splits=5, n_bins=10):
-    """
-    Create stratified folds for regression by binning the continuous target.
-    Returns the generator from StratifiedKFold.split
-    """
-    # Ensure y is a pandas Series for pd.cut behavior
     y_ser = pd.Series(y).reset_index(drop=True)
-    # Use quantile-based binning to avoid empty bins if distribution is skewed
     try:
-        # pd.qcut is often better for stratification when data is uneven
         yBinned = pd.qcut(y_ser, q=n_bins, labels=False, duplicates='drop')
     except Exception:
         # fallback to equal width
