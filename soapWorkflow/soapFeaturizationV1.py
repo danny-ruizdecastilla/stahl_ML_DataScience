@@ -93,8 +93,8 @@ def soapFromxyz(dfDir):
         cc , mol = getCC(smiles)
         if cc[0] == "Error":
             continue
-        c1Idx = cc[0]
-        c2Idx = cc[1]
+        c1Idx = min(cc)
+        c2Idx = max(cc)
         idxList = []
         for atom in mol.GetAtoms():
             idx = atom.GetIdx()  
