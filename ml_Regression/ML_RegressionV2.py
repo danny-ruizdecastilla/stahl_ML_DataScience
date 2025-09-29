@@ -86,15 +86,23 @@ def randomForestRegression(X, y, hyperParmFile, outputDir):
             f.write(f"Fold {i} Results: mse {mseCV[i]} | r2 {r2CV[i]}\n")
 
     rfFinal.fit(X_train_CV, y_train_CV)
+    yTrain = rfFinal.predict(X_train_CV)
     yPred = rfFinal.predict(X_test)
 
-    rmse = float(np.sqrt(mean_squared_error(y_test, yPred)))
-    r2 = float(r2_score(y_test, yPred))
+    rmseTest = float(np.sqrt(mean_squared_error(y_test, yPred)))
+    r2Test = float(r2_score(y_test, yPred))
 
-    testFile = Path(outputDir) / "randomForest" / "testEval" / "scores.dat"
+    rmseTrain = float(np.sqrt(mean_squared_error(y_train_CV , yTrain)))
+    r2Train = float(r2_score(y_train_CV , yTrain))
+
+    testFile = Path(outputDir) / "randomForest" / "Eval" / "testScores.dat"
     testFile.parent.mkdir(parents=True, exist_ok=True)
     with open(testFile, "w") as f:
-        f.write(f"Test Results: rmse {rmse} | r2 {r2}\n")
+        f.write(f"Test Results: rmse {rmseTest} | r2 {r2Test}\n")
+
+    trainFile = Path(outputDir) / "randomForest" / "Eval" / "trainScores.dat"
+    with open(trainFile, "w") as f:
+        f.write(f"Train Results: rmse {rmseTrain} | r2 {r2Train}\n")
 
     importances = rfFinal.feature_importances_
     if isinstance(X_train_CV, pd.DataFrame):
@@ -102,7 +110,7 @@ def randomForestRegression(X, y, hyperParmFile, outputDir):
     else:
         feature_names = [f"f{i}" for i in range(importances.shape[0])]
     featDF = pd.DataFrame({"feature": feature_names, "importance": importances}).sort_values(by="importance", ascending=False)
-    featFile = Path(outputDir) / "randomForest" / "testEval" / "weights.csv"
+    featFile = Path(outputDir) / "randomForest" / "Eval" / "testWeights.csv"
     featDF.to_csv(featFile, index=False)
 
 def supportVectorRegression(kernelStr, X, y, hyperParmFile, outputDir):
@@ -142,15 +150,23 @@ def supportVectorRegression(kernelStr, X, y, hyperParmFile, outputDir):
             f.write(f"Fold {i} Results: mse {mseCV[i]} | r2 {r2CV[i]}\n")
 
     svrFinal.fit(X_train_CV, y_train_CV)
+    yTrain = svrFinal.predict(X_train_CV)
     yPred = svrFinal.predict(X_test)
 
-    rmse = float(np.sqrt(mean_squared_error(y_test, yPred)))
-    r2 = float(r2_score(y_test, yPred))
+    rmseTest = float(np.sqrt(mean_squared_error(y_test, yPred)))
+    r2Test = float(r2_score(y_test, yPred))
 
-    testFile = Path(outputDir) / "supportVector" / "testEval" / "scores.dat"
+    rmseTrain = float(np.sqrt(mean_squared_error(y_train_CV , yTrain)))
+    r2Train = float(r2_score(y_train_CV , yTrain))
+
+    testFile = Path(outputDir) / "supportVector" / "Eval" / "testScores.dat"
     testFile.parent.mkdir(parents=True, exist_ok=True)
     with open(testFile, "w") as f:
-        f.write(f"Test Results: rmse {rmse} | r2 {r2}\n")
+        f.write(f"Test Results: rmse {rmseTest} | r2 {r2Test}\n")
+
+    trainFile = Path(outputDir) / "supportVector" / "Eval" / "trainScores.dat"
+    with open(trainFile, "w") as f:
+        f.write(f"Train Results: rmse {rmseTrain} | r2 {r2Train}\n")
 
 def gradientBoostRegression(X, y, hyperParmFile, outputDir):
     X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.2, random_state=j)
@@ -185,15 +201,23 @@ def gradientBoostRegression(X, y, hyperParmFile, outputDir):
             f.write(f"Fold {i} Results: mse {mseCV[i]} | r2 {r2CV[i]}\n")
 
     gbFinal.fit(X_train_CV, y_train_CV)
+    yTrain = gbFinal.predict(X_train_CV)
     yPred = gbFinal.predict(X_test)
 
-    rmse = float(np.sqrt(mean_squared_error(y_test, yPred)))
-    r2 = float(r2_score(y_test, yPred))
+    rmseTest = float(np.sqrt(mean_squared_error(y_test, yPred)))
+    r2Test = float(r2_score(y_test, yPred))
 
-    testFile = Path(outputDir) / "gradientBoost" / "testEval" / "scores.dat"
+    rmseTrain = float(np.sqrt(mean_squared_error(y_train_CV , yTrain)))
+    r2Train = float(r2_score(y_train_CV , yTrain))
+
+    testFile = Path(outputDir) / "gradientBoost" / "Eval" / "testScores.dat"
     testFile.parent.mkdir(parents=True, exist_ok=True)
     with open(testFile, "w") as f:
-        f.write(f"Test Results: rmse {rmse} | r2 {r2}\n")
+        f.write(f"Test Results: rmse {rmseTest} | r2 {r2Test}\n")
+
+    trainFile = Path(outputDir) / "gradientBoost" / "Eval" / "trainScores.dat"
+    with open(trainFile, "w") as f:
+        f.write(f"Train Results: rmse {rmseTrain} | r2 {r2Train}\n")
 
     importances = gbFinal.feature_importances_
     if isinstance(X_train_CV, pd.DataFrame):
@@ -201,7 +225,7 @@ def gradientBoostRegression(X, y, hyperParmFile, outputDir):
     else:
         feature_names = [f"f{i}" for i in range(importances.shape[0])]
     featDF = pd.DataFrame({"feature": feature_names, "importance": importances}).sort_values(by="importance", ascending=False)
-    featFile = Path(outputDir) / "gradientBoost" / "testEval" / "weights.csv"
+    featFile = Path(outputDir) / "gradientBoost" / "Eval" / "testWeights.csv"
     featDF.to_csv(featFile, index=False)
 
 def chooseRegressionModels():
