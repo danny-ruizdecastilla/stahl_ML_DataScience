@@ -122,29 +122,34 @@ def checkWeights(hash1 , hash2 , tolerance):
         return True
     else:
         return False
-def getEligibleAtoms(molec , contacts , badAtoms):
+def getListWeight(molec, atomIdxList):
+    totalMass = 0.0
+    for idx in atomIdxList:
+        atom = molec.GetAtomWithIdx(idx)
+        totalMass += atom.GetMass()
+    return totalMass
+def SmartNextStep(molec , g, currentAtom , contacts , badAtoms):
     currentEligibles = [contact for contact in contacts if contact not in badAtoms]
-    print("getEligibles" , currentEligibles)
-    if currentEligibles != 0:
-        newEligibles = {}
-        contactWeight = 0
-        protonCount = 0
-        for atom in currentEligibles:
-            symbol = molec.GetAtomWithIdx(atom).GetSymbol()
-            print(symbol)
-            if symbol != "H": #avoid protons
-                contactWeight += molecWeight(molec, atom)
-                newEligibles[atom] = molecWeight(molec, atom)
-            else:
-                protonCount += 1
-        if protonCount == 3: #terminal carbon
-            terminal = True
-        else:
-            terminal = False
-
-        return contactWeight, newEligibles , terminal
+    if len(currentEligibles) == 0:
+        #Terminate 
+        return currentAtom , badAtoms
     else:
-        return 12.01 , contacts , True
+        atomHash = {}
+        for contact in currentEligibles:
+            weight = molecWeight(molec, contact)
+            atomHash[contact] = weight
+        atomHash = dict(sorted(atomHash.items(), key=lambda item: item[1], reverse=True))
+        maxValue = max(atomHash.values())
+        eligibleKeys = [key for key, val in atomHash.items() if val == maxValue]
+        eligibles = []
+        for key in eligibleKeys:
+            contacts1 = list(g.neighbors(key))
+            mass = getListWeight(molec , contacts1)
+            eligibles.append(mass)
+        maxIdx, maxVal = max(enumerate(eligibles), key=lambda x: x[1])
+        badAtoms.append(currentAtom)
+        return maxIdx , badAtoms
+    
 def reversePaths(atomHash): 
     #print("reversePath" , atomHash)
     nextoptions = []
@@ -162,49 +167,130 @@ def reversePaths(atomHash):
         del atomHash[nextKey]["openContacts"][nextAtom]
         return nextAtom , atomHash , nextWeight
     
-def EvsZCompare(molec, g , path1 , path2 , badAtoms1,badAtoms2, diffTolerance):
-    print(badAtoms1)
-    isDifferent = checkWeights(path1, path2, diffTolerance)
+def getListWeight(molec, atomIdxList):
+    totalMass = 0.0
+    for idx in atomIdxList:
+        atom = molec.GetAtomWithIdx(idx)
+        totalMass += atom.GetMass()
+    return totalMass
+def SmartNextStep(molec, g, currentAtom, contacts, badAtoms):
+    # Filter out already-visited atoms
+    currentEligibles = [contact for contact in contacts if contact not in badAtoms]
     
-    if isDifferent:
-        print("isDifferentExit")
-        return path1 , path2  
-        
-    else: 
-        currentAtom1 = list(path1.keys())[-1]
-        #print(currentAtom1)
-        contacts1 = list(g.neighbors(currentAtom1))
-        #print("contacts1" , contacts1)
-        contactWeights1 , eligibleAtoms1 , isTerminal1 = getEligibleAtoms(molec,contacts1 , badAtoms1)
-        #print("isTerminal1" , isTerminal1)
-        if isTerminal1:#get nextAtom from another path
-            #print("CH3")
-            nextAtom1 , path1 , nextWeight1 = reversePaths(path1)
-            if nextAtom1 is None:
-                #print("nextAtom1Exit")
-                return path1 , path2
-        else:
-            nextAtom1 , nextWeight1 = max(eligibleAtoms1.items(), key=lambda x: x[1])
-            del eligibleAtoms1[nextAtom1]
-        badAtoms1.append(nextAtom1)
-        
-        currentAtom2 = list(path2.keys())[-1]
-        contacts2 = list(g.neighbors(currentAtom2))
-        contactWeights2 , eligibleAtoms2 , isTerminal2  = getEligibleAtoms(molec, contacts2 , badAtoms2)
-        if isTerminal2:#get nextAtom from another path
-            nextAtom2 , path2 , nextWeight2 = reversePaths(path2)    
-            if nextAtom2 is None:
-                #print("nextAtom2Exit")
-                return path1 , path2
-        else:
-            nextAtom2  , nextWeight2 = max(eligibleAtoms2.items(), key=lambda x: x[1])
-            del eligibleAtoms2[nextAtom2]
-        badAtoms2.append(nextAtom2)
+    if not currentEligibles:
+        # No valid next atoms — terminate
+        print(f"⚠️ No eligible atoms from {currentAtom}, terminating.")
+        return currentAtom, badAtoms
 
-        path1[nextAtom1] = {"openContacts": eligibleAtoms1 , 
-                            "PrevWeight" : contactWeights1 , "atomWeight" : nextWeight1 }
-        path2[nextAtom2] = {"openContacts": eligibleAtoms2 , 
-                            "PrevWeight" : contactWeights2 , "atomWeight" : nextWeight2 }
-        print("nextLoop")
-        return EvsZCompare(molec, g , path1 , path2 , badAtoms1,badAtoms2, diffTolerance)
+    # Build atom weight mapping
+    atomHash = {contact: molecWeight(molec, contact) for contact in currentEligibles}
+    atomHash = dict(sorted(atomHash.items(), key=lambda item: item[1], reverse=True))
+
+    # Get atoms with maximum single-atom weight
+    maxValue = max(atomHash.values())
+    eligibleKeys = [key for key, val in atomHash.items() if val == maxValue]
+
+    # Evaluate neighborhood weights of these equally heavy atoms
+    eligibles = []
+    for key in eligibleKeys:
+        contacts1 = list(g.neighbors(key))
+        mass = getListWeight(molec, contacts1)
+        eligibles.append(mass)
+
+    # Choose the atom with the largest neighborhood weight
+    maxIdx, maxVal = max(enumerate(eligibles), key=lambda x: x[1])
+    nextAtom = eligibleKeys[maxIdx] 
+
+    badAtoms.append(currentAtom)
+
+    print(f"Next step from {currentAtom} → {nextAtom} (mass={maxVal:.3f})")
+    return nextAtom, badAtoms
+def heteroAtomContacts(molec, contacts1, contacts2 , badAtoms1 , badAtoms2):
+    hetero1 = []
+    hetero2 = []
+    for idx in contacts1:
+        atom = molec.GetAtomWithIdx(idx)
+        symbol = atom.GetSymbol()
+        if symbol not in ("C", "H"):
+            hetero1.append(idx)
+    
+    for idx in contacts2:
+        atom = molec.GetAtomWithIdx(idx)
+        symbol = atom.GetSymbol()
+        if symbol not in ("C", "H"):
+            hetero2.append(idx) 
+    if len(hetero1) == len(hetero2) == 0:
+        weights1 = getListWeight( molec, [contact for contact in contacts1 if contact not in badAtoms1])
+        weights2 = getListWeight(molec, [contact for contact in contacts2 if contact not in badAtoms2])
+        print(contacts1)
+        print(contacts2)
+        print(weights1 , weights2)
+        if weights1 > weights2:
+            return True , False
+        elif weights1 < weights2:
+            return False, True
+        else:
+            return False , False
+    else:
+        return False, False
+def maxPathCompare(molec, graph, path1, path2, badAtoms1, badAtoms2, endSearch, depth=0):
+    indent = "  " * depth  # for readable indentation per recursion level
+    print(f"{indent}▶️ Depth {depth}: path1={path1}, path2={path2}, endSearch={endSearch}")
+
+    weight1 = getListWeight(molec, path1)
+    weight2 = getListWeight(molec, path2)
+    print(f"{indent}Weights → path1: {weight1:.3f}, path2: {weight2:.3f}")
+
+    # Compare path weights
+    if weight1 > weight2:
+        print(f"{indent}path1 heavier — returning [path1, path2]")
+        return [path1, path2], False
+
+    elif weight1 < weight2:
+        print(f"{indent}path2 heavier — returning [path2, path1]")
+        return [path2, path1], False
+
+    # Equal weight — need to keep exploring
+    else:
+
+        if endSearch:
+            return [path1, path2], True
+
+        currentAtom1 = path1[-1]
+        currentAtom2 = path2[-1]
+
+        contacts1 = list(graph.neighbors(currentAtom1))
+        print("contacts1" , contacts1)
+        
+        contacts2 = list(graph.neighbors(currentAtom2))
+        print("contacts2" , contacts2)
+        
+        termPath1 , termPath2 = heteroAtomContacts(molec, contacts1 , contacts2 , badAtoms1 , badAtoms2)
+        if termPath1:
+            return [path1, path2], False
+    
+        elif termPath2:
+            return [path2, path1], False
+
+
+        
+        else:
+            nextAtom1, badAtoms1 = SmartNextStep(molec, graph, currentAtom1, contacts1, badAtoms1)
+            nextAtom2, badAtoms2 = SmartNextStep(molec, graph, currentAtom2, contacts2, badAtoms2)
+    
+            if nextAtom1 == currentAtom1 or nextAtom2 == currentAtom2:
+                print(f"{indent}No new atoms, ending search.")
+                return [path1, path2], True
+        
+            else:
+                # Extend paths and recurse
+                new_path1 = path1 + [nextAtom1]
+                new_path2 = path2 + [nextAtom2]
+                print(f"{indent}Recursing deeper with new paths...")
+                return maxPathCompare(molec, graph, new_path1, new_path2, badAtoms1, badAtoms2, endSearch, depth+1)
+
+
+
+
+
 
