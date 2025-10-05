@@ -3,18 +3,21 @@ import os
 import sys
 import glob
 import tkinter
-from pathlib import Path
 import pandas as pd 
 import numpy as np
 import chemdraw
 import base64
+from pathlib import Path
+from morfeus import BuriedVolume
 from rdkit import Chem
+from networkx import Graph
 parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
 from DFTWorkflow.cleanLogs import basicTerm
-from DFTWorkflow.ionComGenerator import locateinLog
+from DFTWorkflow.ionComGenerator import locateinLog , getAtomCoords
 from DFTWorkflow.fukuiGenerator.fukuiExtractorV1 import  getBoltzmannWeightsGauss
 from DFTWorkflow.AlkeneFeatures.alkeneNBOExtract import alkeneNBOExtractor
+from DFTWorkflow.AlkeneFeatures.alkeneFukuiExtractor import getAlkeneFukuiFunctions
 from dimensionalityReduction.reactivityFeatures import boxGen
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
@@ -37,8 +40,24 @@ def extractShiftsByIdx(logFile: str, extract1:str, extract2:str,location1:str ,l
                         atomName = str(atomInd.split(" ")[-1].strip())
                         atomShifts[atomIdx] = [ atomName,(b - float(shifts.strip())) / m]
     return atomShifts  
-def getAlkenes(substratesHash , smilesHash , featureList):
-
+def hCount(molec, wildCards):
+    hydrogens = 0
+    for wildcard in wildCards:
+        atom = molec.GetAtomWithIdx(wildcard)
+        atom1 = str(atom.GetSymbol())
+        if atom1 == "H":
+            hydrogens += 1
+    return hydrogens
+def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
+    if kwargs.get("anions") is None:
+        pass
+    else:
+        anionFiles = str(kwargs["anions"])
+    if kwargs.get("cations") is None:
+        pass
+    else:
+        cationFiles = str(kwargs["cations"])
+    
     for id , smilesStr in smilesHash.items():
         substrateHash = {}
         cc , molec = getCC(smilesStr)
@@ -57,11 +76,11 @@ def getAlkenes(substratesHash , smilesHash , featureList):
                     atom0 = alkeneHash[cc[0]][1]
                     atom1 = alkeneHash[cc[1]][1]
                     if atom0 >= atom1:#C1 is smallest shift, C2 is largest shift
-                        C1 = cc[1]
-                        C2 = cc[0]
+                        C1 = cc[1] + 1
+                        C2 = cc[0] + 1
                     else:
-                        C1 = cc[0]
-                        C2 = cc[1]
+                        C1 = cc[0] + 1
+                        C2 = cc[1] + 1
                 C13_C1.append(alkeneHash[C1][1])
                 C13_C2.append(alkeneHash[C2][1])
             weights = boltzmannDF["boltzWeights"]
@@ -72,7 +91,65 @@ def getAlkenes(substratesHash , smilesHash , featureList):
             featureList = featureList.remove("C13_shift")
         for feature in featureList:
             if feature == "NBO7":
-                nboHash = alkeneNBOExtractor(conformerFiles , C1 , C2 , "electronic", logNameMAST , smilesStr)
+                nboHash = alkeneNBOExtractor(conformerFiles , C1 , C2 , "electronic", id , smilesStr)
+            elif feature == "fukuiParameters":
+                
+                fukuiHash = getAlkeneFukuiFunctions(conformerFiles , cationFiles , anionFiles , boltzmannDF , C1 , C2 , "NBO7" , id , smilesStr )
+            elif feature == "%Vbur":
+                Vbur_Cmn_2 = []
+                Vbur_Cmn_3 = []
+                Vbur_Cmx_2 = []
+                Vbur_Cmx_3 = []
+                
+                for name in list(boltzmannDF["logID"]):
+                    fileStr = f"{name}.log"
+                    conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+
+                    coordHash = getAtomCoords(str(conformer) , "GINC-COMPUTE" , 5 )
+                    elements = []
+                    coordinates = []
+                    for _, coords in coordHash.items:
+                        elements.append(str(coords[0]))
+                        coordinates.append(np.array(coords[2:5]))
+                    vburC1_2 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=2.0)
+                    vburC1_3 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=3.5)
+                    vburC2_2 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=2.0)
+                    vburC2_3 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=3.5)
+                    Vbur_Cmn_2.append(vburC1_2)
+                    Vbur_Cmx_2.append(vburC2_2)
+                    Vbur_Cmn_3.append(vburC1_3)
+                    Vbur_Cmx_3.append(vburC2_3)
+
+                weights = boltzmannDF["boltzWeights"]
+                Vbur_Cmx_2Ang = ( (Vbur_Cmx_2 * weights).sum()    / weights.sum()  )
+                Vbur_Cmn_2Ang= ( (Vbur_Cmn_2 * weights).sum()    / weights.sum()  )    
+                Vbur_Cmx_3Ang = ( (Vbur_Cmx_3 * weights).sum()    / weights.sum()  )
+                Vbur_Cmn_3Ang= ( (Vbur_Cmn_3 * weights).sum()    / weights.sum()  )               
+
+                Vbur_2Ang_delta = Vbur_Cmx_2Ang - Vbur_Cmn_2Ang
+                Vbur_3Ang_delta = Vbur_Cmx_3Ang - Vbur_Cmn_3Ang
+                Vbur_2Ang_mean =  np.mean([Vbur_Cmx_2Ang, Vbur_Cmn_2Ang])
+                Vbur_3Ang_mean = np.mean([Vbur_Cmx_3Ang, Vbur_Cmn_3Ang])
+
+            elif feature == "EvsZ":
+                conformer = conformerFiles[0]
+                coordHash = getAtomCoords(str(conformer) , "GINC-COMPUTE" , 5 )
+                g = Graph()
+                #print("CC" , CC)
+                for bond in molec.GetBonds():
+                    start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+                    g.add_edge(start, end)
+                CminNeighbors = list(g.neighbors(int(C1-1))).remove(int(C2-1))
+                CminHcount = hCount(molec, CminNeighbors)
+                CmaxNeighbors = list(g.neighbors(int(C2-1))).remove(int(C1-1))
+                CmaxHcount = hCount(molec, CmaxNeighbors)
+
+                hCount = CmaxHcount + CminHcount
+                if hCount <=2: #Easy check for E vs Z 
+                    alkeneType = eVszAlkenes(molec , g , coordHash)# 0 if neither E or Z, -1 if Z, 1 if E
+                else:
+                    alkeneType = 0
+                
 
 def compartmentalization(logDir , outputDir , substrateFile):
     substrateDF = pd.read_csv(substrateFile)
@@ -124,7 +201,17 @@ def compartmentalization(logDir , outputDir , substrateFile):
         for idx in featureList:
             feature = featureList[idx]
             featuresMAST.append(feature)
-        substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST)
+        if "fukuiParameters" in featuresMAST:
+            cationDir = input(f"Enter the directory corresponding to the cation files for {logDir}: ")
+            cationPaths = Path(cationDir)
+            anionDir = input(f"Enter the directory corresponding to the cation files for {logDir}: ")
+            anionPaths = Path(anionDir)
+            anionFiles = anionPaths.glob("*.log")
+            cationFiles = cationPaths.glob("*.log")
+            substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST , anions = anionFiles, cations = cationFiles)
+        else:
+
+            substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST)
 
 
 
