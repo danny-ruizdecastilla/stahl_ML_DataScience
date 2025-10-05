@@ -14,6 +14,7 @@ sys.path.append(str(parentDir))
 from DFTWorkflow.cleanLogs import basicTerm
 from DFTWorkflow.ionComGenerator import locateinLog
 from DFTWorkflow.fukuiGenerator.fukuiExtractorV1 import  getBoltzmannWeightsGauss
+from DFTWorkflow.AlkeneFeatures.alkeneNBOExtract import alkeneNBOExtractor
 from dimensionalityReduction.reactivityFeatures import boxGen
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
@@ -68,8 +69,10 @@ def getAlkenes(substratesHash , smilesHash , featureList):
             C13_Cmn = ( (C13_C1 * weights).sum()    / weights.sum()  )
             C13_delta = C13_Cmx - C13_Cmn
             C13_Mean = np.mean([C13_Cmx,C13_Cmn])
-        for feature in featureList.drop("C13_shift"):
-            if feature == ""
+            featureList = featureList.remove("C13_shift")
+        for feature in featureList:
+            if feature == "NBO7":
+                nboHash = alkeneNBOExtractor(conformerFiles , C1 , C2 , "electronic", logNameMAST , smilesStr)
 
 def compartmentalization(logDir , outputDir , substrateFile):
     substrateDF = pd.read_csv(substrateFile)
