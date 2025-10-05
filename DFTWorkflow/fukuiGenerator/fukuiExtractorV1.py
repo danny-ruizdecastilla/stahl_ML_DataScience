@@ -5,7 +5,7 @@ import shutil
 import re
 import pandas as pd 
 import numpy as np
-
+from pathlib import Path
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(parentDir)
 from DFTWorkflow.ionComGenerator import locateinLog
@@ -53,7 +53,7 @@ def getBoltzmannWeightsGauss(logDirs, temperature, energyStr):
         try:
             energy = extractEnergies(log, energyStr)
             if energy is not None:
-                results.append({'logID': str(log.split("/")[-1].split(".")[0]),  'E_Ha': energy})
+                results.append({'logID': Path(log.name).stem,  'E_Ha': energy})
             else:
                 print(f"Warning: Could not extract {energyStr} energy from {log}")     
         except Exception as e:
