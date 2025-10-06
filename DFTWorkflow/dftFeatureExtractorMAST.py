@@ -64,7 +64,8 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
         cc , molec = getCC(smilesStr)
         conformerFiles = substratesHash[id]
         boltzmannDF = getBoltzmannWeightsGauss(conformerFiles, 298, "electronic")
-        idHash = {"SMILES" : smilesStr , "ID" : id}       
+        idHash = {"SMILES" : smilesStr , "ID" : id}  
+        hashList.append(idHash)     
         if "C13_shift" in featureList:
             C13_C1 = []
             C13_C2 = []
@@ -84,7 +85,7 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
                     else:
                         C1 = cc[0] + 1
                         C2 = cc[1] + 1
-                C13_C1.append(alkeneHash[C2][1])
+                C13_C1.append(alkeneHash[C1][1])
                 C13_C2.append(alkeneHash[C2][1])
             weights = boltzmannDF["boltzWeights"]
             C13_Cmx = ( (C13_C2 * weights).sum()    / weights.sum()  )
@@ -95,7 +96,7 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
             hashList.append(c13Hash)
         for feature in featureList:
             if feature == "NBO7":
-                nboHash = alkeneNBOExtractor(conformerFiles , C1 , C2 , "electronic", id , smilesStr)
+                nboHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
                 hashList.append(nboHash)
             elif feature == "fukuiParameters":
                 
