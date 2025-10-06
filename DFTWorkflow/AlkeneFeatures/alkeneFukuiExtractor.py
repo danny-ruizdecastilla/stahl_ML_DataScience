@@ -24,7 +24,7 @@ def getConfNum(numStr):
     num = int(num)
     return num
 def getAlkeneFukuiFunctions(neutralFiles , cationFiles , anionFiles , weightsDF , C1 , C2 , chargeStr , logNameMAST , smiles ):
-    print(logNameMAST)
+    #print(logNameMAST)
     f_pos_Cmin = []
     f_neg_Cmin = []
     f_neut_Cmin = []
