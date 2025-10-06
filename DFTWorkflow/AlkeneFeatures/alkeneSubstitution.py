@@ -22,7 +22,6 @@ def getSubstitutionList(smilesList):
     EvsZList = []
     for smiles in smilesList:
         cc , molec = getCC(smiles)
-        molec = Chem.AddHs(molec) 
         g = Graph()
         #print("CC" , CC)
         for bond in molec.GetBonds():
@@ -90,44 +89,34 @@ def smiles_to_coords(smiles):
         print("Could not convert SMILES to .xyz")
         exit()
      
-def eVszAlkenes(molec , graph , ccDict):
-    idxMAST = []
-    for carbon , startAtoms  in ccDict.items():
-        rejections = [carbon , startAtoms[0] , startAtoms[1]]
-        pathDict = maxPathCompare(molec, graph, startAtoms, rejections)
-        print(pathDict)
-        weights = [dq[0] for dq in pathDict.values()]
-        if weights[0] == weights[1]:
-            #same weights, terminal alkene 
-            return 0
-        else: 
-            for atom , dq in pathDict.items():
-                lstdq = list(dq)
-                midpoint = len(lstdq) // 2
-                idxList= lstdq[midpoint:]
-                for idx in idxList:
-                    idxMAST.append(int(idx))
-            idxMAST.append(int(carbon))
-    idxSet = list(set(idxMAST))
+def eVszAlkenes(molec , graph , C1Hash , C2Hash , coordinates):
 
-    smiles1 = Chem.MolFragmentToSmiles(molec, idxSet, kekuleSmiles=False)
-    if "." in smiles1:
-        raise ValueError(". in the subMolec, incorrect path")
+    pathRank1 , same1 = maxPathCompare(molec, graph , list(C1Hash.values())[0]  , [list(C1Hash.keys())[0] ,list(C2Hash.keys())[0] ])
+
+    pathRank2 , same2 = maxPathCompare(molec, graph , list(C2Hash.values())[0]  , [list(C1Hash.keys())[0] ,list(C2Hash.keys())[0] ])
+    if same1 or same2:
+        #Gem substituted, both routs are the same
+        return -1
     else:
-        print(smiles1)
-        slashCount= smiles1.count('/')
-        backslashCount = smiles1.count('\\')
-        if slashCount == 2:
-            #Z alkene with Z brackets 
-            return -1
-        if backslashCount == 2:
-            #Z alkene with Z brackets 
-            return -1
-        if slashCount == 1 and backslashCount == 1:
-            #E Alkene
-            return 1
+        maxWildC1 = pathRank1[0][0]
 
-  
+        maxWildC2 = pathRank2[0][0]
+        minWildC2 = pathRank2[1][0]
+        
+        atoms = list(coordinates.keys())
+        maxAtomWildC1 = coordinates[atoms[maxWildC1]][2:5]
+        maxAtomWildC2 = coordinates[atoms[maxWildC2]][2:5]
+        minAtomWildC2 = coordinates[atoms[minWildC2]][2:5]
+
+        distanceC1_maxC2 = np.linalg.norm(maxAtomWildC1 - maxAtomWildC2)
+        distanceC1_minC2 = np.linalg.norm(maxAtomWildC1 - minAtomWildC2)
+
+        if distanceC1_maxC2 >= distanceC1_minC2:
+            #E Alkene
+            return 0
+        else:
+            return 1
+            #Z Alkene
 def main(featureDir , outputDir):
     featureList = glob.glob(featureDir + "/*.csv")
     for featureFile in featureList:
