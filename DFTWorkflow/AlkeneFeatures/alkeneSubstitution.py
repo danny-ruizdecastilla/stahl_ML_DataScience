@@ -90,10 +90,15 @@ def smiles_to_coords(smiles):
         exit()
      
 def eVszAlkenes(molec , graph , C1Hash , C2Hash , coordinates):
+    #C1Hash = {"C1" : [cont1 , cont2]}
+    c1Atom = list(C1Hash.keys())[0]
+    c1Contacts = C1Hash[c1Atom]
 
-    pathRank1 , same1 = maxPathCompare(molec, graph , list(C1Hash.values())[0]  , [list(C1Hash.keys())[0] ,list(C2Hash.keys())[0] ])
+    c2Atom = list(C2Hash.keys())[0]
+    c2Contacts = C2Hash[c2Atom]
 
-    pathRank2 , same2 = maxPathCompare(molec, graph , list(C2Hash.values())[0]  , [list(C1Hash.keys())[0] ,list(C2Hash.keys())[0] ])
+    pathRank1 , same1 = maxPathCompare(molec, graph , [c1Contacts[0]] , [c1Contacts[1]] , [c1Atom , c1Contacts[0]] , [c1Atom , c1Contacts[1]] , False)
+    pathRank2 , same2 = maxPathCompare(molec, graph , [c2Contacts[0]] , [c2Contacts[1]] , [c2Atom , c2Contacts[0]] , [c2Atom , c2Contacts[1]] , False)
     if same1 or same2:
         #Gem substituted, both routs are the same
         return -1
@@ -108,8 +113,8 @@ def eVszAlkenes(molec , graph , C1Hash , C2Hash , coordinates):
         maxAtomWildC2 = coordinates[atoms[maxWildC2]][2:5]
         minAtomWildC2 = coordinates[atoms[minWildC2]][2:5]
 
-        distanceC1_maxC2 = np.linalg.norm(maxAtomWildC1 - maxAtomWildC2)
-        distanceC1_minC2 = np.linalg.norm(maxAtomWildC1 - minAtomWildC2)
+        distanceC1_maxC2 = np.linalg.norm(np.array(maxAtomWildC1 , dtype=float) - np.array(maxAtomWildC2 , dtype=float))
+        distanceC1_minC2 = np.linalg.norm(np.array(maxAtomWildC1 , dtype=float) - np.array(minAtomWildC2 , dtype=float))
 
         if distanceC1_maxC2 >= distanceC1_minC2:
             #E Alkene
