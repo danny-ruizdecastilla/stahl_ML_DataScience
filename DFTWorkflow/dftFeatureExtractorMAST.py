@@ -64,6 +64,7 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
         cc , molec = getCC(smilesStr)
         conformerFiles = substratesHash[id]
         boltzmannDF = getBoltzmannWeightsGauss(conformerFiles, 298, "electronic")
+        idHash = {"SMILES" : smilesStr , "ID" : id}       
         if "C13_shift" in featureList:
             C13_C1 = []
             C13_C2 = []
@@ -71,25 +72,25 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
             for name in list(boltzmannDF["logID"]):
                 fileStr = f"{name}.log"
                 conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
-                alkeneHash = extractShiftsByIdx(conformer, "SCF GIAO Magnetic shielding tensor (ppm):", "Eigenvalues:  ", "earliest", "latest", cc , 1.0081 , 195.6683)
+                alkeneHash = extractShiftsByIdx(conformer, "SCF GIAO Magnetic shielding tensor (ppm):", "Eigenvalues:  ", "earliest", "latest", [c + 1 for c in cc] , 1.0081 , 195.6683)
+                #print(alkeneHash)
                 if len(C13_C1) == 0:
                     #C1 and C2 not yet defined 
-                    atom0 = alkeneHash[cc[0]][1]
-                    atom1 = alkeneHash[cc[1]][1]
+                    atom0 = alkeneHash[int(cc[0]+ 1)][1]
+                    atom1 = alkeneHash[int(cc[1]+ 1)][1]
                     if atom0 >= atom1:#C1 is smallest shift, C2 is largest shift
                         C1 = cc[1] + 1
                         C2 = cc[0] + 1
                     else:
                         C1 = cc[0] + 1
                         C2 = cc[1] + 1
-                C13_C1.append(alkeneHash[C1][1])
+                C13_C1.append(alkeneHash[C2][1])
                 C13_C2.append(alkeneHash[C2][1])
             weights = boltzmannDF["boltzWeights"]
             C13_Cmx = ( (C13_C2 * weights).sum()    / weights.sum()  )
             C13_Cmn = ( (C13_C1 * weights).sum()    / weights.sum()  )
             C13_delta = C13_Cmx - C13_Cmn
             C13_Mean = np.mean([C13_Cmx,C13_Cmn])
-            featureList = featureList.remove("C13_shift")
             c13Hash = {"C13_Cmx" : C13_Cmx , "C13_Cmn" : C13_Cmn , "C13_delta" : C13_delta , "C13_Mean" : C13_Mean}
             hashList.append(c13Hash)
         for feature in featureList:
@@ -113,13 +114,15 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
                     coordHash = getAtomCoords(str(conformer) , "GINC-COMPUTE" , 5 )
                     elements = []
                     coordinates = []
-                    for _, coords in coordHash.items:
+                    for _, coords in coordHash.items():
                         elements.append(str(coords[0]))
                         coordinates.append(np.array(coords[2:5]))
-                    vburC1_2 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=2.0)
-                    vburC1_3 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=3.5)
-                    vburC2_2 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=2.0)
-                    vburC2_3 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=3.5)
+                    coordinates = np.array(coordinates, dtype=float)
+                    vburC1_2 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=2.0).fraction_buried_volume
+                    vburC1_3 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=3.5).fraction_buried_volume
+                    vburC2_2 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=2.0).fraction_buried_volume
+                    vburC2_3 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=3.5).fraction_buried_volume
+
                     Vbur_Cmn_2.append(vburC1_2)
                     Vbur_Cmx_2.append(vburC2_2)
                     Vbur_Cmn_3.append(vburC1_3)
@@ -148,17 +151,19 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
                 for bond in molec.GetBonds():
                     start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
                     g.add_edge(start, end)
-                CminNeighbors = list(g.neighbors(int(C1-1))).remove(int(C2-1))
+                CminNeighbors = list(g.neighbors(int(C1-1)))
+                CminNeighbors.remove(int(C2-1))
                 CminHcount = hCount(molec, CminNeighbors)
-                CmaxNeighbors = list(g.neighbors(int(C2-1))).remove(int(C1-1))
+                CmaxNeighbors = list(g.neighbors(int(C2-1)))
+                CmaxNeighbors.remove(int(C1-1))
                 CmaxHcount = hCount(molec, CmaxNeighbors)
 
-                hCount = CmaxHcount + CminHcount
-                if hCount <=2: #Easy check for E vs Z 
-                    alkeneType = eVszAlkenes(molec , g ,[int(C1-1) , int(C2-1)] ,  coordHash)# 0 if neither E or Z, -1 if Z, 1 if E
+                hydrogens = CmaxHcount + CminHcount
+                if hydrogens <=2: #Easy check for E vs Z 
+                    alkeneType = eVszAlkenes(molec , g , {int(C1-1): CminNeighbors} , {int(C2-1) : CmaxNeighbors} ,  coordHash)# 0 if neither E or Z, -1 if Z, 1 if E
                 else:
                     alkeneType = 0
-                alkeneHash = {"HCount" : hCount , "EvsZ" : alkeneType}
+                alkeneHash = {"HCount" : hydrogens , "EvsZ" : alkeneType}
                 hashList.append(alkeneHash)
             elif feature == "Dist.":
                 distList = []
@@ -174,7 +179,7 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
                             c1_coords = coords[2:5]
                         elif idx == C2:
                             c2_coords = coords[2:5]
-                    dist1 = np.linalg.norm(c1_coords - c2_coords)
+                    dist1 = np.linalg.norm(np.array(c1_coords , dtype=float) - np.array(c2_coords , dtype=float))
                     distList.append(dist1)
                 distMAST = ( (distList * weights).sum()    / weights.sum()  )  
                 distHash = {"C1C2Dist" : distMAST} 
@@ -187,10 +192,10 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
     return featuresMASTDF
 def compartmentalization(logDir , outputDir , substrateFile):
     substrateDF = pd.read_csv(substrateFile)
-    cols = list(substrateDF.columns())
+    cols = list(substrateDF.columns)
     boxCols = boxGen(cols)
     while True:
-        colId = input(f"Here are the columns for the file {substrateFile}\n {boxCols}\n Enter the ID number for the column corresponding to the SMILES strings").strip()
+        colId = input(f"Here are the columns for the file {substrateFile}\n {boxCols}\n Enter the ID number for the column corresponding to the SMILES strings: ").strip()
         try:
             smilesId = int(colId)
             smilesCol = cols[smilesId]
@@ -199,7 +204,7 @@ def compartmentalization(logDir , outputDir , substrateFile):
         except:
             print("Try again, enter an integer")
     while True:
-        colId = input(f"Here are the columns for the file {substrateFile}\n {boxCols}\n Enter the ID number for the column corresponding to the substrate ID strings").strip()
+        colId = input(f"Here are the columns for the file {substrateFile}\n {boxCols}\n Enter the ID number for the column corresponding to the substrate ID strings: ").strip()
         try:
             substrateId = int(colId)
             subId = cols[substrateId]
@@ -210,9 +215,10 @@ def compartmentalization(logDir , outputDir , substrateFile):
     
 
 
-    logPaths = Path(logDir) 
-    logFiles = logPaths.glob('*.log')
-    fileSplit = input(f"{logFiles[0]} Enter the string iteral that seperates the common name with the conf. type : ")
+    logPaths = Path(logDir)
+    logFiles = list(logPaths.glob('*.log'))  
+    firstLog = logFiles[0] if logFiles else None 
+    fileSplit = input(f"{str(firstLog)} Enter the string iteral that seperates the common name with the conf. type : ")
 
     substrateHash = {}
     smilesHash = {}
@@ -225,7 +231,8 @@ def compartmentalization(logDir , outputDir , substrateFile):
                 substrateHash[fileID].append(log)
             else:
                 substrateHash[fileID] = [log]
-                smilesHash[fileID] = smilesMAST[idMAST.index(fileID)]
+                pos = idMAST[idMAST == fileID].index[0]
+                smilesHash[fileID] = smilesMAST[pos]
     extractNum = input(f"Enter the number corresponding to which substructre you want to extract information from:\n [0] Alkenes\n")
     if int(extractNum) == 0:
         localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist." ]
@@ -233,15 +240,16 @@ def compartmentalization(logDir , outputDir , substrateFile):
         featureList = listInputs(f"Enter the indexes corresponding to the features you would like to extract\n{localDescriptorsInput}")
         featuresMAST = []
         for idx in featureList:
-            feature = featureList[idx]
+            feature = localStrs[int(idx)]
             featuresMAST.append(feature)
+        print(featuresMAST)
         if "fukuiParameters" in featuresMAST:
             cationDir = input(f"Enter the directory corresponding to the cation files for {logDir}: ")
             cationPaths = Path(cationDir)
             anionDir = input(f"Enter the directory corresponding to the cation files for {logDir}: ")
             anionPaths = Path(anionDir)
-            anionFiles = anionPaths.glob("*.log")
-            cationFiles = cationPaths.glob("*.log")
+            anionFiles = list(anionPaths.glob("*.log"))
+            cationFiles = list(cationPaths.glob("*.log"))
             substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST , anions = anionFiles, cations = cationFiles)
             outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
             substratesMAST.to_csv(outputFile , index=False )
@@ -251,13 +259,10 @@ def compartmentalization(logDir , outputDir , substrateFile):
             outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
             substratesMAST.to_csv(outputFile , index=False )
 
-
-
-
-    
-
 if __name__ == "__main__":
     logDir = str(sys.argv[1])
     outputDir = str(sys.argv[2])
+    if not os.path.exists(outputDir ): 
+        os.makedirs(outputDir) 
     substrateCSV = str(sys.argv[3])
     compartmentalization(logDir , outputDir, substrateCSV)
