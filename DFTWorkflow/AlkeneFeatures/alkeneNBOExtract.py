@@ -48,8 +48,9 @@ def alkeneNBOExtractor(logList , C1 , C2 , energyStr , logNameMAST , smiles):
     piBond = []
     for idx , row in weightsDF.iterrows():
         logFile = row["logID"]
-        logPath = [log for log in logList if logFile in log][0]
-        chargeHash = extractChargesByDensity(logPath , "NBO7")
+        logPath = f"{logFile}.log"
+        conformer  = next((f for f in logList if logPath in f.name), None)
+        chargeHash = extractChargesByDensity(conformer , "NBO7")
         alkeneHash = {key: chargeHash[key] for key in chargeHash if key == C1 or key == C2}
         c1NBO = float(alkeneHash[C1][1])
         c2NBO = float(alkeneHash[C2][1])
@@ -60,7 +61,7 @@ def alkeneNBOExtractor(logList , C1 , C2 , energyStr , logNameMAST , smiles):
             Cmax_NBO.append(c1NBO)
             Cmin_NBO.append(c2NBO)
 
-        piOccupancy = extractPiBond(logPath , C1 , C2)
+        piOccupancy = extractPiBond(conformer , C1 , C2)
         piBond.append(piOccupancy)
     weightsDF["NBO_Cmin"] = Cmin_NBO
     weightsDF["NBO_Cmax"] = Cmax_NBO
