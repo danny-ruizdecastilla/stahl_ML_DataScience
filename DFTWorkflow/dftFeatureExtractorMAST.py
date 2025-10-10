@@ -49,15 +49,40 @@ def hCount(molec, wildCards):
         if atom1 == "H":
             hydrogens += 1
     return hydrogens
+def getOverlap(mainFilesHash , anionFiles, cationFiles):
+
+    anionHash = {}
+    cationHash = {}
+    newHash = {}
+    for main , files in mainFilesHash.items():
+        anionList = []
+        cationList = []
+        neutralList = []
+        for file in files:
+            root = str(file.name.split(".")[0] + "_")
+            subAn = [file for file in anionFiles if root in file]
+            subCat = [file for file in cationFiles if root in file]           
+            if len(subAn) == 1 and len(subCat) == 1:    
+                neutralList.append(file)
+                anionList.append(subAn[0])
+                cationList.append(subCat[0])
+        neutralList.sort()
+        cationList.sort()
+        anionList.sort()
+        newHash[main]= neutralList
+        cationHash[main] = cationList
+        anionHash[main] = anionList
+    return newHash, anionHash, cationHash
+
 def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
     if kwargs.get("anions") is None:
         pass
     else:
-        anionFiles = str(kwargs["anions"])
+        anionHash = str(kwargs["anions"])
     if kwargs.get("cations") is None:
         pass
     else:
-        cationFiles = str(kwargs["cations"])
+        cationHash = str(kwargs["cations"])
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
         hashList = []
@@ -99,7 +124,8 @@ def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
                 nboHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
                 hashList.append(nboHash)
             elif feature == "fukuiParameters":
-                
+                cationFiles = cationHash[id]
+                anionFiles = anionHash[id]
                 fukuiHash = getAlkeneFukuiFunctions(conformerFiles , cationFiles , anionFiles , boltzmannDF , C1 , C2 , "NBO7" , id , smilesStr )
                 hashList.append(fukuiHash)
             elif feature == "%Vbur":
@@ -247,11 +273,12 @@ def compartmentalization(logDir , outputDir , substrateFile):
         if "fukuiParameters" in featuresMAST:
             cationDir = input(f"Enter the directory corresponding to the cation files for {logDir}: ")
             cationPaths = Path(cationDir)
-            anionDir = input(f"Enter the directory corresponding to the cation files for {logDir}: ")
+            anionDir = input(f"Enter the directory corresponding to the anion files for {logDir}: ")
             anionPaths = Path(anionDir)
             anionFiles = list(anionPaths.glob("*.log"))
             cationFiles = list(cationPaths.glob("*.log"))
-            substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST , anions = anionFiles, cations = cationFiles)
+            substrateHash , anionHash , cationHash = getOverlap(substrateHash , anionFiles, cationFiles)
+            substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST , anions = anionHash, cations = cationHash)
             outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
             substratesMAST.to_csv(outputFile , index=False )
         else:
