@@ -44,9 +44,9 @@ def getAlkeneFukuiFunctions(neutralFiles , cationFiles , anionFiles , weightsDF 
         cationStr = "_" + str(confNum) + "_cation"
         anionStr = "_" + str(confNum) + "_anion"
 
-        neutralFile = [file for file in neutralFiles if neutralStr in file][0]
-        cationFile = [file for file in cationFiles if cationStr in file][0]
-        anionFile = [file for file in anionFiles if anionStr in file][0]
+        neutralFile = [f for f in neutralFiles if neutralStr in f.name][0]
+        cationFile  = [f for f in cationFiles  if cationStr  in f.name][0]
+        anionFile   = [f for f in anionFiles   if anionStr   in f.name][0]
 
         neutralCharges = extractChargesByDensity(neutralFile , chargeStr)
         cationCharges = extractChargesByDensity(cationFile , chargeStr)
