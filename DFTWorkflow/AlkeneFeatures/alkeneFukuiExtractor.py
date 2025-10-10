@@ -33,9 +33,6 @@ def getAlkeneFukuiFunctions(neutralFiles , cationFiles , anionFiles , weightsDF 
     f_neg_Cmax = []
     f_neut_Cmax = []
 
-    f_pos_Scaled = []
-    f_neg_Scaled = []
-    f_neut_Scaled = []
     for name in list(weightsDF["logID"]):
         numStr = name.split("conf")[-1]
         confNum = getConfNum(numStr)
@@ -82,18 +79,12 @@ def getAlkeneFukuiFunctions(neutralFiles , cationFiles , anionFiles , weightsDF 
                     f_pos_Cmax.append(f_plus_C2)
                     f_neut_C2 = f_neut
                     f_neut_Cmax.append(f_neut_C2)
-        f_neg_Scaled.append(np.mean([f_min_C1 , f_min_C2]) - np.mean(fukuiNeg) / np.max(fukuiNeg))
-        f_pos_Scaled.append(np.mean([f_plus_C1 , f_plus_C2]) - np.mean(fukuiPlus) / np.max(fukuiPlus))
-        f_neut_Scaled.append(np.mean([f_neut_C1 , f_neut_C2]) - np.mean(fukuiNeut) / np.max(fukuiNeut))
     weightsDF["f_neg_mxAlk"] = f_neg_Cmax
     weightsDF["f_pos_mxAlk"] = f_pos_Cmax
     weightsDF["f_neut_mxAlk"] = f_neut_Cmax
     weightsDF["f_neg_mnAlk"] = f_neg_Cmin
     weightsDF["f_pos_mnAlk"] = f_pos_Cmin
     weightsDF["f_neut_mnAlk"] = f_neut_Cmin
-    weightsDF["f_neg_scaledAlk"] = f_neg_Scaled
-    weightsDF["f_pos_scaledAlk"] = f_pos_Scaled
-    weightsDF["f_neut_scaledAlk"] = f_neut_Scaled
 
     finalHash = {}
     finalHash["ID"] = logNameMAST
