@@ -96,11 +96,14 @@ def getAlkeneFukuiFunctions(neutralFiles , cationFiles , anionFiles , weightsDF 
     finalHash["f_neg_mnAlk"] =((weightsDF["f_neg_mnAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     finalHash["f_pos_mnAlk"] =((weightsDF["f_pos_mnAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     finalHash["f_neut_mnAlk"] =((weightsDF["f_neut_mnAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-
-    finalHash["f_neg_scaledAlk"] =((weightsDF["f_neg_scaledAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-    finalHash["f_pos_scaledAlk"] =((weightsDF["f_pos_scaledAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-    finalHash["f_neut_scaledAlk"] =((weightsDF["f_neut_scaledAlk"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     
+    finalHash["f_neg_Delta"] = finalHash["f_neg_mxAlk"] - finalHash["f_neg_mnAlk"]
+    finalHash["f_pos_Delta"] = finalHash["f_pos_mxAlk"] - finalHash["f_neut_mnAlk"]
+    finalHash["f_neut_Delta"] = finalHash["f_neut_mxAlk"] - finalHash["f_neut_mnAlk"]
+
+    finalHash["f_neg_mean"]  = (finalHash["f_neg_mxAlk"]  + finalHash["f_neg_mnAlk"])  / 2
+    finalHash["f_pos_mean"]  = (finalHash["f_pos_mxAlk"]  + finalHash["f_pos_mnAlk"])  / 2
+    finalHash["f_neut_mean"] = (finalHash["f_neut_mxAlk"] + finalHash["f_neut_mnAlk"]) / 2
     return finalHash
 
 def main(logDir , cationDir , anionDir , substrateCSV , outputDir , chargeStr , bltzmannStr):
