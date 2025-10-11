@@ -60,8 +60,8 @@ def getOverlap(mainFilesHash , anionFiles, cationFiles):
         neutralList = []
         for file in files:
             root = str(file.name.split(".")[0] + "_")
-            subAn = [file for file in anionFiles if root in file]
-            subCat = [file for file in cationFiles if root in file]           
+            subAn = [file for file in anionFiles if root in file.name]
+            subCat = [file for file in cationFiles if root in file.name]           
             if len(subAn) == 1 and len(subCat) == 1:    
                 neutralList.append(file)
                 anionList.append(subAn[0])
@@ -72,17 +72,18 @@ def getOverlap(mainFilesHash , anionFiles, cationFiles):
         newHash[main]= neutralList
         cationHash[main] = cationList
         anionHash[main] = anionList
+    #print(anionHash)
     return newHash, anionHash, cationHash
 
 def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
     if kwargs.get("anions") is None:
         pass
     else:
-        anionHash = str(kwargs["anions"])
+        anionHash = kwargs["anions"]
     if kwargs.get("cations") is None:
         pass
     else:
-        cationHash = str(kwargs["cations"])
+        cationHash = kwargs["cations"]
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
         hashList = []
@@ -277,7 +278,18 @@ def compartmentalization(logDir , outputDir , substrateFile):
             anionPaths = Path(anionDir)
             anionFiles = list(anionPaths.glob("*.log"))
             cationFiles = list(cationPaths.glob("*.log"))
-            substrateHash , anionHash , cationHash = getOverlap(substrateHash , anionFiles, cationFiles)
+            anionRefined = []
+            cationRefined = []
+            for file in anionFiles:
+                termError = basicTerm(file, "Error termination" , "Normal termination")
+                if not termError:
+                    anionRefined.append(file)
+            for file in cationFiles:
+                termError = basicTerm(file, "Error termination" , "Normal termination")
+                if not termError:
+                    cationRefined.append(file)
+            
+            substrateHash , anionHash , cationHash = getOverlap(substrateHash , anionRefined, cationRefined)
             substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST , anions = anionHash, cations = cationHash)
             outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
             substratesMAST.to_csv(outputFile , index=False )
