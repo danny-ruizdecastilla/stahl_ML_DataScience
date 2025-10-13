@@ -55,7 +55,7 @@ def getSubstitutionList(smilesList):
         if hydrogens <=2: #Easy check for E vs Z 
             alkeneType = eVszAlkenes(molec , g , ccDict)# 0 if neither E or Z, -1 if Z, 1 if E
         else:
-            alkeneType = 0
+            alkeneType = -1
         EvsZList.append(alkeneType)          
     return hCount , EvsZList
 def smiles_to_coords(smiles):
