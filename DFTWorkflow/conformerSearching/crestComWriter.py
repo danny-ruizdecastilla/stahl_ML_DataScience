@@ -34,6 +34,8 @@ def groupThresh(values, threshold):
     
     return groups
 def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
+    if numComs == 0:
+        numComs +=1
     comCount = 0
     confHash = {}
     termMiddle = False
@@ -42,6 +44,7 @@ def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
         for idx , line in enumerate(file):
             #print(line)
             if comCount ==numComs and coordHash is not None:
+                print(coordHash)
                 confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
                 termMiddle = True
                 break
@@ -117,13 +120,12 @@ def binaryInput(inputStr):
 def addLink(comFile , linkStr , linkName , charge , spin):
     with open(comFile, 'r') as f:
         for idx , line in enumerate(f):
-            if ".chk" in line:
-                chkFile = str(line.split("=")[-1].strip())
-            elif "nprocs" in line:
+            if "nprocs" in line:
                 nproc = int(line.split("=")[-1].strip())
             elif "mem=" in line:
                 mem = str(line.split("=")[-1].strip())
-    lnkStr = chkFile.split(".")[0]
+    lnkStr = comFile.split("/")[-1].split(".")[0]
+    chkFile = lnkStr + ".chk"
     newName = lnkStr + linkName
     with open(comFile, 'a') as f:
         f.write(f"--Link1--\n")
