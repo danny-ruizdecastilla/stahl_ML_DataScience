@@ -9,8 +9,8 @@ def energyCutoff(energiesFile):
         for idx, line in enumerate(file):
             inputs = line.split("        ")
             energiesDict[idx] = float(inputs[-1].strip())
-    if len(list(energiesDict.keys())) >= 500:
-        energyCutoff = float(input(f"Highest energy deviation from L.E.C. is {list(energiesDict.values())[-1]}, Enter an energy cutoff for all {len(list(energiesDict.keys()))} conformers: "))
+    if len(list(energiesDict.keys())) >= 20:
+        energyCutoff = 0.75
         finalDict = {key: val for key, val in energiesDict.items() if val <= energyCutoff}
         cutoffKey = list(finalDict.keys())[-1]
     else:
@@ -53,10 +53,7 @@ def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
                     coordHash = {}
                     comCount +=1
             elif line.split("         ")[0].strip()[:1].isalpha():
-                
-                #print(comCount , line.split("         ")[0].strip()[:1])
                 lineOptions = line.strip().split("    ")
-                
                 atom = str(lineOptions[0])
                 coords = [num.strip() for num in lineOptions if is_float(num.strip())]
                 coordHash[str(idx) + "," + atom] = coords
@@ -66,7 +63,7 @@ def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
                 energyLevel = float(line.strip())
         if not termMiddle:
             confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
-    confHash = conformerDownsize(confHash , 500)
+    confHash = conformerDownsize(confHash , 15)
     return confHash
 def conformerDownsize(xyzHash , popThresh):
     population = list(xyzHash.keys())
@@ -80,7 +77,7 @@ def conformerDownsize(xyzHash , popThresh):
                 energyList.append(energy)
             except:
                 print(key , "no energy")
-        energyGroups = groupThresh(energyList ,0.000001)
+        energyGroups = groupThresh(energyList ,0.001)
         allowedEnergies = []
         for group in energyGroups:
             energy = min(group)
@@ -132,7 +129,16 @@ def addLink(comFile , linkStr , linkName , charge , spin):
         f.write(f"--Link1--\n")
         f.write(f"%nprocs={nproc}\n")
         f.write(f"%mem={mem}\n")
-        f.write(f"%chk={chkFile}\n")
+        if charge > 0:
+            f.write(f"%oldchk={chkFile}\n")
+            newChk = lnkStr + "_cation.chk"
+            f.write(f"%chk={newChk}\n")
+        elif charge < 0:
+            f.write(f"%oldchk={chkFile}\n")
+            newChk = lnkStr + "_anion.chk"
+            f.write(f"%chk={newChk}\n")    
+        elif charge == 0:
+            f.write(f"%chk={chkFile}\n")  
         f.write(f"{linkStr}\n\n")
         f.write(f" {newName}\n\n")
         f.write(f"{charge} {spin}\n\n")
@@ -141,7 +147,7 @@ def main(masterDir , outputDir):
     pathAvailables = glob.glob(masterDir + "/*/crest.energies")
     geomOpt = str(input("Please enter the geometry optimization line: "))
     netCharge = int(input("Please enter the net charge for these jobs: "))
-    spin = int(input("Please enter the spin for these jobs: (2s+1)"))
+    spin = int(input("Please enter the spin for these jobs: (2s+1): "))
     for path in pathAvailables:
         pathNameMAST = str(path.split("/")[-2].strip())
         cutoffKey = energyCutoff(path)
