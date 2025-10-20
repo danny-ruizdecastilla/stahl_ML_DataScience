@@ -104,13 +104,13 @@ def locateinLog(logFile, textStr, returnType: str):
         elif returnType == "latest":
             return matchingLines[-1]
         else:
-            indx = int(input(f"Enter the index of preference for {textStr}"))
+            indx = int(returnType)
             return matchingLines[indx]
     else:
-        print(logFile)
-        print("Bad Log File")
+        #print(logFile)
+        #print("Bad Log File")
         return "Poison"
-def getAtomCoords(logFile , xyzStr , commaSplit:int , ):
+def getAtomCoords(logFile , xyzStr , commaSplit:int  ):
     #Extracts atom coordinates into a dict from a log file
     atomCoords = {}
     lowerIdx = locateinLog(logFile , xyzStr, "latest" )
