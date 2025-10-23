@@ -14,7 +14,7 @@ def comWriter(comFile:str, fromChk , **kwargs ):
     try:
         nprocs = int(kwargs["nprocs"])
         mem = int(kwargs["mem"])
-        chk = str(kwargs["chk"])
+        chk = Path(kwargs["chk"])
         InputGeomLine = str(kwargs['geomLine'])
         netCharge = int(kwargs["netCharge"])
         spin = int(kwargs["spin"])
@@ -68,7 +68,7 @@ def main(logDir  , outputDir ):
                 print(f"Failed to find coordinates for {log}")
                 continue
             outputPath = Path(outputDir) / fileName
-            fileName = comWriter(outputPath, nprocs = int(16) , mem = int(48) ,  chk =Path(chkFile) ,
+            fileName = comWriter(outputPath, nprocs = int(16) , mem = int(48) ,  chk =chkFile ,
                              netCharge =  netCharge , spin = spin , coordinates = atomsDict ,geomLine = geomOpt , fromChk = False )
         else:
             chkFile = copyChks(chkFile , outputDir)
