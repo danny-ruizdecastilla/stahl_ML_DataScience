@@ -21,6 +21,23 @@ from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
 from dimensionalityReduction.reactivityFeatures import boxGen
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
+def extractNBOOccupancies(logFile , nboStr , charge:int):
+    logName = str(logFile.name.split(".")[0])
+    nboIdx = locateinLog(logFile , logName + f"_{nboStr}" , 1 )
+    nboIdx2 = locateinLog(logFile , logName + f"_{nboStr}" , 2 )
+    print(nboIdx , nboIdx2)
+    nbo7Hash = {}
+    with open(logFile, 'r') as f:
+        extractingDensities = False
+        for i, line in enumerate(islice(f, nboIdx, nboIdx2), start=nboIdx):
+            if "Atom No    Charge" in line and "Density" not in line:
+                extractingDensities = True 
+            if extractingDensities:
+                if "* Total * " in line:
+                    print(line)
+                    extractingDensities = False
+                else:
+                    print(line)
 def extractShiftsByIdx(logFile: str, extract1:str, extract2:str,location1:str ,location2, idxList  , m , b):
     lowerInd = locateinLog(logFile , extract1, location1)
     upperInd = locateinLog(logFile , extract2, location2 )
@@ -121,7 +138,7 @@ def hCount(molec, wildCards):
             hydrogens += 1
     return hydrogens
 
-def getAlkenes(substratesHash , smilesHash , featureList ):
+def getAlkenes(substratesHash , smilesHash , featureHash ):
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
         hashList = []
@@ -129,7 +146,8 @@ def getAlkenes(substratesHash , smilesHash , featureList ):
         conformerFiles = substratesHash[id]
         boltzmannDF = getBoltzmannWeightsGauss(conformerFiles, 298, "electronic")
         idHash = {"SMILES" : smilesStr , "ID" : id}  
-        hashList.append(idHash)     
+        hashList.append(idHash)   
+        featureList = list(featureHash.keys())  
         if "C13_shift" in featureList:
             C13_C1 = []
             C13_C2 = []
@@ -158,103 +176,112 @@ def getAlkenes(substratesHash , smilesHash , featureList ):
             C13_Mean = np.mean([C13_Cmx,C13_Cmn])
             c13Hash = {"C13_Cmx" : C13_Cmx , "C13_Cmn" : C13_Cmn , "C13_delta" : C13_delta , "C13_Mean" : C13_Mean}
             hashList.append(c13Hash)
-        for feature in featureList:
-            if feature == "NBO7":
-                nboHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
-                hashList.append(nboHash)
-            elif feature == "fukuiParameters":
-                cationFiles = cationHash[id]
-                anionFiles = anionHash[id]
-                fukuiHash = getAlkeneFukuiFunctions(conformerFiles , cationFiles , anionFiles , boltzmannDF , C1 , C2 , "NBO7" , id , smilesStr )
-                hashList.append(fukuiHash)
-            elif feature == "%Vbur":
-                Vbur_Cmn_2 = []
-                Vbur_Cmn_3 = []
-                Vbur_Cmx_2 = []
-                Vbur_Cmx_3 = []
-                
-                for name in list(boltzmannDF["logID"]):
-                    fileStr = f"{name}.log"
-                    conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+        else:
+            C1 = cc[1] + 1
+            C2 = cc[0] + 1 
 
-                    coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5  , 2)
-                    elements = []
-                    coordinates = []
-                    for _, coords in coordHash.items():
-                        elements.append(str(coords[0]))
-                        coordinates.append(np.array(coords[2:5]))
-                    coordinates = np.array(coordinates, dtype=float)
-                    vburC1_2 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=2.0).fraction_buried_volume
-                    vburC1_3 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=3.5).fraction_buried_volume
-                    vburC2_2 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=2.0).fraction_buried_volume
-                    vburC2_3 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=3.5).fraction_buried_volume
+        if "NBO7" in featureList:
+            nboNeutralStr = featureList["NBO7"][0]
 
-                    Vbur_Cmn_2.append(vburC1_2)
-                    Vbur_Cmx_2.append(vburC2_2)
-                    Vbur_Cmn_3.append(vburC1_3)
-                    Vbur_Cmx_3.append(vburC2_3)
+            neutralHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
+            hashList.append(neutralHash)
+        if "fukuiParameter" in featureList:
+            nboNeutralStr = featureList["NBO7"][0]
+            nboCationStr = featureList["fukuiParameter"][0]
+            nboAnionstr = featureList["fukuiParameter"][1]
+            neutralHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
+            cationHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
+            anionHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
 
-                weights = boltzmannDF["boltzWeights"]
-                Vbur_Cmx_2Ang = ( (Vbur_Cmx_2 * weights).sum()    / weights.sum()  )
-                Vbur_Cmn_2Ang= ( (Vbur_Cmn_2 * weights).sum()    / weights.sum()  )    
-                Vbur_Cmx_3Ang = ( (Vbur_Cmx_3 * weights).sum()    / weights.sum()  )
-                Vbur_Cmn_3Ang= ( (Vbur_Cmn_3 * weights).sum()    / weights.sum()  )               
+        if "%Vbur" in featureList:
+            Vbur_Cmn_2 = []
+            Vbur_Cmn_3 = []
+            Vbur_Cmx_2 = []
+            Vbur_Cmx_3 = []
+            
+            for name in list(boltzmannDF["logID"]):
+                fileStr = f"{name}.log"
+                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
 
-                Vbur_2Ang_delta = Vbur_Cmx_2Ang - Vbur_Cmn_2Ang
-                Vbur_3Ang_delta = Vbur_Cmx_3Ang - Vbur_Cmn_3Ang
-                Vbur_2Ang_mean =  np.mean([Vbur_Cmx_2Ang, Vbur_Cmn_2Ang])
-                Vbur_3Ang_mean = np.mean([Vbur_Cmx_3Ang, Vbur_Cmn_3Ang])
-                BurVolHash = {"2Ang_Cmx" :Vbur_Cmx_2Ang , "2Ang_Cmn" :Vbur_Cmn_2Ang ,
-                              "3Ang_Cmx" :Vbur_Cmx_3Ang , "3Ang_Cmn" :Vbur_Cmn_3Ang ,
-                               "2Ang_delta" :Vbur_2Ang_delta , "3Ang_delta" :Vbur_3Ang_delta ,
-                              "3Ang_mean" :Vbur_3Ang_mean , "2Ang_mean" :Vbur_2Ang_mean }
-                hashList.append(BurVolHash)
-            elif feature == "EvsZ":
-                conformer = conformerFiles[0]
+                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5  , 2)
+                elements = []
+                coordinates = []
+                for _, coords in coordHash.items():
+                    elements.append(str(coords[0]))
+                    coordinates.append(np.array(coords[2:5]))
+                coordinates = np.array(coordinates, dtype=float)
+                vburC1_2 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=2.0).fraction_buried_volume
+                vburC1_3 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=3.5).fraction_buried_volume
+                vburC2_2 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=2.0).fraction_buried_volume
+                vburC2_3 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=3.5).fraction_buried_volume
+
+                Vbur_Cmn_2.append(vburC1_2)
+                Vbur_Cmx_2.append(vburC2_2)
+                Vbur_Cmn_3.append(vburC1_3)
+                Vbur_Cmx_3.append(vburC2_3)
+
+            weights = boltzmannDF["boltzWeights"]
+            Vbur_Cmx_2Ang = ( (Vbur_Cmx_2 * weights).sum()    / weights.sum()  )
+            Vbur_Cmn_2Ang= ( (Vbur_Cmn_2 * weights).sum()    / weights.sum()  )    
+            Vbur_Cmx_3Ang = ( (Vbur_Cmx_3 * weights).sum()    / weights.sum()  )
+            Vbur_Cmn_3Ang= ( (Vbur_Cmn_3 * weights).sum()    / weights.sum()  )               
+
+            Vbur_2Ang_delta = Vbur_Cmx_2Ang - Vbur_Cmn_2Ang
+            Vbur_3Ang_delta = Vbur_Cmx_3Ang - Vbur_Cmn_3Ang
+            Vbur_2Ang_mean =  np.mean([Vbur_Cmx_2Ang, Vbur_Cmn_2Ang])
+            Vbur_3Ang_mean = np.mean([Vbur_Cmx_3Ang, Vbur_Cmn_3Ang])
+            BurVolHash = {"2Ang_Cmx" :Vbur_Cmx_2Ang , "2Ang_Cmn" :Vbur_Cmn_2Ang ,
+                            "3Ang_Cmx" :Vbur_Cmx_3Ang , "3Ang_Cmn" :Vbur_Cmn_3Ang ,
+                            "2Ang_delta" :Vbur_2Ang_delta , "3Ang_delta" :Vbur_3Ang_delta ,
+                            "3Ang_mean" :Vbur_3Ang_mean , "2Ang_mean" :Vbur_2Ang_mean }
+            hashList.append(BurVolHash)
+        if "EvsZ" in featureList:
+            conformer = conformerFiles[0]
+            coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5 , 2 )
+            g = Graph()
+            #print("CC" , CC)
+            for bond in molec.GetBonds():
+                start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+                g.add_edge(start, end)
+            CminNeighbors = list(g.neighbors(int(C1-1)))
+            CminNeighbors.remove(int(C2-1))
+            CminHcount = hCount(molec, CminNeighbors)
+            CmaxNeighbors = list(g.neighbors(int(C2-1)))
+            CmaxNeighbors.remove(int(C1-1))
+            CmaxHcount = hCount(molec, CmaxNeighbors)
+
+            hydrogens = CmaxHcount + CminHcount
+            if hydrogens <=2: #Easy check for E vs Z 
+                alkeneType = eVszAlkenes(molec , g , {int(C1-1): CminNeighbors} , {int(C2-1) : CmaxNeighbors} ,  coordHash)# 0 if neither E or Z, -1 if Z, 1 if E
+            else:
+                alkeneType = 0
+            alkeneHash = {"HCount" : hydrogens , "EvsZ" : alkeneType}
+            hashList.append(alkeneHash)
+        if "Dist." in featureList:
+            distList = []
+            for name in list(boltzmannDF["logID"]):
+                fileStr = f"{name}.log"
+                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+
                 coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5 , 2 )
-                g = Graph()
-                #print("CC" , CC)
-                for bond in molec.GetBonds():
-                    start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-                    g.add_edge(start, end)
-                CminNeighbors = list(g.neighbors(int(C1-1)))
-                CminNeighbors.remove(int(C2-1))
-                CminHcount = hCount(molec, CminNeighbors)
-                CmaxNeighbors = list(g.neighbors(int(C2-1)))
-                CmaxNeighbors.remove(int(C1-1))
-                CmaxHcount = hCount(molec, CmaxNeighbors)
-
-                hydrogens = CmaxHcount + CminHcount
-                if hydrogens <=2: #Easy check for E vs Z 
-                    alkeneType = eVszAlkenes(molec , g , {int(C1-1): CminNeighbors} , {int(C2-1) : CmaxNeighbors} ,  coordHash)# 0 if neither E or Z, -1 if Z, 1 if E
-                else:
-                    alkeneType = 0
-                alkeneHash = {"HCount" : hydrogens , "EvsZ" : alkeneType}
-                hashList.append(alkeneHash)
-            elif feature == "Dist.":
-                distList = []
-                for name in list(boltzmannDF["logID"]):
-                    fileStr = f"{name}.log"
-                    conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
-
-                    coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5 , 2 )
-                    idx = 0
-                    for _ , coords in coordHash.items():
-                        idx += 1
-                        if idx == C1:
-                            c1_coords = coords[2:5]
-                        elif idx == C2:
-                            c2_coords = coords[2:5]
-                    dist1 = np.linalg.norm(np.array(c1_coords , dtype=float) - np.array(c2_coords , dtype=float))
-                    distList.append(dist1)
-                distMAST = ( (distList * weights).sum()    / weights.sum()  )  
-                distHash = {"C1C2Dist" : distMAST} 
-                hashList.append(distHash)
+                idx = 0
+                for _ , coords in coordHash.items():
+                    idx += 1
+                    if idx == C1:
+                        c1_coords = coords[2:5]
+                    elif idx == C2:
+                        c2_coords = coords[2:5]
+                dist1 = np.linalg.norm(np.array(c1_coords , dtype=float) - np.array(c2_coords , dtype=float))
+                distList.append(dist1)
+            distMAST = ( (distList * weights).sum()    / weights.sum()  )  
+            distHash = {"C1C2Dist" : distMAST} 
+            hashList.append(distHash)
         masterDict = {}
         for d in hashList:
             masterDict.update(d)
         df_row = pd.DataFrame([masterDict]) 
         featuresMASTDF = pd.concat([featuresMASTDF, df_row], ignore_index=True)
+
     return featuresMASTDF
 def compartmentalization(logDir , outputDir , substrateFile):
     substrateDF = pd.read_csv(substrateFile)
@@ -278,9 +305,6 @@ def compartmentalization(logDir , outputDir , substrateFile):
             break
         except:
             print("Try again, enter an integer")
-    
-
-
     logPaths = Path(logDir)
     logFiles = list(logPaths.glob('*.log'))  
     firstLog = logFiles[0] if logFiles else None 
@@ -307,11 +331,15 @@ def compartmentalization(logDir , outputDir , substrateFile):
         featuresMAST = {}
         for idx in featureList:
             feature = localStrs[int(idx)]
-            if feature in [ "C13_shift" , "NBO7" , "fukuiParameters"]:
-                featureStr = input(f"Please enter the --link-- string for the feature {feature}: ")
-                featuresMAST[feature] = featureStr
+            if feature == "fukuiParameters":
+                cationStr = input(f"Please enter the --link-- string for the cationic molecule: ")
+                anionStr = input(f"Please enter the --link-- string for teh anionic molecule: ")
+                feature["fukuiParameters"] = [cationStr , anionStr]
+            elif feature == "NBO7":
+                neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
+                feature["NBO7"] = [neutralStr]
             else:
-                featuresMAST[feature] = feature
+                featuresMAST[feature] = [feature]
 
         substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST)
         outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
