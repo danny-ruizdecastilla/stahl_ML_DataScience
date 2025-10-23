@@ -5,6 +5,7 @@ import sys
 import glob
 import numpy as np
 import os
+from pathlib import Path
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from DFTWorkflow.ionComGenerator import copyChks ,  getAtomCoords
@@ -24,7 +25,8 @@ def comWriter(comFile:str, fromChk , **kwargs ):
         f.write(f"%nprocs={nprocs}\n")
         f.write(f"%mem={mem}GB\n")
         f.write(f"%chk={chk}\n")
-        fileStr = chk.split("/")[-1].split(".")[0]
+        #fileStr = chk.split("/")[-1].split(".")[0]
+        fileStr = chk.root.split(".")[0]
         if fromChk:
             f.write(f"{InputGeomLine}\n\n")
             f.write(" Post Opt\n\n")
@@ -42,7 +44,7 @@ def comWriter(comFile:str, fromChk , **kwargs ):
 
     return fileStr
 def main(logDir  , outputDir ):
-    logs = glob.glob(logDir + "/*.log")
+    logs = list(Path(logDir).glob("*.log"))
     if not os.path.exists(outputDir): 
         os.makedirs(outputDir)
     geomOpt = str(input("Please enter the geometry optimization line: "))
@@ -55,9 +57,7 @@ def main(logDir  , outputDir ):
     else:
         addendum = ".com"
     for log in logs:
-        file = log.split("/")[-1]
-        fileName = file.split(".")[0]
-
+        fileName = str(log.name.split(".")[0])
         chkFile = fileName + ".chk"
         #print(chkFile)
         fileName = str(fileName) + str(addendum)
@@ -67,7 +67,8 @@ def main(logDir  , outputDir ):
             if atomsDict == "Poison":
                 print(f"Failed to find coordinates for {log}")
                 continue
-            fileName = comWriter(outputDir+ "/" + fileName , nprocs = int(16) , mem = int(48) ,  chk =chkFile ,
+            outputPath = Path(outputDir) / fileName
+            fileName = comWriter(outputPath, nprocs = int(16) , mem = int(48) ,  chk =Path(chkFile) ,
                              netCharge =  netCharge , spin = spin , coordinates = atomsDict ,geomLine = geomOpt , fromChk = False )
         else:
             chkFile = copyChks(chkFile , outputDir)
@@ -83,7 +84,7 @@ if __name__ == "__main__":
             linkName = input(f"Enter the title for the --link--: ")
             netCharge = int(input("Please enter the net charge for these jobs: "))
             spin = int(input("Please enter the spin for these jobs: (2s+1): "))
-            comFiles = glob.glob(comDir + "/*.com")
+            comFiles = list(Path(comDir).glob("*.com"))
             for com in comFiles:
                 addLink(com , linkStr , linkName , netCharge , spin)
         else:
