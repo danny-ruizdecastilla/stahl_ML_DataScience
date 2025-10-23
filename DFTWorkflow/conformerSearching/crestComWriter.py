@@ -1,6 +1,7 @@
 import os
 import sys
 import glob
+from pathlib import Path
 #Danny Ruiz de Castilla
 #writes geom optimization com files from crest 
 def energyCutoff(energiesFile):
@@ -124,7 +125,8 @@ def addLink(comFile , linkStr , linkName , charge , spin):
                 nproc = int(line.split("=")[-1].strip())
             elif "mem=" in line:
                 mem = str(line.split("=")[-1].strip())
-    lnkStr = comFile.split("/")[-1].split(".")[0]
+    #lnkStr = comFile.split("/")[-1].split(".")[0]
+    lnkStr = str(comFile.root.split(".")[0])
     chkFile = lnkStr + ".chk"
     newName = lnkStr + linkName
     with open(comFile, 'a') as f:
