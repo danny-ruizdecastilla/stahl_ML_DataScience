@@ -25,9 +25,8 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
     logName = str(logFile.name.split(".")[0])
     nboIdx = locateinLog(logFile , logName + f"_{nboStr}" , 1 )
     nboIdx2 = locateinLog(logFile , logName + f"_{nboStr}" , 2 )
-    print(nboIdx , nboIdx2)
     nbo7Hash = {}
-    bondHash = {}
+    bondsHash = {}
     if charge == 0:
         with open(logFile, 'r') as f:
             extractingDensities = False
@@ -37,79 +36,92 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
                     extractingDensities = True 
                 if extractingDensities:
                     if "* Total * " in line:
-                        print(line)
                         extractingDensities = False
                     else:
                         try:
                             occupancies = line.strip()
-                            print(line)
                             occupancyLines = occupancies.split("    ")
-                            #print(occupancyLines)
                             atomNums = occupancyLines[0].split("   ")
                             atomInd = atomNums[0].split()
-                            #print(atomInd)
-                            
-                            #print(occupancyLines[1:])
                             nums = []
                             for num in occupancyLines[1:]:
                                 num = float(''.join(num.split()))
                                 nums.append(num)
-                            
-                            #print(np.max(nums))
                             nbo7Hash[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)]
-                            print(nbo7Hash)
                         except:
                             continue
-                elif "(Occupancy)   Bond orbital / Coefficients / Hybrids" in line:
+                elif "NATURAL BOND ORBITALS (Summary):" in line:
                     getBondOccupancies = True
 
                 if getBondOccupancies:
-                    if "---------------- non-Lewis ---------------" in line:
+                    if "Charge unit  1    0.00000" in line:
                         getBondOccupancies = False
-                    if "BD ( 2) C  9- C 11" in line:
-                        print(line)                
+                    if " BD " in line or " BD*"  in line: #collect bonding occupancies
+                        lineList = line.strip().split("    ")
+                        occupancy = float(lineList[1].strip())
+                        energy = float(lineList[-1].split("  ")[0])
+                        bondID = int(lineList[0].split("(")[-1].split(")")[0].strip())
+                        atoms = lineList[0].split(")")[-1].split("-")
+                        atom1 = "".join(atoms[0].split())
+                        atom2 = "".join(atoms[1].split())
+                        bondHash = {"occupancy" : occupancy , "bondType" : bondID , "atoms" : [atom1 , atom2 ] , "energy" : energy}
+                        if " BD " in line:
+                            bondType = "bonding_"
+                        elif " BD*" in line:
+                            bondType = "antibonding_"
+                        bondStr = bondType + atom1 + "_" + atom2 + "_" + str(bondID)
+                        bondsHash[bondStr] = bondHash
+                            
     elif charge != 0:
         with open(logFile, 'r') as f:
             extractingDensities = False
             getBondOccupancies = False
+            nboIon = 0
             for i, line in enumerate(islice(f, nboIdx, nboIdx2), start=nboIdx):
                 if "Atom No    Charge" in line and "Density" in line:
                     extractingDensities = True 
                 if extractingDensities:
                     if "* Total * " in line:
-                        print(line)
                         extractingDensities = False
                     else:
                         try:
                             occupancies = line.strip()
-                            print(line)
                             occupancyLines = occupancies.split("    ")
-                            #print(occupancyLines)
                             atomNums = occupancyLines[0].split("   ")
                             atomInd = atomNums[0].split()
-                            #print(atomInd)
-                            
-                            #print(occupancyLines[1:])
                             nums = []
                             for num in occupancyLines[1:]:
                                 num = float(''.join(num.split()))
                                 nums.append(num)
-                            
-                            #print(np.max(nums))
                             nbo7Hash[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)] 
-                            print(nbo7Hash)
                         except:
                             continue
-                elif "(Occupancy)   Bond orbital / Coefficients / Hybrids" in line:
+                elif "NATURAL BOND ORBITALS (Summary):" in line and nboIon == 0:
+                    nboIon +=1 
                     getBondOccupancies = True
-
                 if getBondOccupancies:
-                    if "---------------- non-Lewis ---------------" in line:
+                    if "Charge unit  1" in line and f'{charge}.00000' in line:
                         getBondOccupancies = False
-                    if "BD ( 2) C  9- C 11" in line:
-                        print(line)
-
-
+                    elif "Charge unit  1" in line and '0.00000' in line:
+                        bondsHash = {}
+                        nboIon -= 1
+                        getBondOccupancies = False
+                    if " BD " in line or " BD*"  in line: #collect bonding occupancies
+                        lineList = line.strip().split("    ")
+                        occupancy = float(lineList[1].strip())
+                        energy = float(lineList[-1].split("  ")[0])
+                        bondID = int(lineList[0].split("(")[-1].split(")")[0].strip())
+                        atoms = lineList[0].split(")")[-1].split("-")
+                        atom1 = "".join(atoms[0].split())
+                        atom2 = "".join(atoms[1].split())
+                        bondHash = {"occupancy" : occupancy , "bondType" : bondID , "atoms" : [atom1 , atom2 ] , "energy" : energy}
+                        if " BD " in line:
+                            bondType = "bonding_"
+                        elif " BD*" in line:
+                            bondType = "antibonding_"
+                        bondStr = bondType + atom1 + "_" + atom2 + "_" + str(bondID)
+                        bondsHash[bondStr] = bondHash
+    return nbo7Hash, bondsHash
 def extractShiftsByIdx(logFile: str, extract1:str, extract2:str,location1:str ,location2, idxList  , m , b):
     lowerInd = locateinLog(logFile , extract1, location1)
     upperInd = locateinLog(logFile , extract2, location2 )
