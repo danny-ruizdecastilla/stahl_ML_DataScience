@@ -13,7 +13,7 @@ from morfeus import BuriedVolume
 from rdkit import Chem
 from networkx import Graph
 from itertools import islice
-parentDir = Path(__file__).resolve().parents[1]
+parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
 from DFTWorkflow.cleanLogs import basicTerm
 from DFTWorkflow.ionComGenerator import locateinLog
@@ -23,8 +23,9 @@ from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 def extractNBOOccupancies(logFile , nboStr , charge:int):
     logName = str(logFile.name.split(".")[0])
-    nboIdx = locateinLog(logFile , logName + f"_{nboStr}" , 1 )
-    nboIdx2 = locateinLog(logFile , logName + f"_{nboStr}" , 2 )
+    print(logName)
+    nboIdx = locateinLog(logFile , logName + f"{nboStr}" , 1 )
+    nboIdx2 = locateinLog(logFile , logName + f"{nboStr}" , 2 )
     nbo7Hash = {}
     bondsHash = {}
     if charge == 0:
@@ -50,11 +51,11 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
                             nbo7Hash[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)]
                         except:
                             continue
-                elif "NATURAL BOND ORBITALS (Summary):" in line:
+                elif "Molecular unit" in line:
                     getBondOccupancies = True
 
                 if getBondOccupancies:
-                    if "Charge unit  1    0.00000" in line:
+                    if ". RY " in line:
                         getBondOccupancies = False
                     if " BD " in line or " BD*"  in line: #collect bonding occupancies
                         lineList = line.strip().split("    ")
@@ -76,7 +77,6 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
         with open(logFile, 'r') as f:
             extractingDensities = False
             getBondOccupancies = False
-            nboIon = 0
             for i, line in enumerate(islice(f, nboIdx, nboIdx2), start=nboIdx):
                 if "Atom No    Charge" in line and "Density" in line:
                     extractingDensities = True 
@@ -96,32 +96,58 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
                             nbo7Hash[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)] 
                         except:
                             continue
-                elif "NATURAL BOND ORBITALS (Summary):" in line and nboIon == 0:
-                    nboIon +=1 
-                    getBondOccupancies = True
-                if getBondOccupancies:
-                    if "Charge unit  1" in line and f'{charge}.00000' in line:
-                        getBondOccupancies = False
-                    elif "Charge unit  1" in line and '0.00000' in line:
-                        bondsHash = {}
-                        nboIon -= 1
-                        getBondOccupancies = False
-                    if " BD " in line or " BD*"  in line: #collect bonding occupancies
-                        lineList = line.strip().split("    ")
-                        occupancy = float(lineList[1].strip())
-                        energy = float(lineList[-1].split("  ")[0])
-                        bondID = int(lineList[0].split("(")[-1].split(")")[0].strip())
-                        atoms = lineList[0].split(")")[-1].split("-")
-                        atom1 = "".join(atoms[0].split())
-                        atom2 = "".join(atoms[1].split())
-                        bondHash = {"occupancy" : occupancy , "bondType" : bondID , "atoms" : [atom1 , atom2 ] , "energy" : energy}
-                        if " BD " in line:
-                            bondType = "bonding_"
-                        elif " BD*" in line:
-                            bondType = "antibonding_"
-                        bondStr = bondType + atom1 + "_" + atom2 + "_" + str(bondID)
-                        bondsHash[bondStr] = bondHash
     return nbo7Hash, bondsHash
+def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboStr , charge):
+    weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr)
+    Cmin_NBO = []
+    Cmax_NBO = []
+    piBond = []
+    piAntiBond = []
+    piEnergy = []
+    antiPiEnergy = []
+    for idx , row in weightsDF.iterrows():
+        logFile = row["logID"]
+        logPath = f"{logFile}.log"
+        conformer  = next((f for f in logList if logPath in f.name), None)
+        chargeHash  , bondHash = extractNBOOccupancies(conformer , nboStr , charge)
+        alkeneHash = {key: chargeHash[key] for key in chargeHash if key == C1 or key == C2}
+        c1NBO = float(alkeneHash[C1][1])
+        c2NBO = float(alkeneHash[C2][1])
+        if c2NBO >= c1NBO:
+            Cmax_NBO.append(c2NBO)
+            Cmin_NBO.append(c1NBO)
+        else:
+            Cmax_NBO.append(c1NBO)
+            Cmin_NBO.append(c2NBO)
+        if charge == 0:
+            alkeneBondStr = f"bonding_C{C1}_C{C2}_2"
+            alkeneAntiBondStr = f"antibonding_C{C1}_C{C2}_2"
+            piOccupancy = float(bondHash[alkeneBondStr]["occupancy"])
+            piEnergy_ = float(bondHash[alkeneBondStr]["energy"])
+            piBond.append(piOccupancy)
+            piEnergy.append(piEnergy_)
+            piAntiOccupancy = float(bondHash[alkeneAntiBondStr]["occupancy"])
+            piAntiEnergy = float(bondHash[alkeneAntiBondStr]["energy"])
+            piAntiBond.append(piAntiOccupancy)
+            antiPiEnergy.append(piAntiEnergy)
+    weightsDF["NBO_Cmin"] = Cmin_NBO
+    weightsDF["NBO_Cmax"] = Cmax_NBO
+    if charge == 0:
+        weightsDF["piBond"] = piBond
+        weightsDF["antiPiBond"] = piAntiBond
+        weightsDF["piEnergy"] = piEnergy
+        weightsDF["antiPiEnergy"] = antiPiEnergy
+    finalHash = {}
+    finalHash["ID"] = logNameMAST
+    finalHash["SMILES"] = smiles
+    finalHash["NBO_mxAlk"] =((weightsDF["NBO_Cmax"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["NBO_mnAlk"] =((weightsDF["NBO_Cmin"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    if charge == 0:
+        finalHash["piBond"] =((weightsDF["piBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+        finalHash["antiPiBond"] =((weightsDF["antiPiBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+        finalHash["antiPiBond"] =((weightsDF["antiPiBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+        finalHash["antiPiEnergy"] =((weightsDF["antiPiEnergy"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    return finalHash
 def extractShiftsByIdx(logFile: str, extract1:str, extract2:str,location1:str ,location2, idxList  , m , b):
     lowerInd = locateinLog(logFile , extract1, location1)
     upperInd = locateinLog(logFile , extract2, location2 )
@@ -193,7 +219,7 @@ def getBoltzmannWeightsGauss(logDirs, temperature, energyStr ):
             continue        
         try:
             energy = extractEnergies(log, "energy", energyStr)
-            if energy is not "Poison":
+            if energy != "Poison":
                 results.append({'logID': Path(log.name).stem,  'E_Ha': energy})
             else:
                 print(f"Warning: Could not extract {energyStr} energy from {log}")     
@@ -265,18 +291,33 @@ def getAlkenes(substratesHash , smilesHash , featureHash ):
             C2 = cc[0] + 1 
 
         if "NBO7" in featureList:
-            nboNeutralStr = featureList["NBO7"][0]
+            nboNeutralStr = featureHash["NBO7"][0]
 
-            neutralHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
+            neutralHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboNeutralStr , 0)
             hashList.append(neutralHash)
-        if "fukuiParameter" in featureList:
-            nboNeutralStr = featureList["NBO7"][0]
-            nboCationStr = featureList["fukuiParameter"][0]
-            nboAnionstr = featureList["fukuiParameter"][1]
-            neutralHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
-            cationHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
-            anionHash = alkeneNBOExtractor(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr)
-
+        if "fukuiParameters" in featureList:
+            nboNeutralStr = featureHash["NBO7"][0]
+            nboCationStr = featureHash["fukuiParameters"][0]
+            nboAnionstr = featureHash["fukuiParameters"][1]
+            neutralHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboNeutralStr , 0)
+            cationHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboCationStr , 1)
+            anionHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr, nboAnionstr , -1)
+            q0_mx = neutralHash["NBO_mxAlk"]
+            q1_mx = cationHash["NBO_mxAlk"]
+            q1__mx = anionHash["NBO_mxAlk"]
+            q0_mn = neutralHash["NBO_mnAlk"]
+            q1_mn = cationHash["NBO_mnAlk"]
+            q1__mn = anionHash["NBO_mnAlk"]
+            f_minus_Mx = float(q0_mx) - float(q1__mx)
+            f_plus_Mx = float(q1_mx) - float(q0_mx)
+            f_neut_Mx = 0.5 * ((q1_mx) - float(q1__mx))
+            f_minus_Mn = float(q0_mn) - float(q1__mn)
+            f_plus_Mn = float(q1_mn) - float(q0_mn)
+            f_neut_Mn = 0.5 * ((q1_mn) - float(q1__mn))
+            hashList.append({"f_neg_mxAlk" : f_minus_Mx , "f_pos_mxAlk" : f_plus_Mx , "f_neut_mxAlk" : f_neut_Mx ,
+                            "f_neg_mnAlk" : f_minus_Mn , "f_pos_mnAlk" : f_plus_Mn , "f_neut_mnAlk" : f_neut_Mn , 
+                            "f_neg_Delta" : abs(f_minus_Mx - f_minus_Mn) , "f_pos_Delta" : abs(f_plus_Mx-f_plus_Mn) , "f_neut_Delta" : abs(f_neut_Mx-f_neut_Mn) ,
+                            "f_neg_mxAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_mxAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_mxAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
             Vbur_Cmn_2 = []
             Vbur_Cmn_3 = []
@@ -401,12 +442,16 @@ def compartmentalization(logDir , outputDir , substrateFile):
         if not termError:
             substrates = list(substrateHash.keys())
             fileID = log.name.split(fileSplit)[0]
-            if fileID in substrates:
-                substrateHash[fileID].append(log)
-            else:
-                substrateHash[fileID] = [log]
+            try:
                 pos = idMAST[idMAST == fileID].index[0]
-                smilesHash[fileID] = smilesMAST[pos]
+                if fileID in substrates:
+                    substrateHash[fileID].append(log)
+                else:
+                    substrateHash[fileID] = [log]
+                    pos = idMAST[idMAST == fileID].index[0]
+                    smilesHash[fileID] = smilesMAST[pos]
+            except:
+                continue
     extractNum = input(f"Enter the number corresponding to which substructre you want to extract information from:\n [0] Alkenes\n")
     if int(extractNum) == 0:
         localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist." ]
@@ -417,11 +462,11 @@ def compartmentalization(logDir , outputDir , substrateFile):
             feature = localStrs[int(idx)]
             if feature == "fukuiParameters":
                 cationStr = input(f"Please enter the --link-- string for the cationic molecule: ")
-                anionStr = input(f"Please enter the --link-- string for teh anionic molecule: ")
-                feature["fukuiParameters"] = [cationStr , anionStr]
+                anionStr = input(f"Please enter the --link-- string for the anionic molecule: ")
+                featuresMAST["fukuiParameters"] = [cationStr , anionStr]
             elif feature == "NBO7":
                 neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
-                feature["NBO7"] = [neutralStr]
+                featuresMAST["NBO7"] = [neutralStr]
             else:
                 featuresMAST[feature] = [feature]
 
