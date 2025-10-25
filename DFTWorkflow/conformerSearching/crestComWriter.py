@@ -185,6 +185,6 @@ if __name__ == "__main__":
             spin = int(input("Please enter the spin for these jobs: (2s+1)"))
             comFiles = glob.glob(outputDir + "/*.com")
             for com in comFiles:
-                addLink(com , linkStr , linkName , netCharge , spin)
+                addLink(Path(com) , linkStr , linkName , netCharge , spin)
         else:
             break
