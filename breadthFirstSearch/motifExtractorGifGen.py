@@ -21,17 +21,18 @@ import itertools
 def getCC(smiles):
     #returns the index of C1 and C2 double bond 
     molec = Chem.MolFromSmiles(smiles)
+    double = 0
     for bond in molec.GetBonds():
         atom1 = bond.GetBeginAtom()
         atom2 = bond.GetEndAtom()
-        double = 0
         #print(smiles)
         if atom1.GetAtomicNum() == 6 and atom2.GetAtomicNum() == 6 and bond.GetBondType() == Chem.BondType.DOUBLE:
             c1 = bond.GetBeginAtomIdx()
             c2 = bond.GetEndAtomIdx()
             CC = [c1 , c2]
             double +=1
-    if double >1:
+    #print(double)
+    if double != 1:
         return ["Error" , "Error"] , molec
     else:
         return CC , molec 
