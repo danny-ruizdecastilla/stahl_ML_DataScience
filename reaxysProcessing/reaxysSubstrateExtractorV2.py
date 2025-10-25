@@ -79,7 +79,7 @@ def dataframeDivide(extractingCols , reagentList, reagentSplits, dataframeMAST, 
         if reagent == "NoCats":
             chemStr = chemistry 
             #return only empty catalysts and empty clean reagents
-            forbiddenPhrases = ["Mn" , "Fe" , "Ni" , "Ti" , "iron", "anganese" , "ickel" , "ium" , "fe" , "mn" , "Co" , "obalt"]
+            forbiddenPhrases = ["Mn" , "Fe" , "Ni" , "Ti" , "iron", "anganese" , "ickel" , "ium" , "fe" , "mn" , "Co" , "obalt" , "Mo" , "molybd"]
             allChemistries = [s for sublist in reagentSplits.values() for s in sublist]
 
             for substrateDF in substrateList:
