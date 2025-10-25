@@ -23,7 +23,7 @@ from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 def extractNBOOccupancies(logFile , nboStr , charge:int):
     logName = str(logFile.name.split(".")[0])
-    print(logName)
+    #print(logName)
     nboIdx = locateinLog(logFile , logName + f"{nboStr}" , 1 )
     nboIdx2 = locateinLog(logFile , logName + f"{nboStr}" , 2 )
     nbo7Hash = {}
@@ -97,10 +97,12 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
                         except:
                             continue
     return nbo7Hash, bondsHash
-def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboStr , charge):
-    weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr)
+def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboStr , charge, logEnergyStr):
+    weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
     Cmin_NBO = []
     Cmax_NBO = []
+    NBO_delta = []
+    NBO_mean = []
     piBond = []
     piAntiBond = []
     piEnergy = []
@@ -119,6 +121,9 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
         else:
             Cmax_NBO.append(c1NBO)
             Cmin_NBO.append(c2NBO)
+
+        NBO_delta.append(abs(c1NBO-c2NBO))
+        NBO_mean.append(float(np.mean([c1NBO,c2NBO])))
         if charge == 0:
             alkeneBondStr = f"bonding_C{C1}_C{C2}_2"
             alkeneAntiBondStr = f"antibonding_C{C1}_C{C2}_2"
@@ -132,6 +137,8 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
             antiPiEnergy.append(piAntiEnergy)
     weightsDF["NBO_Cmin"] = Cmin_NBO
     weightsDF["NBO_Cmax"] = Cmax_NBO
+    weightsDF["NBO_Delta"] = NBO_delta
+    weightsDF["NBO_Mean"] = NBO_mean
     if charge == 0:
         weightsDF["piBond"] = piBond
         weightsDF["antiPiBond"] = piAntiBond
@@ -142,9 +149,11 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
     finalHash["SMILES"] = smiles
     finalHash["NBO_mxAlk"] =((weightsDF["NBO_Cmax"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     finalHash["NBO_mnAlk"] =((weightsDF["NBO_Cmin"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["NBO_Mean"] =((weightsDF["NBO_Mean"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["NBO_Delta"] =((weightsDF["NBO_Delta"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     if charge == 0:
         finalHash["piBond"] =((weightsDF["piBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-        finalHash["antiPiBond"] =((weightsDF["antiPiBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+        finalHash["piEnergy"] =((weightsDF["piEnergy"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
         finalHash["antiPiBond"] =((weightsDF["antiPiBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
         finalHash["antiPiEnergy"] =((weightsDF["antiPiEnergy"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
     return finalHash
@@ -200,15 +209,15 @@ def extractEnergies(logFile , linkStr, energyStr):
         raise ValueError(f"Unknown energy type: {energyStr}. "
                 f"Available types: {list(patterns.keys())}")
     logName = str(logFile.name.split(".")[0])
-    firstIdx = locateinLog(logFile , logName + f"_{linkStr}" , "earliest" )
-    secondIdx = locateinLog(logFile , logName + f"_{linkStr}" , "latest" )
+    firstIdx = locateinLog(logFile , logName + f"{linkStr}" , "earliest" )
+    secondIdx = locateinLog(logFile , logName + f"{linkStr}" , "latest" )
     with open(logFile, 'r') as f:
         for i, line in enumerate(f):
             if firstIdx <= i < secondIdx and energyType in line:
                 energyLevel = float(line.strip().split("=")[-1].split("A.U.")[0].strip())
                 return energyLevel
         return "Poison"
-def getBoltzmannWeightsGauss(logDirs, temperature, energyStr ):
+def getBoltzmannWeightsGauss(logDirs, temperature, energyStr , logEnergyStr):
     R = 1.987204e-3
     HARTREE_TO_KCAL = 627.5094740631
     results = []
@@ -218,7 +227,7 @@ def getBoltzmannWeightsGauss(logDirs, temperature, energyStr ):
             print(f"Warning: File {str(log)} not found. Skipping.")
             continue        
         try:
-            energy = extractEnergies(log, "energy", energyStr)
+            energy = extractEnergies(log, logEnergyStr, energyStr)
             if energy != "Poison":
                 results.append({'logID': Path(log.name).stem,  'E_Ha': energy})
             else:
@@ -248,13 +257,13 @@ def hCount(molec, wildCards):
             hydrogens += 1
     return hydrogens
 
-def getAlkenes(substratesHash , smilesHash , featureHash ):
+def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
         hashList = []
         cc , molec = getCC(smilesStr)
         conformerFiles = substratesHash[id]
-        boltzmannDF = getBoltzmannWeightsGauss(conformerFiles, 298, "electronic")
+        boltzmannDF = getBoltzmannWeightsGauss(conformerFiles, 298, "electronic" , logEnergyStr)
         idHash = {"SMILES" : smilesStr , "ID" : id}  
         hashList.append(idHash)   
         featureList = list(featureHash.keys())  
@@ -282,7 +291,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash ):
             weights = boltzmannDF["boltzWeights"]
             C13_Cmx = ( (C13_C2 * weights).sum()    / weights.sum()  )
             C13_Cmn = ( (C13_C1 * weights).sum()    / weights.sum()  )
-            C13_delta = C13_Cmx - C13_Cmn
+            C13_delta = abs(C13_Cmx - C13_Cmn)
             C13_Mean = np.mean([C13_Cmx,C13_Cmn])
             c13Hash = {"C13_Cmx" : C13_Cmx , "C13_Cmn" : C13_Cmn , "C13_delta" : C13_delta , "C13_Mean" : C13_Mean}
             hashList.append(c13Hash)
@@ -293,15 +302,15 @@ def getAlkenes(substratesHash , smilesHash , featureHash ):
         if "NBO7" in featureList:
             nboNeutralStr = featureHash["NBO7"][0]
 
-            neutralHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboNeutralStr , 0)
+            neutralHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboNeutralStr , 0 , logEnergyStr)
             hashList.append(neutralHash)
         if "fukuiParameters" in featureList:
             nboNeutralStr = featureHash["NBO7"][0]
             nboCationStr = featureHash["fukuiParameters"][0]
             nboAnionstr = featureHash["fukuiParameters"][1]
-            neutralHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboNeutralStr , 0)
-            cationHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboCationStr , 1)
-            anionHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr, nboAnionstr , -1)
+            neutralHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboNeutralStr , 0, logEnergyStr)
+            cationHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboCationStr , 1 , logEnergyStr)
+            anionHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr, nboAnionstr , -1, logEnergyStr)
             q0_mx = neutralHash["NBO_mxAlk"]
             q1_mx = cationHash["NBO_mxAlk"]
             q1__mx = anionHash["NBO_mxAlk"]
@@ -317,7 +326,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash ):
             hashList.append({"f_neg_mxAlk" : f_minus_Mx , "f_pos_mxAlk" : f_plus_Mx , "f_neut_mxAlk" : f_neut_Mx ,
                             "f_neg_mnAlk" : f_minus_Mn , "f_pos_mnAlk" : f_plus_Mn , "f_neut_mnAlk" : f_neut_Mn , 
                             "f_neg_Delta" : abs(f_minus_Mx - f_minus_Mn) , "f_pos_Delta" : abs(f_plus_Mx-f_plus_Mn) , "f_neut_Delta" : abs(f_neut_Mx-f_neut_Mn) ,
-                            "f_neg_mxAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_mxAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_mxAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
+                            "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
             Vbur_Cmn_2 = []
             Vbur_Cmn_3 = []
@@ -351,8 +360,8 @@ def getAlkenes(substratesHash , smilesHash , featureHash ):
             Vbur_Cmx_3Ang = ( (Vbur_Cmx_3 * weights).sum()    / weights.sum()  )
             Vbur_Cmn_3Ang= ( (Vbur_Cmn_3 * weights).sum()    / weights.sum()  )               
 
-            Vbur_2Ang_delta = Vbur_Cmx_2Ang - Vbur_Cmn_2Ang
-            Vbur_3Ang_delta = Vbur_Cmx_3Ang - Vbur_Cmn_3Ang
+            Vbur_2Ang_delta = abs(Vbur_Cmx_2Ang - Vbur_Cmn_2Ang)
+            Vbur_3Ang_delta = abs(Vbur_Cmx_3Ang - Vbur_Cmn_3Ang)
             Vbur_2Ang_mean =  np.mean([Vbur_Cmx_2Ang, Vbur_Cmn_2Ang])
             Vbur_3Ang_mean = np.mean([Vbur_Cmx_3Ang, Vbur_Cmn_3Ang])
             BurVolHash = {"2Ang_Cmx" :Vbur_Cmx_2Ang , "2Ang_Cmn" :Vbur_Cmn_2Ang ,
@@ -469,8 +478,8 @@ def compartmentalization(logDir , outputDir , substrateFile):
                 featuresMAST["NBO7"] = [neutralStr]
             else:
                 featuresMAST[feature] = [feature]
-
-        substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST)
+        logEnergyStr = input(f"Please enter the .log Energy string for these jobs: ")
+        substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST , logEnergyStr)
         outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
         substratesMAST.to_csv(outputFile , index=False )
 
