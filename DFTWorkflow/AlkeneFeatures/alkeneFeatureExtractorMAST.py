@@ -158,7 +158,7 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
         finalHash["piBond"] = weightedAvg(piBond, piBondEnergyWeights)
         finalHash["piEnergy"] = weightedAvg(piEnergy, piBondEnergyWeights)
         finalHash["antiPiBond"] = weightedAvg(piAntiBond, piBondEnergyWeights)
-        finalHash["antiPiEnergy"] = weightedAvg(piAntiEnergy, piBondEnergyWeights)
+        finalHash["antiPiEnergy"] = weightedAvg(antiPiEnergy, piBondEnergyWeights)
     elif charge == 0 and len(piBond) == 0:
         finalHash["piBond"] = "Nan"
         finalHash["piEnergy"] ="Nan"
