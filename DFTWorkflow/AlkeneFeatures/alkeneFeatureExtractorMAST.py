@@ -107,6 +107,8 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
     piAntiBond = []
     piEnergy = []
     antiPiEnergy = []
+    piBondEnergyWeights = []
+    localWeights = weightsDF["boltzWeights"]
     for idx , row in weightsDF.iterrows():
         logFile = row["logID"]
         logPath = f"{logFile}.log"
@@ -125,37 +127,43 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
         NBO_delta.append(abs(c1NBO-c2NBO))
         NBO_mean.append(float(np.mean([c1NBO,c2NBO])))
         if charge == 0:
-            alkeneBondStr = f"bonding_C{C1}_C{C2}_2"
-            alkeneAntiBondStr = f"antibonding_C{C1}_C{C2}_2"
-            piOccupancy = float(bondHash[alkeneBondStr]["occupancy"])
-            piEnergy_ = float(bondHash[alkeneBondStr]["energy"])
-            piBond.append(piOccupancy)
-            piEnergy.append(piEnergy_)
-            piAntiOccupancy = float(bondHash[alkeneAntiBondStr]["occupancy"])
-            piAntiEnergy = float(bondHash[alkeneAntiBondStr]["energy"])
-            piAntiBond.append(piAntiOccupancy)
-            antiPiEnergy.append(piAntiEnergy)
-    weightsDF["NBO_Cmin"] = Cmin_NBO
-    weightsDF["NBO_Cmax"] = Cmax_NBO
-    weightsDF["NBO_Delta"] = NBO_delta
-    weightsDF["NBO_Mean"] = NBO_mean
-    if charge == 0:
-        weightsDF["piBond"] = piBond
-        weightsDF["antiPiBond"] = piAntiBond
-        weightsDF["piEnergy"] = piEnergy
-        weightsDF["antiPiEnergy"] = antiPiEnergy
+            try:
+                alkeneBondStr = f"bonding_C{C1}_C{C2}_2"
+                alkeneAntiBondStr = f"antibonding_C{C1}_C{C2}_2"
+                piOccupancy = float(bondHash[alkeneBondStr]["occupancy"])
+                piEnergy_ = float(bondHash[alkeneBondStr]["energy"])
+                piBond.append(piOccupancy)
+                piEnergy.append(piEnergy_)
+                piAntiOccupancy = float(bondHash[alkeneAntiBondStr]["occupancy"])
+                piAntiEnergy = float(bondHash[alkeneAntiBondStr]["energy"])
+                piAntiBond.append(piAntiOccupancy)
+                antiPiEnergy.append(piAntiEnergy)
+                localWeight = localWeights[idx]
+                piBondEnergyWeights.append(localWeight)
+            except:
+                continue
+    def weightedAvg(values, weights):
+        weightTot = sum(weights)
+        if weightTot == 0:
+            return 0
+        return sum(v * w for v, w in zip(values, weights)) / weightTot
     finalHash = {}
     finalHash["ID"] = logNameMAST
     finalHash["SMILES"] = smiles
-    finalHash["NBO_mxAlk"] =((weightsDF["NBO_Cmax"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-    finalHash["NBO_mnAlk"] =((weightsDF["NBO_Cmin"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-    finalHash["NBO_Mean"] =((weightsDF["NBO_Mean"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-    finalHash["NBO_Delta"] =((weightsDF["NBO_Delta"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-    if charge == 0:
-        finalHash["piBond"] =((weightsDF["piBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-        finalHash["piEnergy"] =((weightsDF["piEnergy"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-        finalHash["antiPiBond"] =((weightsDF["antiPiBond"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
-        finalHash["antiPiEnergy"] =((weightsDF["antiPiEnergy"] * weightsDF["boltzWeights"]).sum() / weightsDF["boltzWeights"].sum())
+    finalHash["NBO_mxAlk"] =weightedAvg(Cmin_NBO , list(weightsDF["boltzWeights"]))
+    finalHash["NBO_mnAlk"] =weightedAvg(Cmax_NBO , list(weightsDF["boltzWeights"]))
+    finalHash["NBO_Mean"] =weightedAvg(NBO_delta , list(weightsDF["boltzWeights"]))
+    finalHash["NBO_Delta"] =weightedAvg(NBO_mean , list(weightsDF["boltzWeights"]))
+    if charge == 0 and len(piBond) != 0:
+        finalHash["piBond"] = weightedAvg(piBond, piBondEnergyWeights)
+        finalHash["piEnergy"] = weightedAvg(piEnergy, piBondEnergyWeights)
+        finalHash["antiPiBond"] = weightedAvg(piAntiBond, piBondEnergyWeights)
+        finalHash["antiPiEnergy"] = weightedAvg(piAntiEnergy, piBondEnergyWeights)
+    elif charge == 0 and len(piBond) == 0:
+        finalHash["piBond"] = "Nan"
+        finalHash["piEnergy"] ="Nan"
+        finalHash["antiPiBond"] ="Nan"
+        finalHash["antiPiEnergy"] = "Nan"  
     return finalHash
 def extractShiftsByIdx(logFile: str, extract1:str, extract2:str,location1:str ,location2, idxList  , m , b):
     lowerInd = locateinLog(logFile , extract1, location1)
