@@ -235,7 +235,7 @@ def plot_cylinder_with_atoms(atoms, inside_atoms_dict, inner_radius, outer_radiu
     
     fig.show()
 
-# Example usage
+def getBurriedVolume():
 if __name__ == "__main__":
     # Define cylinder parameters
     inner_r = 2.0
