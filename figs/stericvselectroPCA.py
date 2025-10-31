@@ -21,30 +21,19 @@ from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans 
 #Splits features into sterics vs electronics, reduces to PC1 and plots 
 def modularPCA(X, numDim: int, outputDir, saveStr):
     np.random.seed(42)
-
-    # Standardize features
     scaler = StandardScaler()
     scaledX = scaler.fit_transform(X)
-
-    # Max possible PCs
     componentFull = min(X.shape[0], X.shape[1])
-
-    # Fit full PCA
     pca = PCA(n_components=componentFull, svd_solver="full")
     xPCAFull = pca.fit_transform(scaledX)
-
-    # Explained variance ratios
     explainedVar = pca.explained_variance_ratio_
     print("Explained variance ratio:", explainedVar)
 
-    # Save explained variance ratios
     explainedVarFile = os.path.join(outputDir, f"{saveStr}_explainedVarr.dat")
     if not os.path.exists(explainedVarFile):
         with open(explainedVarFile, "w") as file:
             for i, ev in enumerate(explainedVar, start=1):
                 file.write(f"explained variance ratio: PC{i} {ev:.6f}\n")
-
-    # Build loadings for all PCs
     loadings = pd.DataFrame(
         pca.components_.T * np.sqrt(pca.explained_variance_),
         columns=[f'PC{i+1}' for i in range(componentFull)],
