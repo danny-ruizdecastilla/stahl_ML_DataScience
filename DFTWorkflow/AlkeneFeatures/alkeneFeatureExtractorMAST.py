@@ -152,8 +152,8 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
     finalHash["SMILES"] = smiles
     finalHash["NBO_mxAlk"] =weightedAvg(Cmin_NBO , list(weightsDF["boltzWeights"]))
     finalHash["NBO_mnAlk"] =weightedAvg(Cmax_NBO , list(weightsDF["boltzWeights"]))
-    finalHash["NBO_Mean"] =weightedAvg(NBO_delta , list(weightsDF["boltzWeights"]))
-    finalHash["NBO_Delta"] =weightedAvg(NBO_mean , list(weightsDF["boltzWeights"]))
+    finalHash["NBO_Mean"] =weightedAvg(NBO_mean , list(weightsDF["boltzWeights"]))
+    finalHash["NBO_Delta"] =weightedAvg(NBO_delta , list(weightsDF["boltzWeights"]))
     if charge == 0 and len(piBond) != 0:
         finalHash["piBond"] = weightedAvg(piBond, piBondEnergyWeights)
         finalHash["piEnergy"] = weightedAvg(piEnergy, piBondEnergyWeights)
