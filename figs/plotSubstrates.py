@@ -8,11 +8,11 @@ import html
 import plotly
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
-from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 from figs.chemPlotlyV2 import createPNGDF,png64
 from figs.stericvselectroPCA import pcafeatureSplitter
 from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans , convertCanonical , featureFiltering
 from DFTWorkflow.featureMaping import  createCSV
+from dimensionalityReduction.tsNE_UMAP import generate_UMAP_tSNE
 
 def safeStringHTML(unsafeString):
     display_name = html.escape(unsafeString)
@@ -273,7 +273,13 @@ def plotSubstratesMain(substrateData,chemistry ,  figDir , axisMotifs, eliminate
         base64Col.append(base64)
     masterDF["base64"] = base64Col
     masterDF = masterDF.drop(columns=['pngPath'])
-    #print(masterDF.columns.tolist())
+    UMAP1 , UMAP2 ,tSNE1 , tSNE2 = generate_UMAP_tSNE(X)
+
+    masterDF["UMAP1"] = UMAP1
+    masterDF["UMAP2"] = UMAP2
+    masterDF["tSNE1"] = tSNE1
+    masterDF["tSNE2"] = tSNE2
+
     htmlGenerator1(masterDF ,outputDir , chemistry )
     return masterDF 
 if __name__ == "__main__":
