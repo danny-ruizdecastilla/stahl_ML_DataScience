@@ -15,12 +15,21 @@ sys.path.append(parentDir)
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 from figs.featurePlotter import getFeaturePairs , standardCols
 from figs.chemPlotlyV1 import insertIntoDataframe
-from figs.chemPlotlyV2 import plotly_template , interactiveFigGenerator
+from figs.chemPlotlyV2 import interactiveFigGenerator
 from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans , convertCanonical , featureFiltering
 #Danny Ruiz de Castilla 05.08.
 #Splits features into sterics vs electronics, reduces to PC1 and plots 
 def modularPCA(X, numDim: int, outputDir, saveStr):
     np.random.seed(42)
+    if len(X.columns) > 1:
+        refCol = X.columns[0]
+        refVector = X[refCol].to_numpy()
+
+        for col in X.columns[1:]:
+            corr = np.corrcoef(refVector, X[col].to_numpy())[0, 1]
+            if corr < 0:
+                X[col] = -X[col]
+
     scaler = StandardScaler()
     scaledX = scaler.fit_transform(X)
     componentFull = min(X.shape[0], X.shape[1])
