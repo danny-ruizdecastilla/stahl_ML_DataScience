@@ -11,10 +11,16 @@ from sklearn.metrics import silhouette_score
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
+from dimensionalityReduction.reactivityFeatures import boxGen
 
 def generate_UMAP_tSNE(X):
-    motifList = listInputs(f"Enter motif strings for features you do NOT want to include in the tSNE and UMAP:]\n")
-    dropFeatures = [col for col in X.columns if any(motif in col for motif in motifList)]
+    colList = list(X.columns)
+    dfColBox = boxGen(colList)
+    elimCols = listInputs(f"Here are all available columns for the dataframe {dfColBox}\n please enter the matching indexes corresponding to the columns you want to remove from the dataframe")
+    dropFeatures = []
+    for idx in elimCols:
+        column = colList[int(idx)]
+        dropFeatures.append(column)
 
     X = X.drop(columns=dropFeatures)
     scaler = StandardScaler()
