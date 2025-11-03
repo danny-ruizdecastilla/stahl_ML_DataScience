@@ -16,7 +16,7 @@ from dimensionalityReduction.reactivityFeatures import boxGen
 def generate_UMAP_tSNE(X):
     colList = list(X.columns)
     dfColBox = boxGen(colList)
-    elimCols = listInputs(f"Here are all available columns for the dataframe {dfColBox}\n please enter the matching indexes corresponding to the columns you want to remove from the dataframe")
+    elimCols = listInputs(f"Here are all available columns for the dataframe {dfColBox}\n please enter the matching indexes corresponding to the columns you want to remove from the dataframe:\n")
     dropFeatures = []
     for idx in elimCols:
         column = colList[int(idx)]
