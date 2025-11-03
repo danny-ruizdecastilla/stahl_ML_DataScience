@@ -5,10 +5,9 @@ import shutil
 import re
 import pandas as pd 
 import numpy as np
-
-parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-sys.path.append(parentDir)
-from DFTWorkflow.featureMaping import createCSV
+from pathlib import Path
+parentDir = Path(__file__).resolve().parents[2]
+sys.path.append(str(parentDir))
 from DFTWorkflow.fukuiGenerator.fukuiExtractorV1 import  getBoltzmannWeightsGauss , extractChargesCHELPG_Mull_NBO_Hirsh
 #Danny Ruiz de Castilla
 #Generates Fukui maps for each molecule 
@@ -34,10 +33,10 @@ def extractChargesByDensity(log, densityStr):
 def processIonLogs(logs, keyword, densityStr):
     result = {}
     for log in logs:
-        if keyword in os.path.basename(log):
-            name = os.path.basename(log).split(keyword)[0]
+        if keyword in log.name:
+            name = log.name.split(keyword)[0]
         else:
-            name = os.path.basename(log).split(".")[0]
+            name = log.stem
         result[name] = extractChargesByDensity(log, densityStr)
     return result
 def consolidatePaths(pathList):
@@ -73,10 +72,12 @@ def atomicBoltzmannConstruction(masterLogs , boltzWeights,  substratesDict , col
 
 def main(logDir, cationDir, anionDir, substrateCSV, outputDir, densityStr , bltzmannStr):
     substrateScope = pd.read_csv(substrateCSV, encoding='utf-8')
-
-    neutralLogs = glob.glob(os.path.join(logDir, "*.log"))
-    cationLogs = glob.glob(os.path.join(cationDir, "*.log"))
-    anionLogs = glob.glob(os.path.join(anionDir, "*.log"))
+    neutralLogPaths = Path(logDir)
+    neutralLogs = list(neutralLogPaths.glob('*.log')) 
+    cationLogPaths = Path(cationDir)
+    cationLogs = list(cationLogPaths.glob('*.log')) 
+    anionLogPaths = Path(anionDir)
+    anionLogs = list(anionLogPaths.glob('*.log')) 
 
     neutrals = processIonLogs(neutralLogs, "_neutral", densityStr)
     anions = processIonLogs(anionLogs, "_anion", densityStr)
@@ -87,8 +88,9 @@ def main(logDir, cationDir, anionDir, substrateCSV, outputDir, densityStr , bltz
     substrateList = consolidatePaths(commonPaths)
 
     for substrate in substrateList:
-        if not os.path.exists(outputDir + "/" + str(substrate)): 
-            os.makedirs(outputDir + "/" + str(substrate))
+        output_path = Path(outputDir) / str(substrate)
+        if not output_path.exists():
+            output_path.mkdir(parents=True, exist_ok=True)
         #print(substrate)
         substrateSMILES = substrateScope.loc[substrateScope['ID'] == substrate, "SMILES"].values[0]
 
@@ -98,7 +100,7 @@ def main(logDir, cationDir, anionDir, substrateCSV, outputDir, densityStr , bltz
         logPaths = sorted([log for log in neutralLogs if substrate in log])
 
         neutralBoltzmannWeights = getBoltzmannWeightsGauss(logPaths, 298, bltzmannStr)
-        createCSV(neutralBoltzmannWeights ,outputDir + "/" + str(substrate) , "boltzmannWeights" )
+        neutralBoltzmannWeights.to_csv(output_path / f"boltzmannWeights_{substrate}.csv")
         logList = neutralBoltzmannWeights["logID"]
         boltzWeights = neutralBoltzmannWeights["boltzWeights"]
 
@@ -131,7 +133,8 @@ def main(logDir, cationDir, anionDir, substrateCSV, outputDir, densityStr , bltz
         dfMAST["f_neut"] = f_Neut
         with open(outputDir + "/" + str(substrate) + "/identification.dat", "w") as f:
             f.write(f"{substrate},{substrateSMILES}")
-        createCSV(dfMAST ,outputDir + "/" + str(substrate), substrate)
+        dfMAST.to_csv(output_path / f"fukuiFunctions_{substrate}.csv")
+
 
 if __name__ == "__main__":
     neutralDir = str(sys.argv[1])
