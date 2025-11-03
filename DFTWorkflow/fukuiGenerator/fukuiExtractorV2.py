@@ -131,7 +131,8 @@ def main(logDir, cationDir, anionDir, substrateCSV, outputDir, densityStr , bltz
         dfMAST["f_pos"] = f_Pos
         f_Neut = 0.5 * (dfMAST["f_pos"] + dfMAST["f_neg"])
         dfMAST["f_neut"] = f_Neut
-        with open(outputDir + "/" + str(substrate) + "/identification.dat", "w") as f:
+        output_file = Path(outputDir) / str(substrate) / "identification.dat"
+        with open(output_file, "w") as f:
             f.write(f"{substrate},{substrateSMILES}")
         dfMAST.to_csv(output_path / f"fukuiFunctions_{substrate}.csv")
 
