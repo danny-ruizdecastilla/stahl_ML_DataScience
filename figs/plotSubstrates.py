@@ -12,7 +12,7 @@ from figs.chemPlotlyV2 import createPNGDF,png64
 from figs.stericvselectroPCA import pcafeatureSplitter
 from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans , convertCanonical , featureFiltering
 from DFTWorkflow.featureMaping import  createCSV
-from dimensionalityReduction.tsNE_UMAP import generate_UMAP_tSNE
+from dimensionalityReduction.tSNE_UMAP import generate_UMAP_tSNE
 
 def safeStringHTML(unsafeString):
     display_name = html.escape(unsafeString)
