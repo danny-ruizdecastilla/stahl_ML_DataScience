@@ -264,6 +264,12 @@ def plotSubstratesMain(substrateData,chemistry ,  figDir , axisMotifs, eliminate
     axisDF , axisMotifs = pcafeatureSplitter(X , axisMotifs , 1 , outputDir)
     axisDF["canonicalSMILES"] = canonicalSMILES
     axisDF["SMILES"] = smileList
+    UMAP1 , UMAP2 ,tSNE1 , tSNE2 = generate_UMAP_tSNE(X)
+
+    axisDF["UMAP1"] = UMAP1
+    axisDF["UMAP2"] = UMAP2
+    axisDF["tSNE1"] = tSNE1
+    axisDF["tSNE2"] = tSNE2
     createCSV(axisDF , outputDir , "master_" + str(chemistry)+ "_Dataframe")
     masterDF = createPNGDF(axisDF ,"SMILES" , figDir)
     base64Col = []
@@ -273,12 +279,6 @@ def plotSubstratesMain(substrateData,chemistry ,  figDir , axisMotifs, eliminate
         base64Col.append(base64)
     masterDF["base64"] = base64Col
     masterDF = masterDF.drop(columns=['pngPath'])
-    UMAP1 , UMAP2 ,tSNE1 , tSNE2 = generate_UMAP_tSNE(X)
-
-    masterDF["UMAP1"] = UMAP1
-    masterDF["UMAP2"] = UMAP2
-    masterDF["tSNE1"] = tSNE1
-    masterDF["tSNE2"] = tSNE2
 
     htmlGenerator1(masterDF ,outputDir , chemistry )
     return masterDF 
