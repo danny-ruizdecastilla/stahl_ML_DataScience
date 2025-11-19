@@ -1,9 +1,8 @@
 import pandas as pd
-import os 
+#import os 
 import sys
 import glob
-import json
-import numpy as np
+#import json
 import time
 from pathlib import Path
 import cirpy
@@ -13,7 +12,6 @@ from rdkit import Chem
 parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
 from dimensionalityReduction.reactivityFeatures import boxGen
-from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 #Go from CAS to SMILES lists using beautifl soup 
 #takes in csv of CAS numbers
 #Danny Ruiz de Castilla | 11.10.2024
@@ -35,30 +33,45 @@ def testIsAlkene(smiles , alkCount):
                 c2 = bond.GetEndAtomIdx()
                 doubleCount +=1
         if doubleCount != alkCount:
-            return False , ["Error" , "Error"] , molec , smiles
+            return False , smiles
         else:
-            return True , [c1 , c2] , molec , smiles
+            return True ,  smiles
 
 
     except:
         #smiles string is wrong or corrupted or cant be kekulized 
-        return False , ["Fatal" , "Fatal"] , 0 , smiles
+        return False , smiles
 
-def getSMILES(casList):
+def getAlkeneSMILES(casList):
     casHash = {}
     for cas in casList:
         if "/" in cas:
             casParts = cas.split("/")
-            newCas = ""
-            for i in range(len(casParts)):
-                part = casParts[i]
-                if i == len(casParts)-1:
-                    newCas += str(part)
-                else:
-                    newCas += (str(part) + "_")
-                
-                               
+            newCas = "_".join(casParts[:-1]) + ("_" + casParts[-1])
+        else:
+            newCas = cas
+        smilesStr = cirpy.resolve(newCas , 'smiles')
+        if smilesStr == "None":
+            '''
+            smilesStr = pubChemScrapper(newCas)
+            isAlkene , smiles = testIsAlkene(smilesStr , 1)
+            if isAlkene:
+                casHash[cas] = [smiles]
+            else:
+                pass
+            '''
+            pass
+        else:
+            isAlkene , smiles = testIsAlkene(smilesStr , 1)
+            if isAlkene:
+                casHash[cas] = [smiles]
+            else:
+                pass
+    return casHash
+
 def main(chemistryFile):
+    chemPath = Path(chemistryFile)
+    chemName = str(chemPath.root.split(".")[0])
     dfMAST = pd.read_csv(chemistryFile)
     colList = list(dfMAST.columns)
     colBox = boxGen(colList)
@@ -66,14 +79,22 @@ def main(chemistryFile):
     casStr = colList[casInt]
     dfReduced = dfMAST[dfMAST[casStr].notna()]
     casListRaw = set(list(dfReduced[casStr]))
-    casHash = getSMILES(list(casListRaw))
-
-
-
-    
-
-    
+    smilesHash = getAlkeneSMILES(list(casListRaw))
+    alkeneCASNums = list(smilesHash.keys())
+    alkeneDF = pd.DataFrame()
+    for idx , row in dfReduced.iterrows():
+        casNumber = row[casStr]
+        if casNumber in alkeneCASNums:
+            rowDict = row.to_dict() 
+            rowDict["SMILES"] = str(smilesHash[casNumber])
+            dfRow = pd.DataFrame([rowDict])
+            alkeneDF = pd.concat([dfRow,alkeneDF] , ignore_index=True)
+        else:
+            continue
+    return alkeneDF , chemName
 
 if __name__ == "__main__":
-    chemistryDir = str(sys.argv[1])
-    main(chemistryDir)
+    chemistryFile = str(sys.argv[1])
+    outputDir = str(sys.argv[2])
+    alkeneDF , mainName = main(chemistryFile)
+    alkeneDF.to_csv(outputDir + f"/{mainName}_withSMILES.csv")
