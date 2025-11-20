@@ -10,7 +10,7 @@ import pandas as pd
 
 def openPlotlyTemplate():#for use when plotting correlation matrix's , variable typesettings based on length of features \
     template = go.layout.Template()
-    template.layout.font = dict(family="Arial", size=18, color="black")
+    template.layout.font = dict(family="Arial", size=8, color="black")
     template.layout.plot_bgcolor = "white"
     template.layout.xaxis.linewidth = 5
     template.layout.xaxis.linecolor = "black"
@@ -30,6 +30,9 @@ def diagonalChecker(matrix):
                 isDiagonal = False
     return isDiagonal 
 def correlationGenerator(corrDF, corrStr , savePath , template: str = None):
+    mask = np.triu(np.ones(corrDF.shape), k=1).astype(bool)
+    z_masked = corrDF.copy()
+    z_masked.values[mask] = None
     if template is None:
         plotTemplate = openPlotlyTemplate
     if savePath is None:
@@ -39,7 +42,7 @@ def correlationGenerator(corrDF, corrStr , savePath , template: str = None):
 
     fig = go.Figure(
         data=go.Heatmap(
-            z=corrDF.values,
+            z=z_masked.values,
             x=corrDF.columns,
             y=corrDF.columns,
             colorscale="RdBu", 
@@ -50,24 +53,36 @@ def correlationGenerator(corrDF, corrStr , savePath , template: str = None):
     annotations = []
     for i, row in enumerate(corrDF.values):
         for j, val in enumerate(row):
+            if i >= j:
+                font_color = "black" if abs(val) < 0.6 else "white"
+                text_val = str(round(val, 2))
+            else:
+                text_val = ""
+                font_color = "rgba(0,0,0,0)"  
+
             annotations.append(
                 dict(
                     x=corrDF.columns[j],
                     y=corrDF.index[i],
-                    text=str(round(val, 2)),
+                    text=text_val,
                     showarrow=False,
-                    font=dict(color="black" if abs(val) < 0.6 else "white") # contrast for readability
+                    font=dict(color=font_color)
                 )
             )
     
     fig.update_layout(
         title=f"{corrStr} Correlation Matrix",
-        xaxis=dict(tickangle=45),
-        yaxis=dict(autorange="reversed"),
+        xaxis=dict(
+            tickangle=45,
+            constrain="domain"
+        ),
+        yaxis=dict(
+            autorange="reversed"
+        ), 
         annotations=annotations
     )
-    if save_path:
-        fig.write_html(savePath)
+    if save_path: 
+        fig.write_html(savePath) 
         print(f"✅ Correlation matrix saved to {savePath}")
     
     return fig
