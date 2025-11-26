@@ -349,10 +349,10 @@ def networkGenerator(graphJSON, outputDir):
 def main(repoDir , scriptStrs , outputDir):
     trunkMAST = Path(repoDir).name
     tree , scriptsHash , scriptNames = gatherScripts(repoDir , scriptStrs) #gather code scripts in a hash table with directories 
-    print(scriptsHash)
+    #print(scriptsHash)
     edgeMAST = []
     treeColors = colorNodes(tree) #gives each level of the tree structure a color 
-    print(treeColors)
+    #print(treeColors)
     nodeMAST = []
     for key, val in scriptsHash.items():
         if len(val) != 0:
@@ -360,7 +360,7 @@ def main(repoDir , scriptStrs , outputDir):
             if mainFolder in list(treeColors.keys()):
                 color = treeColors[mainFolder]
                 for file in val:
-                    print(file)
+                    #print(file)
                     fileName = str(file.name.split(".")[0])
                     fileStr = str(file)
                     firstDir = str(Path(fileStr.split(trunkMAST)[1]).parts[1])
