@@ -176,14 +176,14 @@ def plot_cylinder_with_atoms(atoms, inside_atoms_dict, inner_radius, outer_radiu
     
     # Plot atoms inside (green)
     if inside_atoms_dict:
-        inside_coords = np.array(list(inside_atoms_dict.values()))
+        inside_coords = np.array(list(inside_atoms_dict.values()))        # scale
         inside_idx_list = list(inside_atoms_dict.keys())
         fig.add_trace(go.Scatter3d(
             x=inside_coords[:, 0],
             y=inside_coords[:, 1],
             z=inside_coords[:, 2],
             mode='markers',
-            marker=dict(size=5, color='green', opacity=0.9),
+            marker=dict(size=5,, radiu color='green', opacity=0.9),
             name='Inside',
             text=[f'Atom {i}' for i in inside_idx_list],
             hovertemplate='<b>%{text}</b><br>x: %{x:.2f}<br>y: %{y:.2f}<br>z: %{z:.2f}<extra></extra>'
@@ -221,7 +221,113 @@ def getBurriedDougnut(atomHash, innerR, outerR, h, center ):
             atomVol += vol
     percentBurriedVol = (atomVol/volDoughnut) * 100
     return percentBurriedVol
+class alkeneSemiCylinders:
+    def __init__(self, C1Hash, C2Hash,radius  ):
+        self.C1Idx = int(C1Hash["idx"])
+        self.C2Idx = int(C2Hash["idx"])
+        alkeneVec = C1Hash["0"] - C2Hash["0"]
+        self.alkeneVec = alkeneVec 
+        self.height = np.linalg.norm(C1Hash["0"] , C2Hash["0"]) #alkeneBondLength 
+        # vectors from carbons to neighbors
+        c1Contacts = C1Hash["1"]
+        c2Contacts = C2Hash["1"]
+        c1Vec1 = c1Contacts[0] - C1Hash["0"]
+        c1Vec2 = c1Contacts[1] - C1Hash["0"]
+        c2Vec1 = c2Contacts[0] - C2Hash["0"]
+        c2Vec2 = c2Contacts[1] - C2Hash["0"]
 
+        # plane normals
+        c1Orth = np.cross(c1Vec1, c1Vec2)
+        c2Orth = np.cross(c2Vec1, c2Vec2)
+
+        # normalize
+        c1Orth /= np.linalg.norm(c1Orth)
+        c2Orth /= np.linalg.norm(c2Orth)
+
+        # ALIGN DIRECTIONS
+        if np.dot(c1Orth, c2Orth) < 0:
+            c2Orth *= -1
+
+        # scale
+        c1OrthScaled = radius * c1Orth
+        c2OrthScaled = radius * c2Orth
+        center = [(float(a) + float(b)) * 0.5 for a, b in zip(list(C1Hash["0"]), list(C2Hash["0"]))]
+        self.centerPoint = center 
+        self.bisector = c1OrthScaled + c2OrthScaled
+        self.radius = radius
+
+    def getAtoms(self ,  atomHash):
+        atoms = []
+        idxList = []
+        symbolList = [] 
+        for _ , val in atomHash.items():
+            coords = [float(a) for a in val[2:5]]
+            idx = val[1]
+            if idx in [self.c1Idx,self.c2Idx]:
+                pass
+            else:
+                idxList.append(idx)
+                atoms.append(coords)
+                symbolList.append(val[0])
+        atoms = np.array(atoms)
+        cx, cy, cz = self.center
+        xList = atoms[:, 0] - cx
+        yList = atoms[:, 1] - cy
+        zList = atoms[:, 2] - cz
+
+        # Calculate radial distance from cylinder axis (z-axis)
+        r = np.sqrt(xList**2 + yList**2)
+
+        inside_mask = (r <= self.radius) & (zList >= 0) & (zList <= self.height)
+        acceptedAtoms = []
+        acceptedIdx = []
+        acceptedSymbols = []
+        for i in range (len(inside_mask)):
+            if inside_mask[i]:
+                acceptedAtoms.append(atoms[i])
+                acceptedIdx.append(idxList[i])
+                acceptedSymbols.append(symbolList[i])
+        self.acceptedAtoms = acceptedAtoms
+        self.acceptedIdx = acceptedIdx
+        self.acceptedSymbols = acceptedSymbols 
+
+    def getBurriedVolume(self, semiSpheres):
+        from rdkit import Chem
+        def getAtomsVol(symbolList):
+            atomVol = 0
+            pt = Chem.GetPeriodicTable()
+            for atom in symbolList:
+                atomRadii = pt.GetRvdw(pt.GetAtomicNumber(atom))
+                vol = (4/3) * np.pi * atomRadii**3
+                atomVol += vol
+            return atomVol
+        if semiSpheres:
+            tol = 1e-8
+            volCylinder = np.pi*self.radius**2*self.height
+            vol1 = 0
+            vol2 = 0 
+            atoms = list(self.acceptedSymbols)
+            atomCoords = list(self.acceptedAtoms)
+            planeNormal = np.cross(self.alkeneVec , self.bisector)
+            n = planeNormal / np.linalg.norm(planeNormal)
+            signedDist = np.dot(atomCoords - self.center, n)
+            pos_idx = np.where(signedDist > tol)[0]
+            neg_idx = np.where(signedDist < -tol)[0]
+            posAtoms = atoms[pos_idx]
+            posVol = getAtomsVol(posAtoms)
+            negAtoms = atoms[neg_idx]
+            negVol = getAtomsVol(negAtoms)
+            posBurried = (posVol/(volCylinder/2)) * 100
+            negBurried = (negVol/(volCylinder/2)) * 100
+            burriedSemis = [posBurried, negBurried]
+            return [np.max(burriedSemis) , np.min(burriedSemis)]
+        else:
+            atoms = list(self.acceptedSymbols)
+            atomVol = getAtomsVol(atoms)
+            volCylinder = np.pi*self.radius**2*self.height
+            percentBurriedVol = (atomVol/volCylinder) * 100 
+            self.BuriedCylinder = percentBurriedVol
+            return [percentBurriedVol]
 if __name__ == "__main__":
     # Define cylinder parameters
     inner_r = 2.0
