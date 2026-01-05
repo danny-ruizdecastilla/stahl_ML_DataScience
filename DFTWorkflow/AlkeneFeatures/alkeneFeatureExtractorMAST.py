@@ -17,6 +17,7 @@ parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
 from DFTWorkflow.cleanLogs import basicTerm
 from DFTWorkflow.ionComGenerator import locateinLog
+from DFTWorkflow.AlkeneFeatures.alkeneStericDougnut import getBurriedDougnut
 from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
 from dimensionalityReduction.reactivityFeatures import boxGen
 from breadthFirstSearch.radialBasedCorrelation import getCC
@@ -345,7 +346,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 fileStr = f"{name}.log"
                 conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
 
-                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5  , 2)
+                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5  , 1)
                 elements = []
                 coordinates = []
                 for _, coords in coordHash.items():
@@ -377,9 +378,37 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "2Ang_delta" :Vbur_2Ang_delta , "3Ang_delta" :Vbur_3Ang_delta ,
                             "3Ang_mean" :Vbur_3Ang_mean , "2Ang_mean" :Vbur_2Ang_mean }
             hashList.append(BurVolHash)
+        if "%VburDoughnut" in featureList:
+            doughnut_3 = []
+            doughnut_4 = []
+            for name in list(boltzmannDF["logID"]):
+                fileStr = f"{name}.log"
+                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+
+                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5  , 1)
+                idx = 0
+                for _ , coords in coordHash.items():
+                    idx +=1
+                    if idx == C1:
+                        c1_coords = coords[2:5]
+                    elif idx == C2:
+                        c2_coords = coords[2:5]
+                dist1 = np.linalg.norm(np.array(c1_coords , dtype=float) - np.array(c2_coords , dtype=float))
+                center = [(float(a) + float(b)) * 0.5 for a, b in zip(c1_coords, c2_coords)]
+
+                vburr_4 = getBurriedDougnut(coordHash, 1.70, 4.2, dist1, center )
+                doughnut_4.append(vburr_4)
+                vburr_3 = getBurriedDougnut(coordHash, 1.70, 3.2, dist1, center )
+                doughnut_3.append(vburr_3)
+            weights = boltzmannDF["boltzWeights"]
+            Vbur_Dough_3 = ( (vburr_3 * weights).sum()    / weights.sum()  )
+            Vbur_Dough_4= ( (vburr_4 * weights).sum()    / weights.sum()  )  
+            DoughnutHash = {"Vbur_Dough_3" :Vbur_Dough_3 , "Vbur_Dough_4" :Vbur_Dough_4 }
+            hashList.append(DoughnutHash)
+
         if "EvsZ" in featureList:
             conformer = conformerFiles[0]
-            coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5 , 2 )
+            coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5 , 1 )
             g = Graph()
             #print("CC" , CC)
             for bond in molec.GetBonds():
@@ -405,7 +434,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 fileStr = f"{name}.log"
                 conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
 
-                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5 , 2 )
+                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5 , 1 )
                 idx = 0
                 for _ , coords in coordHash.items():
                     idx += 1
@@ -448,7 +477,9 @@ def compartmentalization(logDir , outputDir , substrateFile):
         except:
             print("Try again, enter an integer")
     logPaths = Path(logDir)
-    logFiles = list(logPaths.glob('*.log'))  
+    logFiles = [
+        p for p in logPaths.glob('*.log')
+        if '.' not in p.stem]
     firstLog = logFiles[0] if logFiles else None 
     fileSplit = input(f"{str(firstLog)} Enter the string iteral that seperates the common name with the conf. type : ")
 
@@ -471,7 +502,7 @@ def compartmentalization(logDir , outputDir , substrateFile):
                 continue
     extractNum = input(f"Enter the number corresponding to which substructre you want to extract information from:\n [0] Alkenes\n")
     if int(extractNum) == 0:
-        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist." ]
+        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburDoughnut" ]
         localDescriptorsInput = boxGen(localStrs)
         featureList = listInputs(f"Enter the indexes corresponding to the features you would like to extract\n{localDescriptorsInput}")
         featuresMAST = {}
