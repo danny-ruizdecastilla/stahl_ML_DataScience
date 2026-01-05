@@ -2,27 +2,15 @@
 #Not really a doughnut
 import numpy as np
 import plotly.graph_objects as go
-
+import sys
+from pathlib import Path
+from rdkit import Chem
+parentDir = Path(__file__).resolve().parents[2]
+sys.path.append(str(parentDir))
+def vdw_radius(symbol):
+    pt = Chem.GetPeriodicTable()
+    return pt.GetRvdw(pt.GetAtomicNumber(symbol))
 def create_hollow_cylinder(inner_radius, outer_radius, height, resolution=50):
-    """
-    Create a 3D hollow cylinder (doughnut shape).
-    
-    Parameters:
-    -----------
-    inner_radius : float
-        Inner radius of the hollow cylinder
-    outer_radius : float
-        Outer radius of the hollow cylinder
-    height : float
-        Height of the cylinder
-    resolution : int
-        Number of points for mesh resolution (default: 50)
-    
-    Returns:
-    --------
-    dict containing the surfaces: outer_wall, inner_wall, top_ring, bottom_ring
-    """
-    
     if inner_radius >= outer_radius:
         raise ValueError("Inner radius must be smaller than outer radius")
     
@@ -65,28 +53,15 @@ def create_hollow_cylinder(inner_radius, outer_radius, height, resolution=50):
         'bottom_ring': (x_bottom, y_bottom, z_bottom)
     }
 
-def check_atoms_in_cylinder(atoms, inner_radius, outer_radius, height, center=(0, 0, 0)):
-    """
-    Check which atoms are inside the hollow cylinder and return them in a hash table.
-    
-    Parameters:
-    -----------
-    atoms : numpy array or list
-        Array of shape (N, 3) containing [x, y, z] coordinates of atoms
-    inner_radius : float
-        Inner radius of the hollow cylinder
-    outer_radius : float
-        Outer radius of the hollow cylinder
-    height : float
-        Height of the cylinder
-    center : tuple
-        Center coordinates (cx, cy, cz) of the cylinder base (default: (0, 0, 0))
-    
-    Returns:
-    --------
-    dict : Hash table with atom indices as keys and coordinates as values
-        Example: {0: [x, y, z], 5: [x, y, z], ...}
-    """
+def check_atoms_in_cylinder(atomHash, inner_radius, outer_radius, height, center):
+    #coordHash structure : {key : [atomName, atomInd, x,y,z]}
+    atoms = []
+    idxList = []
+    for _ , val in atomHash.items():
+        coords = [float(a) for a in val[2:5]]
+        idx = val[1]
+        idxList.append(idx)
+        atoms.append(coords)
     atoms = np.array(atoms)
     
     if atoms.ndim != 2 or atoms.shape[1] != 3:
@@ -94,27 +69,23 @@ def check_atoms_in_cylinder(atoms, inner_radius, outer_radius, height, center=(0
     
     cx, cy, cz = center
     
-    # Translate atoms relative to cylinder center
-    x = atoms[:, 0] - cx
-    y = atoms[:, 1] - cy
-    z = atoms[:, 2] - cz
+    xList = atoms[:, 0] - cx
+    yList = atoms[:, 1] - cy
+    zList = atoms[:, 2] - cz
     
     # Calculate radial distance from cylinder axis (z-axis)
-    r = np.sqrt(x**2 + y**2)
-    
-    # Check conditions for being inside the hollow cylinder:
-    # 1. Radial distance between inner and outer radius
-    # 2. Height between 0 and cylinder height
-    inside_mask = (r >= inner_radius) & (r <= outer_radius) & (z >= 0) & (z <= height)
-    
-    # Create hash table with indices of atoms inside
-    inside_atoms = {}
+    r = np.sqrt(xList**2 + yList**2)
+
+    inside_mask = (r >= inner_radius) & (r <= outer_radius) & (zList >= 0) & (zList <= height)
+    print("mask" , inside_mask)
+    insideID = []
     inside_indices = np.where(inside_mask)[0]
     
-    for idx in inside_indices:
-        inside_atoms[int(idx)] = atoms[idx].tolist()
+    for i in inside_indices:
+        atomID = idxList[i]
+        insideID.append(atomID)
     
-    return inside_atoms
+    return insideID
 
 def get_atoms_summary(inside_atoms_dict, atoms):
     """
@@ -132,7 +103,7 @@ def get_atoms_summary(inside_atoms_dict, atoms):
     return inside, outside
 
 def plot_cylinder_with_atoms(atoms, inside_atoms_dict, inner_radius, outer_radius, 
-                             height, center=(0, 0, 0), resolution=50):
+                             height, center, resolution=50):
     surfaces = create_hollow_cylinder(inner_radius, outer_radius, height, resolution)
     
     # Translate surfaces to cylinder center
@@ -235,7 +206,22 @@ def plot_cylinder_with_atoms(atoms, inside_atoms_dict, inner_radius, outer_radiu
     
     fig.show()
 
-def getBurriedVolume():
+def getBurriedDougnut(atomHash, innerR, outerR, h, center ):
+    cylinderHash = create_hollow_cylinder(innerR, outerR, h, resolution=50)
+    insideList = check_atoms_in_cylinder(atomHash, innerR, outerR, h, center)
+    print("insiderList" , insideList)
+    volDoughnut = np.pi*outerR**2*h - np.pi*innerR**2*h
+    print("volDoughnut" , volDoughnut)
+    atomVol = 0
+    for _ , atoms in atomHash.items():
+        atomID = str(atoms[0])
+        if atomID in insideList:
+            atomRadii = vdw_radius(atomID)
+            vol = (4/3) * np.pi * atomRadii**3
+            atomVol += vol
+    percentBurriedVol = (atomVol/volDoughnut) * 100
+    return percentBurriedVol
+
 if __name__ == "__main__":
     # Define cylinder parameters
     inner_r = 2.0
