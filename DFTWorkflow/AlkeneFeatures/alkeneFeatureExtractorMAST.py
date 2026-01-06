@@ -17,7 +17,7 @@ parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
 from DFTWorkflow.cleanLogs import basicTerm
 from DFTWorkflow.ionComGenerator import locateinLog
-from DFTWorkflow.AlkeneFeatures.alkeneStericDougnut import getBurriedDougnut
+from DFTWorkflow.AlkeneFeatures.alkeneStericDougnut import alkeneSemiCylinders
 from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
 from dimensionalityReduction.reactivityFeatures import boxGen
 from breadthFirstSearch.radialBasedCorrelation import getCC
@@ -378,10 +378,23 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "2Ang_delta" :Vbur_2Ang_delta , "3Ang_delta" :Vbur_3Ang_delta ,
                             "3Ang_mean" :Vbur_3Ang_mean , "2Ang_mean" :Vbur_2Ang_mean }
             hashList.append(BurVolHash)
-        if "%VburDoughnut" in featureList:
-            doughnut_3 = []
-            doughnut_4 = []
+        if "%VburSemiCylinders" in featureList:
+            radList = [3, 4, 5]
+
+            maxSemiHash = {r: [] for r in radList}
+            minSemiHash = {r: [] for r in radList}
+            g = Graph()
+            for bond in molec.GetBonds():
+                start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+                g.add_edge(start, end)
+            CminNeighbors = list(g.neighbors(int(C1-1)))
+            CminNeighbors.remove(int(C2-1))
+            CmaxNeighbors = list(g.neighbors(int(C2-1)))
+            CmaxNeighbors.remove(int(C1-1))
+            #C1Hash = {"0" : [x,y,z] , "1" : [[x,y,z] , [x,y,z]]  , "idx" : idx}
             for name in list(boltzmannDF["logID"]):
+                CmaxContacts = np.array()
+                CminContacts = np.array()
                 fileStr = f"{name}.log"
                 conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
 
@@ -390,21 +403,42 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 for _ , coords in coordHash.items():
                     idx +=1
                     if idx == C1:
-                        c1_coords = coords[2:5]
+                        c1_coords = np.array(coords[2:5])
+                        c1Idx = idx
                     elif idx == C2:
                         c2_coords = coords[2:5]
-                dist1 = np.linalg.norm(np.array(c1_coords , dtype=float) - np.array(c2_coords , dtype=float))
-                center = [(float(a) + float(b)) * 0.5 for a, b in zip(c1_coords, c2_coords)]
+                        c2Idx = idx 
+                    elif (idx-1) in CminNeighbors:
+                        crds = np.array(coords[2:5])
+                        CminContacts.append(crds) 
+                    elif (idx-1) in CmaxNeighbors:
+                        crds = np.array(coords[2:5])
+                        CmaxContacts.append(crds) 
+                C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
+                C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
+                
+                for rad in radList:
+                    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad)
+                    mainCylinder.getAtoms(coordHash)
+                    maxSemi , minSemi = mainCylinder.getBurriedVolume(True)
+                    maxSemiHash[rad].append(maxSemi)
+                    minSemiHash[rad].append(minSemi)
+                    
 
-                vburr_4 = getBurriedDougnut(coordHash, 1.70, 4.2, dist1, center )
-                doughnut_4.append(vburr_4)
-                vburr_3 = getBurriedDougnut(coordHash, 1.70, 3.2, dist1, center )
-                doughnut_3.append(vburr_3)
             weights = boltzmannDF["boltzWeights"]
-            Vbur_Dough_3 = ( (vburr_3 * weights).sum()    / weights.sum()  )
-            Vbur_Dough_4= ( (vburr_4 * weights).sum()    / weights.sum()  )  
-            DoughnutHash = {"Vbur_Dough_3" :Vbur_Dough_3 , "Vbur_Dough_4" :Vbur_Dough_4 }
-            hashList.append(DoughnutHash)
+            weight_sum = weights.sum()
+
+            Vbur_MaxSemi = {
+                r: (maxSemiHash[r] * weights).sum() / weight_sum
+                for r in radList
+            }
+            Vbur_MinSemi = {
+                r: (minSemiHash[r] * weights).sum() / weight_sum
+                for r in radList
+            }
+            Vburr_SemiCircles = {"Vbur_MaxSemi_3" :Vbur_MaxSemi[3] ,"Vbur_MaxSemi_4" :Vbur_MaxSemi[4] , "Vbur_MaxSemi_5" :Vbur_MaxSemi[5] , 
+                                 "Vbur_MinSemi_3" :Vbur_MinSemi[3] ,"Vbur_MinSemi_4" :Vbur_MinSemi[4] , "Vbur_MinSemi_5" :Vbur_MinSemi[5]}
+            hashList.append(Vburr_SemiCircles)
 
         if "EvsZ" in featureList:
             conformer = conformerFiles[0]
@@ -502,7 +536,7 @@ def compartmentalization(logDir , outputDir , substrateFile):
                 continue
     extractNum = input(f"Enter the number corresponding to which substructre you want to extract information from:\n [0] Alkenes\n")
     if int(extractNum) == 0:
-        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburDoughnut" ]
+        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburSemiCylinders" ]
         localDescriptorsInput = boxGen(localStrs)
         featureList = listInputs(f"Enter the indexes corresponding to the features you would like to extract\n{localDescriptorsInput}")
         featuresMAST = {}
