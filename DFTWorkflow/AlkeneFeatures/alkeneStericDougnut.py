@@ -303,24 +303,29 @@ class alkeneSemiCylinders:
             return atomVol
         if semiSpheres:
             tol = 1e-8
-            volCylinder = np.pi*self.radius**2*self.height
-            vol1 = 0
-            vol2 = 0 
-            atoms = list(self.acceptedSymbols)
-            atomCoords = list(self.acceptedAtoms)
-            planeNormal = np.cross(self.alkeneVec , self.bisector)
+            volCylinder = np.pi * self.radius**2 * self.height
+
+            atoms = np.asarray(self.acceptedSymbols)
+            atomCoords = np.asarray(self.acceptedAtoms)
+
+            planeNormal = np.cross(self.alkeneVec, self.bisector)
             n = planeNormal / np.linalg.norm(planeNormal)
+
             signedDist = np.dot(atomCoords - self.center, n)
+
             pos_idx = np.where(signedDist > tol)[0]
             neg_idx = np.where(signedDist < -tol)[0]
+
             posAtoms = atoms[pos_idx]
-            posVol = getAtomsVol(posAtoms)
             negAtoms = atoms[neg_idx]
+
+            posVol = getAtomsVol(posAtoms)
             negVol = getAtomsVol(negAtoms)
-            posBurried = (posVol/(volCylinder/2)) * 100
-            negBurried = (negVol/(volCylinder/2)) * 100
-            burriedSemis = [posBurried, negBurried]
-            return [np.max(burriedSemis) , np.min(burriedSemis)]
+
+            posBuried = (posVol / (volCylinder / 2)) * 100
+            negBuried = (negVol / (volCylinder / 2)) * 100
+
+            return [max(posBuried, negBuried), min(posBuried, negBuried)]
         else:
             atoms = list(self.acceptedSymbols)
             atomVol = getAtomsVol(atoms)
