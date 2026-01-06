@@ -183,7 +183,7 @@ def plot_cylinder_with_atoms(atoms, inside_atoms_dict, inner_radius, outer_radiu
             y=inside_coords[:, 1],
             z=inside_coords[:, 2],
             mode='markers',
-            marker=dict(size=5,, radiu color='green', opacity=0.9),
+            marker=dict(size=5, color='green', opacity=0.9),
             name='Inside',
             text=[f'Atom {i}' for i in inside_idx_list],
             hovertemplate='<b>%{text}</b><br>x: %{x:.2f}<br>y: %{y:.2f}<br>z: %{z:.2f}<extra></extra>'
@@ -292,6 +292,8 @@ class alkeneSemiCylinders:
         self.acceptedSymbols = acceptedSymbols 
 
     def getBurriedVolume(self, semiSpheres):
+        if not hasattr(self, "acceptedAtoms"):
+            raise RuntimeError("getAtoms() must be called before getBurriedVolume()")
         from rdkit import Chem
         def getAtomsVol(symbolList):
             atomVol = 0
