@@ -199,6 +199,7 @@ def getAtomCoordsRobust(logFile , xyzStr , commaSplit:int , locationIdx  ):
         masterList = masterStr.split("\\")
         for i ,  phrase in enumerate(masterList):
             atomStr = phrase.split(",")
+            atomStr[2:5] = map(float, atomStr[2:5])
             #print(atomStr)
             if len(atomStr) == commaSplit:
                 atomCoords[i] = atomStr[:commaSplit]
@@ -393,8 +394,8 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             CmaxNeighbors.remove(int(C1-1))
             #C1Hash = {"0" : [x,y,z] , "1" : [[x,y,z] , [x,y,z]]  , "idx" : idx}
             for name in list(boltzmannDF["logID"]):
-                CmaxContacts = np.array()
-                CminContacts = np.array()
+                CmaxContacts = []
+                CminContacts = []
                 fileStr = f"{name}.log"
                 conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
 

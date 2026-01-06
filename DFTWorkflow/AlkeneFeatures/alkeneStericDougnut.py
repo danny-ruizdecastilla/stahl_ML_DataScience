@@ -225,9 +225,10 @@ class alkeneSemiCylinders:
     def __init__(self, C1Hash, C2Hash,radius  ):
         self.C1Idx = int(C1Hash["idx"])
         self.C2Idx = int(C2Hash["idx"])
+        #print("228" , C1Hash["0"])
         alkeneVec = C1Hash["0"] - C2Hash["0"]
         self.alkeneVec = alkeneVec 
-        self.height = np.linalg.norm(C1Hash["0"] , C2Hash["0"]) #alkeneBondLength 
+        self.height = np.linalg.norm(C1Hash["0"] - C2Hash["0"])#alkeneBondLength 
         # vectors from carbons to neighbors
         c1Contacts = C1Hash["1"]
         c2Contacts = C2Hash["1"]
@@ -263,14 +264,14 @@ class alkeneSemiCylinders:
         for _ , val in atomHash.items():
             coords = [float(a) for a in val[2:5]]
             idx = val[1]
-            if idx in [self.c1Idx,self.c2Idx]:
+            if idx in [self.C1Idx,self.C2Idx]:
                 pass
             else:
                 idxList.append(idx)
                 atoms.append(coords)
                 symbolList.append(val[0])
         atoms = np.array(atoms)
-        cx, cy, cz = self.center
+        cx, cy, cz = self.centerPoint
         xList = atoms[:, 0] - cx
         yList = atoms[:, 1] - cy
         zList = atoms[:, 2] - cz
@@ -278,7 +279,7 @@ class alkeneSemiCylinders:
         # Calculate radial distance from cylinder axis (z-axis)
         r = np.sqrt(xList**2 + yList**2)
 
-        inside_mask = (r <= self.radius) & (zList >= 0) & (zList <= self.height)
+        inside_mask = (r <= self.radius)  & (zList <= self.height)
         acceptedAtoms = []
         acceptedIdx = []
         acceptedSymbols = []
@@ -313,7 +314,7 @@ class alkeneSemiCylinders:
             planeNormal = np.cross(self.alkeneVec, self.bisector)
             n = planeNormal / np.linalg.norm(planeNormal)
 
-            signedDist = np.dot(atomCoords - self.center, n)
+            signedDist = np.dot(atomCoords - self.centerPoint, n)
 
             pos_idx = np.where(signedDist > tol)[0]
             neg_idx = np.where(signedDist < -tol)[0]
