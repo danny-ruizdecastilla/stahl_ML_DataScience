@@ -338,48 +338,67 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "f_neg_Delta" : abs(f_minus_Mx - f_minus_Mn) , "f_pos_Delta" : abs(f_plus_Mx-f_plus_Mn) , "f_neut_Delta" : abs(f_neut_Mx-f_neut_Mn) ,
                             "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
-            radList = [2,3,4]
-            Vbur_Cmn_2 = []
-            Vbur_Cmn_3 = []
-            Vbur_Cmx_2 = []
-            Vbur_Cmx_3 = []
-            
-            for name in list(boltzmannDF["logID"]):
-                fileStr = f"{name}.log"
-                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
 
-                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5  , 1)
+            radList = [2.0, 2.5, 3.0, 3.5]
+            weights = boltzmannDF["boltzWeights"].to_numpy()
+            weight_sum = weights.sum()
+
+            # Storage
+            Vbur_Cmin = {r: [] for r in radList}
+            Vbur_Cmax = {r: [] for r in radList}
+
+            for name in boltzmannDF["logID"]:
+                fileStr = f"{name}.log"
+                conformer = next(
+                    (f for f in conformerFiles if fileStr in f.name),
+                    None
+                )
+                if conformer is None:
+                    continue
+
+                coordHash = getAtomCoordsRobust(
+                    str(conformer),
+                    "GINC-COMPUTE",
+                    5,
+                    1
+                )
                 elements = []
                 coordinates = []
                 for _, coords in coordHash.items():
                     elements.append(str(coords[0]))
                     coordinates.append(np.array(coords[2:5]))
-                coordinates = np.array(coordinates, dtype=float)
-                vburC1_2 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=2.0).fraction_buried_volume
-                vburC1_3 = BuriedVolume(elements, coordinates, int(C1-1), include_hs=True, radius=3.5).fraction_buried_volume
-                vburC2_2 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=2.0).fraction_buried_volume
-                vburC2_3 = BuriedVolume(elements, coordinates, int(C2-1), include_hs=True, radius=3.5).fraction_buried_volume
 
-                Vbur_Cmn_2.append(vburC1_2)
-                Vbur_Cmx_2.append(vburC2_2)
-                Vbur_Cmn_3.append(vburC1_3)
-                Vbur_Cmx_3.append(vburC2_3)
+                for rad in radList:
+                    vburC1 = BuriedVolume(
+                        elements,
+                        coordinates,
+                        int(C1 - 1),
+                        include_hs=True,
+                        radius=rad
+                    ).fraction_buried_volume
 
-            weights = boltzmannDF["boltzWeights"]
-            Vbur_Cmx_2Ang = ( (Vbur_Cmx_2 * weights).sum()    / weights.sum()  )
-            Vbur_Cmn_2Ang= ( (Vbur_Cmn_2 * weights).sum()    / weights.sum()  )    
-            Vbur_Cmx_3Ang = ( (Vbur_Cmx_3 * weights).sum()    / weights.sum()  )
-            Vbur_Cmn_3Ang= ( (Vbur_Cmn_3 * weights).sum()    / weights.sum()  )               
+                    vburC2 = BuriedVolume(
+                        elements,
+                        coordinates,
+                        int(C2 - 1),
+                        include_hs=True,
+                        radius=rad
+                    ).fraction_buried_volume
 
-            Vbur_2Ang_delta = abs(Vbur_Cmx_2Ang - Vbur_Cmn_2Ang)
-            Vbur_3Ang_delta = abs(Vbur_Cmx_3Ang - Vbur_Cmn_3Ang)
-            Vbur_2Ang_mean =  np.mean([Vbur_Cmx_2Ang, Vbur_Cmn_2Ang])
-            Vbur_3Ang_mean = np.mean([Vbur_Cmx_3Ang, Vbur_Cmn_3Ang])
-            BurVolHash = {"2Ang_Cmx" :Vbur_Cmx_2Ang , "2Ang_Cmn" :Vbur_Cmn_2Ang ,
-                            "3Ang_Cmx" :Vbur_Cmx_3Ang , "3Ang_Cmn" :Vbur_Cmn_3Ang ,
-                            "2Ang_delta" :Vbur_2Ang_delta , "3Ang_delta" :Vbur_3Ang_delta ,
-                            "3Ang_mean" :Vbur_3Ang_mean , "2Ang_mean" :Vbur_2Ang_mean }
+                    Vbur_Cmin[rad].append(vburC1)
+                    Vbur_Cmax[rad].append(vburC2)
+
+            # Boltzmann-weighted averages
+            BurVolHash = {}
+            for rad in radList:
+                Vbur_Cmin_arr = np.array(Vbur_Cmin[rad])
+                Vbur_Cmax_arr = np.array(Vbur_Cmax[rad])
+
+                BurVolHash[f"{rad}_Ang_Cmn"] = (Vbur_Cmin_arr * weights).sum() / weight_sum
+                BurVolHash[f"{rad}_Ang_Cmx"] = (Vbur_Cmax_arr * weights).sum() / weight_sum
+
             hashList.append(BurVolHash)
+
         if "%VburSemiCylinders" in featureList:
             radList = [3, 4, 5]
 
