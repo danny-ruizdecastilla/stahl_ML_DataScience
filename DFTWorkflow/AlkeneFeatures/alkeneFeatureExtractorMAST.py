@@ -396,7 +396,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 Vburr_Cmin = (Vbur_Cmin_arr * weights).sum() / weight_sum
                 Vburr_Cmax = (Vbur_Cmax_arr * weights).sum() / weight_sum
                 Vburr_mean = (Vburr_Cmin + Vburr_Cmax)/2
-                Vbur_delta = abs(Vburr_Cmin - Vburr_Cmax)
+                Vburr_delta = abs(Vburr_Cmin - Vburr_Cmax)
                 BurVolHash[f"{rad}_Ang_Vburr_Cmn"] = Vburr_Cmin
                 BurVolHash[f"{rad}_Ang_Vburr_Cmx"] = Vburr_Cmax
                 BurVolHash[f"{rad}_Ang_Vburr_mean"] = Vburr_mean
@@ -449,7 +449,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     mainCylinder.getAtoms(coordHash)
                     maxSemi , minSemi = mainCylinder.getBurriedVolume(True)
                     Cburr = mainCylinder.getBurriedVolume(False)
-                    CburrHash[rad].append(Cburr)
+                    CburrHash[rad].append(Cburr[0])
                     maxSemiHash[rad].append(maxSemi)
                     minSemiHash[rad].append(minSemi)
                     
