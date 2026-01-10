@@ -17,7 +17,7 @@ from DFTWorkflow.pitchingATent import featureFiltering
 class CustomError(Exception):
     pass
 
-def stratifiedRegressionSplit(y, n_splits=5, n_bins=10):
+def stratifiedRegressionSplit(y, j , n_splits=5, n_bins=10 ):
     y_ser = pd.Series(y).reset_index(drop=True)
     try:
         yBinned = pd.qcut(y_ser, q=n_bins, labels=False, duplicates='drop')
@@ -28,12 +28,12 @@ def stratifiedRegressionSplit(y, n_splits=5, n_bins=10):
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=j)
     return skf.split(range(len(y_ser)), yBinned)
 
-def stratifiedRegressionCV(X, y, model, n_splits=5):
+def stratifiedRegressionCV(X, y, j , model, n_splits=5 ):
     is_df = isinstance(X, pd.DataFrame)
     X_arr = X.values if is_df else np.asarray(X)
     y_arr = np.asarray(y)
 
-    fold_generator = stratifiedRegressionSplit(y_arr, n_splits=n_splits)
+    fold_generator = stratifiedRegressionSplit(y_arr, j , n_splits=n_splits )
 
     mse_scores = []
     r2_scores = []
@@ -53,7 +53,7 @@ def stratifiedRegressionCV(X, y, model, n_splits=5):
 
     return mse_scores, r2_scores
 
-def randomForestRegression(X, y, hyperParmFile, outputDir):
+def randomForestRegression(X, y, hyperParmFile, outputDir , j ):
     # keep DataFrame so we can get column names for feature importances
     X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.2, random_state=j)
 
@@ -77,7 +77,7 @@ def randomForestRegression(X, y, hyperParmFile, outputDir):
         rfMAST = RandomForestRegressor(**gridSearch.best_params_, random_state=j)
         rfFinal = RandomForestRegressor(**gridSearch.best_params_, random_state=j)
 
-    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, rfMAST, n_splits=5)
+    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV,  j , rfMAST, n_splits=5)
 
     cvFile = Path(outputDir) / "randomForest" / "crossvalidation" / "scores.dat"
     cvFile.parent.mkdir(parents=True, exist_ok=True)
@@ -282,7 +282,7 @@ if __name__ == "__main__":
             newOutputDir = Path(mainOutputDir) / f"trial{j}"
             newOutputDir.mkdir(parents=True, exist_ok=True)
             gradientBoostRegression(Xdataframe, y, hyperFileGB, newOutputDir)
-            randomForestRegression(Xdataframe, y, hyperFileRF, newOutputDir)
+            randomForestRegression(Xdataframe, y, hyperFileRF, newOutputDir , j )
             supportVectorRegression("rbf", Xdataframe, y, hyperFileSVM, newOutputDir)
             j +=1
 
