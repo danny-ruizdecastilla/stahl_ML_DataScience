@@ -17,6 +17,7 @@ sys.path.append(str(parentDir))
 from dimensionalityReduction.reactivityFeatures import boxGen
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 from ml_Regression.ML_RegressionV2 import GridSearchCV , stratifiedRegressionCV
+from DFTWorkflow.pitchingATent import featureFiltering
 def canonical_smiles(smiles):
     try:
         mol = Chem.MolFromSmiles(smiles)
@@ -25,33 +26,30 @@ def canonical_smiles(smiles):
         return Chem.MolToSmiles(mol, canonical=True)
     except Exception:
         return None
-def rFR_2Source(X, y, hyperParmFile, outputDir):
+def rFR_2Source(X_trainDF, y_trainDF,X_testDF, yStr , hyperParmFile, outputDir):
     import json 
-
-    # keep DataFrame so we can get column names for feature importances
-    X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.2, random_state=j)
 
     if hyperParmFile.exists():
         with open(hyperParmFile, "r") as f:
             savedParms = json.load(f)
         best_params = savedParms["best_params"]
-        rfMAST = RandomForestRegressor(**best_params, random_state=j)
-        rfFinal = RandomForestRegressor(**best_params, random_state=j)
+        rfMAST = RandomForestRegressor(**best_params, random_state=1)
+        rfFinal = RandomForestRegressor(**best_params, random_state=1)
     else:
         rfGrid = {
             'n_estimators': [100, 200, 300],
             'max_depth': [2, 4, 8, None],
             'max_features': ['sqrt', 0.5, None]
         }
-        rf = RandomForestRegressor(random_state=j)
+        rf = RandomForestRegressor(random_state=1)
         gridSearch = GridSearchCV(rf, rfGrid, cv=5, scoring="neg_mean_squared_error", n_jobs=-1)
-        gridSearch.fit(X_train_CV, y_train_CV)
+        gridSearch.fit(X_trainDF, y_trainDF)
         with open(hyperParmFile, "w") as f:
             json.dump({"best_score": gridSearch.best_score_, "best_params": gridSearch.best_params_}, f, indent=4)
-        rfMAST = RandomForestRegressor(**gridSearch.best_params_, random_state=j)
-        rfFinal = RandomForestRegressor(**gridSearch.best_params_, random_state=j)
+        rfMAST = RandomForestRegressor(**gridSearch.best_params_, random_state=1)
+        rfFinal = RandomForestRegressor(**gridSearch.best_params_, random_state=2)
 
-    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, rfMAST, n_splits=5)
+    mseCV, r2CV = stratifiedRegressionCV(X_trainDF, y_trainDF, rfMAST, n_splits=5)
 
     cvFile = Path(outputDir) / "randomForest" / "crossvalidation" / "scores.dat"
     cvFile.parent.mkdir(parents=True, exist_ok=True)
@@ -59,34 +57,32 @@ def rFR_2Source(X, y, hyperParmFile, outputDir):
         for i in range(len(mseCV)):
             f.write(f"Fold {i} Results: mse {mseCV[i]} | r2 {r2CV[i]}\n")
 
-    rfFinal.fit(X_train_CV, y_train_CV)
-    yTrain = rfFinal.predict(X_train_CV)
-    yPred = rfFinal.predict(X_test)
+    rfFinal.fit(X_trainDF, y_trainDF)
+    yTrain = rfFinal.predict(X_trainDF)
+    yPred = rfFinal.predict(X_testDF)
 
-    rmseTest = float(np.sqrt(mean_squared_error(y_test, yPred)))
-    r2Test = float(r2_score(y_test, yPred))
-
-    rmseTrain = float(np.sqrt(mean_squared_error(y_train_CV , yTrain)))
-    r2Train = float(r2_score(y_train_CV , yTrain))
+    rmseTrain = float(np.sqrt(mean_squared_error(y_trainDF , yTrain)))
+    r2Train = float(r2_score(y_trainDF , yTrain))
 
     testFile = Path(outputDir) / "randomForest" / "Eval" / "testScores.dat"
     testFile.parent.mkdir(parents=True, exist_ok=True)
-    with open(testFile, "w") as f:
-        f.write(f"Test Results: rmse {rmseTest} | r2 {r2Test}\n")
+
 
     trainFile = Path(outputDir) / "randomForest" / "Eval" / "trainScores.dat"
     with open(trainFile, "w") as f:
         f.write(f"Train Results: rmse {rmseTrain} | r2 {r2Train}\n")
 
     importances = rfFinal.feature_importances_
-    if isinstance(X_train_CV, pd.DataFrame):
-        feature_names = X_train_CV.columns
+    if isinstance(X_trainDF, pd.DataFrame):
+        feature_names = X_trainDF.columns
     else:
         feature_names = [f"f{i}" for i in range(importances.shape[0])]
     featDF = pd.DataFrame({"feature": feature_names, "importance": importances}).sort_values(by="importance", ascending=False)
     featFile = Path(outputDir) / "randomForest" / "Eval" / "testWeights.csv"
     featDF.to_csv(featFile, index=False)
-def main(training , testing , outputDir  , regressionType ):
+    X_testDF[yStr] = yPred
+    return X_testDF
+def main(training , testing , outputDir  , regressionType , featureStr ):
     trainingDF = pd.read_csv(training, encoding="utf-8" )
     testingDF = pd.read_csv(testing, encoding="utf-8")
     trainingCols = list(trainingDF.columns)
@@ -97,18 +93,36 @@ def main(training , testing , outputDir  , regressionType ):
     smilesIdxTraining = int(input(f"Enter the index of the smiles column:\n {trainingBox}\n"))
     smilesIdxTesting =  int(input(f"Enter the index of the smiles column:\n {testingBox}\n"))
 
+    yIdxTraining = int(input(f"Enter the index of the Y column:\n {trainingBox}\n"))
+
+    trainingYStr = trainingCols[yIdxTraining]
+    yTraining = list(trainingDF[trainingYStr])
+
     trainingDF["canonical_smiles"] = [canonical_smiles(smi) for smi in trainingDF[trainingCols[smilesIdxTraining]]]
     trainingCanonicalSet = set(trainingDF["canonical_smiles"])
 
     testingDF["canonical_smiles"] = [canonical_smiles(smi) for smi in testingDF[testingCols[smilesIdxTesting]]]
     testingDF = testingDF[~testingDF["canonical_smiles"].isin(trainingCanonicalSet)].reset_index(drop=True)
 
+    testingCanonicals = testingDF["canonical_smiles"]
     testingDF = testingDF.drop(columns=["canonical_smiles"])
-    trainingDF = trainingDF.drop(columns=["canonical_smiles"])
+    trainingDF = trainingDF.drop(columns=["canonical_smiles" , trainingYStr])
 
+    dropCols = listInputs(f"Enter a list of indexes for the columns you want to drop from the test and training data\n {trainingCols}")
+    dropColsStr = [trainingCols[int(i)] for i in dropCols]
+    trainingDF.drop(columns = dropColsStr)
+    testingDF.drop(columns = dropColsStr)
 
     if regressionType == "randomForrest":
-
+        X_training , feature_labels = featureFiltering(outputDir , trainingDF , feature_labels , featureStr)
+        newCols = set(X_training.columns)
+        testCols = set(testingDF.columns)
+        removeCols = list(testCols - newCols)
+        testingDF.drop(columns = removeCols)
+        hyperFileRF = Path(outputDir) / "randomForest" / "hyperParameter" / "params.dat"
+        reducedDimDF = rFR_2Source(X_training, yTraining , testingDF,  hyperFileRF, outputDir)
+        reducedDimDF["canonicalSMILES"] = testingCanonicals
+        return reducedDimDF
 if __name__ == "__main__":
     trainingCSV = str(sys.argv[1])
     testingCSV = str(sys.argv[2])
@@ -116,4 +130,7 @@ if __name__ == "__main__":
     if not os.path.exists(outputDir ): 
         os.makedirs(outputDir) 
     regressionStr = str(sys.argv[4])
-    main(trainingCSV , testingCSV , outputDir  , regressionStr )
+    featureType = str(sys.argv[5])
+    axisDF = main(trainingCSV , testingCSV , outputDir  , regressionStr , featureType) 
+    finalDir = Path(outputDir) / f"finalDF/{featureType}_ReducedDim.csv" 
+    axisDF.to_csv(finalDir )
