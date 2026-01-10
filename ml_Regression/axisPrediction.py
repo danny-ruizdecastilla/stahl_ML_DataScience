@@ -1,6 +1,6 @@
 #Predicts the rank positioning on a 1-d axis based on a feature matrix
-import torch
-import torch.nn as nn
+#import torch
+#import torch.nn as nn
 import os 
 import sys
 import glob
@@ -28,7 +28,7 @@ def canonical_smiles(smiles):
         return None
 def rFR_2Source(X_trainDF, y_trainDF,X_testDF, yStr , hyperParmFile, outputDir):
     import json 
-
+    X_testDF = X_testDF[X_trainDF.columns]
     if hyperParmFile.exists():
         with open(hyperParmFile, "r") as f:
             savedParms = json.load(f)
@@ -49,7 +49,7 @@ def rFR_2Source(X_trainDF, y_trainDF,X_testDF, yStr , hyperParmFile, outputDir):
         rfMAST = RandomForestRegressor(**gridSearch.best_params_, random_state=1)
         rfFinal = RandomForestRegressor(**gridSearch.best_params_, random_state=2)
 
-    mseCV, r2CV = stratifiedRegressionCV(X_trainDF, y_trainDF, rfMAST, n_splits=5)
+    mseCV, r2CV = stratifiedRegressionCV(X_trainDF, y_trainDF, 42 , rfMAST, n_splits=5 )
 
     cvFile = Path(outputDir) / "randomForest" / "crossvalidation" / "scores.dat"
     cvFile.parent.mkdir(parents=True, exist_ok=True)
@@ -108,19 +108,22 @@ def main(training , testing , outputDir  , regressionType , featureStr ):
     testingDF = testingDF.drop(columns=["canonical_smiles"])
     trainingDF = trainingDF.drop(columns=["canonical_smiles" , trainingYStr])
 
-    dropCols = listInputs(f"Enter a list of indexes for the columns you want to drop from the test and training data\n {trainingCols}")
+    dropCols = listInputs(f"Enter a list of indexes for the columns you want to drop from the test and training data\n {trainingBox}\n")
     dropColsStr = [trainingCols[int(i)] for i in dropCols]
-    trainingDF.drop(columns = dropColsStr)
-    testingDF.drop(columns = dropColsStr)
-
+    print(dropColsStr)
+    trainingDF = trainingDF.drop(columns = dropColsStr)
+    testingDF = testingDF.drop(columns = dropColsStr)
+    print(list(trainingDF.columns))
     if regressionType == "randomForrest":
-        X_training , feature_labels = featureFiltering(outputDir , trainingDF , feature_labels , featureStr)
+        X_training , feature_labels = featureFiltering(outputDir , trainingDF , list(trainingDF.columns), featureStr)
         newCols = set(X_training.columns)
         testCols = set(testingDF.columns)
         removeCols = list(testCols - newCols)
-        testingDF.drop(columns = removeCols)
+        testingDF = testingDF.drop(columns = removeCols)
         hyperFileRF = Path(outputDir) / "randomForest" / "hyperParameter" / "params.dat"
-        reducedDimDF = rFR_2Source(X_training, yTraining , testingDF,  hyperFileRF, outputDir)
+        if not os.path.exists(str(Path(outputDir) / "randomForest" / "hyperParameter")): 
+            os.makedirs(str(Path(outputDir) / "randomForest" / "hyperParameter") ) 
+        reducedDimDF = rFR_2Source(X_training, yTraining , testingDF, trainingYStr,  hyperFileRF, outputDir)
         reducedDimDF["canonicalSMILES"] = testingCanonicals
         return reducedDimDF
 if __name__ == "__main__":
@@ -132,5 +135,8 @@ if __name__ == "__main__":
     regressionStr = str(sys.argv[4])
     featureType = str(sys.argv[5])
     axisDF = main(trainingCSV , testingCSV , outputDir  , regressionStr , featureType) 
-    finalDir = Path(outputDir) / f"finalDF/{featureType}_ReducedDim.csv" 
-    axisDF.to_csv(finalDir )
+    finalDir = Path(outputDir) / "finalDF"
+    finalDir.mkdir(parents=True, exist_ok=True)
+    finalFile = finalDir / f"{featureType}_ReducedDim.csv"
+
+    axisDF.to_csv(finalFile, index=False)
