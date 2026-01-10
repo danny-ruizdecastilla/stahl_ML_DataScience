@@ -223,7 +223,7 @@ def extractEnergies(logFile , linkStr, energyStr):
     secondIdx = locateinLog(logFile , logName + f"{linkStr}" , "latest" )
     with open(logFile, 'r') as f:
         for i, line in enumerate(f):
-            if firstIdx <= i < secondIdx and energyType in line:
+            if int(firstIdx) <= i < secondIdx and energyType in line:
                 energyLevel = float(line.strip().split("=")[-1].split("A.U.")[0].strip())
                 return energyLevel
         return "Poison"
@@ -270,6 +270,7 @@ def hCount(molec, wildCards):
 def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
+        print(id,smilesStr)
         hashList = []
         cc , molec = getCC(smilesStr)
         conformerFiles = substratesHash[id]
@@ -418,6 +419,8 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             CminNeighbors.remove(int(C2-1))
             CmaxNeighbors = list(g.neighbors(int(C2-1)))
             CmaxNeighbors.remove(int(C1-1))
+            #print(CmaxNeighbors)
+            #print(CminNeighbors)
             #C1Hash = {"0" : [x,y,z] , "1" : [[x,y,z] , [x,y,z]]  , "idx" : idx}
             for name in list(boltzmannDF["logID"]):
                 CmaxContacts = []
@@ -435,10 +438,10 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     elif idx == C2:
                         c2_coords = coords[2:5]
                         c2Idx = idx 
-                    elif (idx-1) in CminNeighbors:
+                    if (idx-1) in CminNeighbors:
                         crds = np.array(coords[2:5])
                         CminContacts.append(crds) 
-                    elif (idx-1) in CmaxNeighbors:
+                    if (idx-1) in CmaxNeighbors:
                         crds = np.array(coords[2:5])
                         CmaxContacts.append(crds) 
                 C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
