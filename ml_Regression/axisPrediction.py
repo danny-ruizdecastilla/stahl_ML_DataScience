@@ -104,16 +104,19 @@ def main(training , testing , outputDir  , regressionType , featureStr ):
     testingDF["canonical_smiles"] = [canonical_smiles(smi) for smi in testingDF[testingCols[smilesIdxTesting]]]
     testingDF = testingDF[~testingDF["canonical_smiles"].isin(trainingCanonicalSet)].reset_index(drop=True)
 
-    testingCanonicals = testingDF["canonical_smiles"]
-    testingDF = testingDF.drop(columns=["canonical_smiles"])
     trainingDF = trainingDF.drop(columns=["canonical_smiles" , trainingYStr])
 
     dropCols = listInputs(f"Enter a list of indexes for the columns you want to drop from the test and training data\n {trainingBox}\n")
     dropColsStr = [trainingCols[int(i)] for i in dropCols]
-    print(dropColsStr)
+
+    testingCols = list(testingDF.columns)
+    testingBox = boxGen(testingCols)
+    keepCols = listInputs(f"Enter a list of indexes for the columns you want to keep for the test data\n {testingBox}\n")
+    keepHash = {testingCols[int(idx)] : list(testingDF[str(testingCols[int(idx)])]) for idx in keepCols}
+    #print(dropColsStr)
     trainingDF = trainingDF.drop(columns = dropColsStr)
     testingDF = testingDF.drop(columns = dropColsStr)
-    print(list(trainingDF.columns))
+    #print(list(trainingDF.columns))
     if regressionType == "randomForrest":
         X_training , feature_labels = featureFiltering(outputDir , trainingDF , list(trainingDF.columns), featureStr)
         newCols = set(X_training.columns)
@@ -124,7 +127,8 @@ def main(training , testing , outputDir  , regressionType , featureStr ):
         if not os.path.exists(str(Path(outputDir) / "randomForest" / "hyperParameter")): 
             os.makedirs(str(Path(outputDir) / "randomForest" / "hyperParameter") ) 
         reducedDimDF = rFR_2Source(X_training, yTraining , testingDF, trainingYStr,  hyperFileRF, outputDir)
-        reducedDimDF["canonicalSMILES"] = testingCanonicals
+        for name , info in keepHash.items():
+            reducedDimDF[name] = info
         return reducedDimDF
 if __name__ == "__main__":
     trainingCSV = str(sys.argv[1])
