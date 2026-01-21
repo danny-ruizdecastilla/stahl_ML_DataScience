@@ -410,6 +410,8 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
 
             maxSemiHash = {r: [] for r in radList}
             minSemiHash = {r: [] for r in radList}
+            maxSemiHashOrth = {r: [] for r in radList}
+            minSemiHashOrth = {r: [] for r in radList}         
             CburrHash = {r: [] for r in radList}
             g = Graph()
             for bond in molec.GetBonds():
@@ -450,11 +452,13 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 for rad in radList:
                     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad)
                     mainCylinder.getAtoms(coordHash)
-                    maxSemi , minSemi = mainCylinder.getBurriedVolume(True)
+                    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True)
                     Cburr = mainCylinder.getBurriedVolume(False)
                     CburrHash[rad].append(Cburr[0])
-                    maxSemiHash[rad].append(maxSemi)
-                    minSemiHash[rad].append(minSemi)
+                    maxSemiHash[rad].append(maxSemi_Pi)
+                    minSemiHash[rad].append(minSemi_Pi)
+                    maxSemiHashOrth[rad].append(maxSemi_Orth)
+                    minSemiHashOrth[rad].append(minSemi_Orth)
                     
 
             weights = boltzmannDF["boltzWeights"]
@@ -462,9 +466,13 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
 
             Vbur_MaxSemi = { r: (maxSemiHash[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MinSemi = { r: (minSemiHash[r] * weights).sum() / weight_sum for r in radList}
+            Vbur_MaxSemi_Orth = { r: (maxSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
+            Vbur_MinSemi_Orth = { r: (minSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
             Vburr_Cylinder = { r: (CburrHash[r] * weights).sum() / weight_sum  for r in radList } 
-            Vburr_SemiCircles = {"Vbur_MaxSemi_3" :Vbur_MaxSemi[3] ,"Vbur_MaxSemi_4" :Vbur_MaxSemi[4] , "Vbur_MaxSemi_5" :Vbur_MaxSemi[5] , 
-                                 "Vbur_MinSemi_3" :Vbur_MinSemi[3] ,"Vbur_MinSemi_4" :Vbur_MinSemi[4] , "Vbur_MinSemi_5" :Vbur_MinSemi[5],
+            Vburr_SemiCircles = {"Vbur_MaxSemi_Pi_3" :Vbur_MaxSemi[3] ,"Vbur_MaxSemi_Pi_4" :Vbur_MaxSemi[4] , "Vbur_MaxSemi_Pi_5" :Vbur_MaxSemi[5] , 
+                                 "Vbur_MinSemi_Pi_3" :Vbur_MinSemi[3] ,"Vbur_MinSemi_Pi_4" :Vbur_MinSemi[4] , "Vbur_MinSemi_Pi_5" :Vbur_MinSemi[5],
+                                 "Vbur_MaxSemi_Orth_3" :Vbur_MaxSemi_Orth[3] ,"Vbur_MaxSemi_Orth_4" :Vbur_MaxSemi_Orth[4] , "Vbur_MaxSemi_Orth_5" :Vbur_MaxSemi_Orth[5] , 
+                                 "Vbur_MinSemi_Orth_3" :Vbur_MinSemi_Orth[3] ,"Vbur_MinSemi_Orth_4" :Vbur_MinSemi_Orth[4] , "Vbur_MinSemi_Orth_5" :Vbur_MinSemi_Orth[5],
                                  "Vbur_Cylinder_3" : Vburr_Cylinder[3] ,"Vbur_Cylinder_4" :Vburr_Cylinder[4] , "Vbur_Cylinder_5" :Vburr_Cylinder[5] }
             hashList.append(Vburr_SemiCircles)
 

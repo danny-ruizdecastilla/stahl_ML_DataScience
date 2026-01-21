@@ -223,10 +223,13 @@ def getBurriedDougnut(atomHash, innerR, outerR, h, center ):
     return percentBurriedVol
 class alkeneSemiCylinders:
     def __init__(self, C1Hash, C2Hash,radius  ):
-        self.C1Idx = int(C1Hash["idx"])
-        self.C2Idx = int(C2Hash["idx"])
-        #print("228" , C1Hash["0"])
-        alkeneVec = C1Hash["0"] - C2Hash["0"]
+        self.C1Idx = int(C1Hash["idx"]) #Index of alkene Carbon 1
+        self.C2Idx = int(C2Hash["idx"]) #Index of alkene Carbon 2
+        print("C1" , C1Hash["0"])
+        print("C2" , C2Hash["0"])
+        print("C1Contacts" , C1Hash["1"])
+        print("C2Contacts" , C2Hash["1"])
+        alkeneVec = C1Hash["0"] - C2Hash["0"] #vector between C1 and C2
         self.alkeneVec = alkeneVec 
         self.height = np.linalg.norm(C1Hash["0"] - C2Hash["0"])#alkeneBondLength 
         # vectors from carbons to neighbors
@@ -254,7 +257,10 @@ class alkeneSemiCylinders:
         c2OrthScaled = radius * c2Orth
         center = [(float(a) + float(b)) * 0.5 for a, b in zip(list(C1Hash["0"]), list(C2Hash["0"]))]
         self.centerPoint = center 
-        self.bisector = c1OrthScaled + c2OrthScaled
+        bisector = (c1OrthScaled + c2OrthScaled )
+        bisector /= np.linalg.norm(c1OrthScaled + c2OrthScaled )
+        bisector *= radius
+        self.bisector = bisector
         self.radius = radius
 
     def getAtoms(self ,  atomHash):
@@ -304,35 +310,43 @@ class alkeneSemiCylinders:
                 vol = (4/3) * np.pi * atomRadii**3
                 atomVol += vol
             return atomVol
+        volCylinder = np.pi * self.radius**2 * self.height
         if semiSpheres:
             tol = 1e-8
-            volCylinder = np.pi * self.radius**2 * self.height
-
             atoms = np.asarray(self.acceptedSymbols)
             atomCoords = np.asarray(self.acceptedAtoms)
 
             planeNormal = np.cross(self.alkeneVec, self.bisector)
             n = planeNormal / np.linalg.norm(planeNormal)
+            n *= self.radius * n
+            signedDist_Pi = np.dot(atomCoords - self.centerPoint, n)
+            signedDist_Orth = np.dot(atomCoords - self.centerPoint, self.bisector)
 
-            signedDist = np.dot(atomCoords - self.centerPoint, n)
+            posIdx_Pi= np.where(signedDist_Pi > tol)[0]
+            negIdx_Pi = np.where(signedDist_Pi < -tol)[0]
+            posIdx_Orth= np.where(signedDist_Orth > tol)[0]
+            negIdx_Orth = np.where(signedDist_Orth < -tol)[0]
 
-            pos_idx = np.where(signedDist > tol)[0]
-            neg_idx = np.where(signedDist < -tol)[0]
+            posAtoms_Pi = atoms[posIdx_Pi]
+            negAtoms_Pi = atoms[negIdx_Pi]
+            posAtoms_Orth = atoms[posIdx_Orth]
+            negAtoms_Orth = atoms[negIdx_Orth]
 
-            posAtoms = atoms[pos_idx]
-            negAtoms = atoms[neg_idx]
+            posVol_Pi = getAtomsVol(posAtoms_Pi)
+            negVol_Pi = getAtomsVol(negAtoms_Pi)
+            posVol_Orth = getAtomsVol(posAtoms_Orth)
+            negVol_Orth = getAtomsVol(negAtoms_Orth)
 
-            posVol = getAtomsVol(posAtoms)
-            negVol = getAtomsVol(negAtoms)
+            posBuried_Pi = (posVol_Pi / (volCylinder / 2)) * 100
+            negBuried_Pi = (negVol_Pi / (volCylinder / 2)) * 100
+            posBuried_Orth = (posVol_Orth / (volCylinder / 2)) * 100
+            negBuried_Orth = (negVol_Orth / (volCylinder / 2)) * 100
 
-            posBuried = (posVol / (volCylinder / 2)) * 100
-            negBuried = (negVol / (volCylinder / 2)) * 100
-
-            return [max(posBuried, negBuried), min(posBuried, negBuried)]
+            return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
+                    max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth)]
         else:
             atoms = list(self.acceptedSymbols)
             atomVol = getAtomsVol(atoms)
-            volCylinder = np.pi*self.radius**2*self.height
             percentBurriedVol = (atomVol/volCylinder) * 100 
             self.BuriedCylinder = percentBurriedVol
             return [percentBurriedVol]
