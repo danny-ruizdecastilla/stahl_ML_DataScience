@@ -15,11 +15,6 @@ from dimensionalityReduction.reactivityFeatures import boxGen
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 
 #Danny Ruiz de Castilla 05.02.25
-from pathlib import Path
-import numpy as np
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 
 def main(df, saveDir):
     df = Path(df)
