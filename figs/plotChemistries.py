@@ -95,103 +95,101 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                 for (const groupKey in groupedData) {{
                     const jsonData = groupedData[groupKey];
                     
-                    if (groupKey === selectedGroup) {{
-                        const above = jsonData.filter(p => p["{partitionStr}"] > threshold);
-                        const below = jsonData.filter(p => p["{partitionStr}"] <= threshold);
-                        if (below.length > 0) {{
-                            const xData = below.map(p => p[xCol]);
-                            const yData = below.map(p => p[yCol]);
-                            allXData.push(...xData);
-                            allYData.push(...yData);
-                            
-                            const traceBelow = {{
-                                x: xData,
-                                y: yData,
-                                mode: 'markers',
-                                type: 'scatter',
-                                name: `${{groupKey}} ("{partitionStr}" ≤ ${{threshold}})`,
-                                text: below.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
-                                customdata: below.map((p, i) => ({{
-                                    id: p.SMILES || `point_${{i}}`, 
-                                    image: p.base64 || null
-                                }})),
-                                hovertemplate:
-                                    '<b>%{{text}}</b><br>' +
-                                    `${{xCol}}: %{{x}}<br>` +
-                                    `${{yCol}}: %{{y}}<br>` +
-                                    '<extra></extra>',
-                                marker: {{
-                                    size: 12,
-                                    color: 'rgba(255, 255, 255, 0.5)',
-                                    line: {{
-                                        color: 'rgba(153, 000, 000, 1.0)',
-                                        width: 1
-                                    }}
-                                }},
-                            }};
+                    if (groupKey === selectedGroup) continue;
+                    const xData = jsonData.map(p => p[xCol]);
+                    const yData = jsonData.map(p => p[yCol]);
+                    allXData.push(...xData);
+                    allYData.push(...yData);
+                    
+                    const trace = {{
+                        x: xData,
+                        y: yData,
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: `${{groupKey}} (background)`,
+                        text: jsonData.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
+                        customdata: jsonData.map((p, i) => ({{
+                            id: p.SMILES || `point_${{i}}`, 
+                            image: p.base64 || null
+                        }})),
+                        hovertemplate:
+                            '<b>%{{text}}</b><br>' +
+                            `${{xCol}}: %{{x}}<br>` +
+                            `${{yCol}}: %{{y}}<br>` +
+                            '<extra></extra>',
+                        marker: {{
+                            size: 8,
+                            color: 'rgba(188, 188, 188, 0.4)'
                         }}
-                        if (above.length > 0) {{
-                            const xData = above.map(p => p[xCol]);
-                            const yData = above.map(p => p[yCol]);
-                            allXData.push(...xData);
-                            allYData.push(...yData);
-                            
-                            const traceAbove = {{
-                                x: xData,
-                                y: yData,
-                                mode: 'markers',
-                                type: 'scatter',
-                                name: `${{groupKey}} ("{partitionStr}" > ${{threshold}})`,
-                                text: above.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
-                                customdata: above.map((p, i) => ({{
-                                    id: p.SMILES || `point_${{i}}`, 
-                                    image: p.base64 || null
-                                }})),
-                                hovertemplate:
-                                    '<b>%{{text}}</b><br>' +
-                                    `${{xCol}}: %{{x}}<br>` +
-                                    `${{yCol}}: %{{y}}<br>` +
-                                    '<extra></extra>',
-                                marker: {{
-                                    size: 12,
-                                    color: 'rgba(001, 031, 091, 0.8)',
-                                }}
-                            }};
-                            
-                        }}
-                        
-                    }} else {{
-                        const xData = jsonData.map(p => p[xCol]);
-                        const yData = jsonData.map(p => p[yCol]);
-                        allXData.push(...xData);
-                        allYData.push(...yData);
-                        
-                        const trace = {{
-                            x: xData,
-                            y: yData,
-                            mode: 'markers',
-                            type: 'scatter',
-                            name: `${{groupKey}} (background)`,
-                            text: jsonData.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
-                            customdata: jsonData.map((p, i) => ({{
-                                id: p.SMILES || `point_${{i}}`, 
-                                image: p.base64 || null
-                            }})),
-                            hovertemplate:
-                                '<b>%{{text}}</b><br>' +
-                                `${{xCol}}: %{{x}}<br>` +
-                                `${{yCol}}: %{{y}}<br>` +
-                                '<extra></extra>',
-                            marker: {{
-                                size: 8,
-                                color: 'rgba(188, 188, 188, 0.4)'
-                            }}
-                        }};
-                    }}
-                    traces.push(trace);
-                    traces.push(traceBelow);
-                    traces.push(traceAbove);
+                    }};
+
                 }}
+                const selectedData = groupedData[selectedGroup] || [];
+                const above = selectedData.filter(p => p["{partitionStr}"] > threshold);
+                const below = selectedData.filter(p => p["{partitionStr}"] <= threshold);
+                if (below.length > 0) {{
+                    const xData = below.map(p => p[xCol]);
+                    const yData = below.map(p => p[yCol]);
+                    allXData.push(...xData);
+                    allYData.push(...yData);
+                    
+                    const traceBelow = {{
+                        x: xData,
+                        y: yData,
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: `${{groupKey}} ("{partitionStr}" ≤ ${{threshold}})`,
+                        text: below.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
+                        customdata: below.map((p, i) => ({{
+                            id: p.SMILES || `point_${{i}}`, 
+                            image: p.base64 || null
+                        }})),
+                        hovertemplate:
+                            '<b>%{{text}}</b><br>' +
+                            `${{xCol}}: %{{x}}<br>` +
+                            `${{yCol}}: %{{y}}<br>` +
+                            '<extra></extra>',
+                        marker: {{
+                            size: 12,
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            line: {{
+                                color: 'rgba(153, 000, 000, 1.0)',
+                                width: 1
+                            }}
+                        }},
+                    }};
+                }}
+                if (above.length > 0) {{
+                    const xData = above.map(p => p[xCol]);
+                    const yData = above.map(p => p[yCol]);
+                    allXData.push(...xData);
+                    allYData.push(...yData);
+                    
+                    const traceAbove = {{
+                        x: xData,
+                        y: yData,
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: `${{groupKey}} ("{partitionStr}" > ${{threshold}})`,
+                        text: above.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
+                        customdata: above.map((p, i) => ({{
+                            id: p.SMILES || `point_${{i}}`, 
+                            image: p.base64 || null
+                        }})),
+                        hovertemplate:
+                            '<b>%{{text}}</b><br>' +
+                            `${{xCol}}: %{{x}}<br>` +
+                            `${{yCol}}: %{{y}}<br>` +
+                            '<extra></extra>',
+                        marker: {{
+                            size: 12,
+                            color: 'rgba(001, 031, 091, 0.8)',
+                        }}
+                    }};
+                    
+                }}
+                if (traceBelow) traces.push(traceBelow);
+                if (traceAbove) traces.push(traceAbove);
 
                 // Linear regression calculation
                 let lineTrace = null;
