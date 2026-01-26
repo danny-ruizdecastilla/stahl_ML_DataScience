@@ -129,7 +129,6 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                                     }}
                                 }},
                             }};
-                            traces.push(traceBelow);
                         }}
                         if (above.length > 0) {{
                             const xData = above.map(p => p[xCol]);
@@ -158,7 +157,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                                     color: 'rgba(001, 031, 091, 0.8)',
                                 }}
                             }};
-                            traces.push(traceAbove);
+                            
                         }}
                         
                     }} else {{
@@ -188,8 +187,10 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                                 color: 'rgba(188, 188, 188, 0.4)'
                             }}
                         }};
-                        traces.push(trace);
                     }}
+                    traces.push(trace);
+                    traces.push(traceBelow);
+                    traces.push(traceAbove);
                 }}
 
                 // Linear regression calculation
