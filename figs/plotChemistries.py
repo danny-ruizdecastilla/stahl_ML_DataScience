@@ -122,7 +122,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                             color: 'rgba(188, 188, 188, 0.4)'
                         }}
                     }};
-
+                    traces.push(trace);
                 }}
                 const selectedData = groupedData[selectedGroup] || [];
                 const above = selectedData.filter(p => p["{partitionStr}"] > threshold);
@@ -138,7 +138,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                         y: yData,
                         mode: 'markers',
                         type: 'scatter',
-                        name: `${{groupKey}} ("{partitionStr}" ≤ ${{threshold}})`,
+                        name: `${{selectedGroup}} ("{partitionStr}" ≤ ${{threshold}})`,
                         text: below.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
                         customdata: below.map((p, i) => ({{
                             id: p.SMILES || `point_${{i}}`, 
@@ -158,6 +158,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                             }}
                         }},
                     }};
+                    traces.push(traceBelow);
                 }}
                 if (above.length > 0) {{
                     const xData = above.map(p => p[xCol]);
@@ -170,7 +171,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                         y: yData,
                         mode: 'markers',
                         type: 'scatter',
-                        name: `${{groupKey}} ("{partitionStr}" > ${{threshold}})`,
+                        name: `${{selectedGroup}} ("{partitionStr}" > ${{threshold}})`,
                         text: above.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
                         customdata: above.map((p, i) => ({{
                             id: p.SMILES || `point_${{i}}`, 
@@ -186,10 +187,9 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                             color: 'rgba(001, 031, 091, 0.8)',
                         }}
                     }};
+                    traces.push(traceAbove);
                     
                 }}
-                if (traceBelow) traces.push(traceBelow);
-                if (traceAbove) traces.push(traceAbove);
 
                 // Linear regression calculation
                 let lineTrace = null;
