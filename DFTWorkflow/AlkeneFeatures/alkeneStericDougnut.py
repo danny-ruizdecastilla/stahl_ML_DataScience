@@ -5,12 +5,12 @@ import numpy as np
 import plotly.graph_objects as go
 import sys
 from pathlib import Path
+from networkx import Graph
 from rdkit import Chem
 parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from figs.stericVisuals import stericDrawer
-from DFTWorkflow.AlkeneFeatures.alkeneFeatureExtractorMAST import getAtomCoordsRobust
 def vdw_radius(symbol):
     pt = Chem.GetPeriodicTable()
     return pt.GetRvdw(pt.GetAtomicNumber(symbol))
@@ -295,10 +295,10 @@ class alkeneSemiCylinders:
                 stericFigure.drawAtom(i)
             stericFigure.drawBond(self.C1Idx , self.C2Idx , "double")
 
-            stericFigure.drawLine({"shapeType" : "line" , "origin" : self.C1 , "vector" : self.c1Vec1 })
-            stericFigure.drawLine({"shapeType" : "line" , "origin" : self.C1 , "vector" : self.c1Vec2 })
-            stericFigure.drawLine({"shapeType" : "line" , "origin" : self.C2 , "vector" : self.c2Vec1 })
-            stericFigure.drawLine({"shapeType" : "line" , "origin" : self.C2 , "vector" : self.c2Vec2 })            
+            stericFigure.drawShapes({"shapeType" : "line" , "origin" : self.C1 , "vector" : self.c1Vec1 , "color" : "pink" , "name" : "c1Bond" })
+            stericFigure.drawShapes({"shapeType" : "line" , "origin" : self.C1 , "vector" : self.c1Vec2 , "color" : "pink", "name" : "c1Bond2"})
+            stericFigure.drawShapes({"shapeType" : "line" , "origin" : self.C2 , "vector" : self.c2Vec1  , "color" : "pink", "name" : "c2Bond"})
+            stericFigure.drawShapes({"shapeType" : "line" , "origin" : self.C2 , "vector" : self.c2Vec2 , "color" : "pink" , "name" : "c2Bond2"})            
             self.Fig = stericFigure
         atoms = np.array(atoms)
         cx, cy, cz = self.centerPoint
@@ -371,36 +371,36 @@ class alkeneSemiCylinders:
                 orthPlaneHash = {"shapeType" : "plane" , "C1" : self.C1 , "C2" : self.C2 , 
                                  "vector" : n, "reflect" : True , "color" : "yellow" }
                 
-                c1SemiHash_Plus = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
-                                    "orthogonal" : self.alkeneVec  , "colorStr" : "green"}
-                c1SemiHash_Neg = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
-                                    "orthogonal" : -1 * np.array(self.alkeneVec)  , "colorStr" : "red"}
-                c2SemiHash_Plus = {"shapeType:" :  "semiCircle" , "origin" : self.C2 , "vector" : self.bisector , 
-                                    "orthogonal" : self.alkeneVec  , "colorStr" : "green"}
-                c2SemiHash_Neg = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
-                                    "orthogonal" :  -1 * np.array(self.alkeneVec)  , "colorStr" : "red"}
+                c1SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
+                                    "orthogonal" : self.alkeneVec  , "color" : "green"}
+                c1SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
+                                    "orthogonal" : -1 * np.array(self.alkeneVec)  , "color" : "red"}
+                c2SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.C2 , "vector" : self.bisector , 
+                                    "orthogonal" : self.alkeneVec  , "color" : "green"}
+                c2SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
+                                    "orthogonal" :  -1 * np.array(self.alkeneVec)  , "color" : "red"}
                 
-                c1SemiHash_Plus_orth = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : n, 
-                                    "orthogonal" : self.alkeneVec  , "colorStr" : "green"}
-                c1SemiHash_Neg_orth = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : n, 
-                                    "orthogonal" : -1 * np.array(self.alkeneVec)  , "colorStr" : "red"}
-                c2SemiHash_Plus_orth = {"shapeType:" :  "semiCircle" , "origin" : self.C2 , "vector" : n , 
-                                    "orthogonal" : self.alkeneVec  , "colorStr" : "green"}
-                c2SemiHash_Neg_orth = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : n , 
-                                    "orthogonal" :  -1 * np.array(self.alkeneVec)  , "colorStr" : "red"}    
+                c1SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : n, 
+                                    "orthogonal" : self.alkeneVec  , "color" : "green"}
+                c1SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : n, 
+                                    "orthogonal" : -1 * np.array(self.alkeneVec)  , "color" : "red"}
+                c2SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.C2 , "vector" : n , 
+                                    "orthogonal" : self.alkeneVec  , "color" : "green"}
+                c2SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : n , 
+                                    "orthogonal" :  -1 * np.array(self.alkeneVec)  , "color" : "red"}    
 
                 orthFig = self.Fig.drawShapes(orthPlaneHash)  
-                orthFig = self.Fig.drawShapes(c1SemiHash_Plus_orth , orthFig)  
-                orthFig = self.Fig.drawShapes(c1SemiHash_Neg_orth , orthFig)  
-                orthFig = self.Fig.drawShapes(c2SemiHash_Plus_orth , orthFig)  
-                orthFig = self.Fig.drawShapes(c2SemiHash_Neg_orth , orthFig) 
+                orthFig = self.Fig.drawShapes(c1SemiHash_Plus_orth , fig = orthFig)  
+                orthFig = self.Fig.drawShapes(c1SemiHash_Neg_orth , fig = orthFig)  
+                orthFig = self.Fig.drawShapes(c2SemiHash_Plus_orth ,fig =  orthFig)  
+                orthFig = self.Fig.drawShapes(c2SemiHash_Neg_orth , fig = orthFig) 
                 orthFig.write_html("orthFig.html")
 
                 piFig = self.Fig.drawShapes(piPlaneHash)  
-                piFig = self.Fig.drawShapes(c1SemiHash_Plus , piFig)  
-                piFig = self.Fig.drawShapes(c1SemiHash_Neg , piFig)  
-                piFig = self.Fig.drawShapes(c2SemiHash_Plus , piFig)  
-                piFig = self.Fig.drawShapes(c2SemiHash_Neg , piFig)       
+                piFig = self.Fig.drawShapes(c1SemiHash_Plus , fig = piFig)  
+                piFig = self.Fig.drawShapes(c1SemiHash_Neg ,fig =  piFig)  
+                piFig = self.Fig.drawShapes(c2SemiHash_Plus , fig = piFig)  
+                piFig = self.Fig.drawShapes(c2SemiHash_Neg ,fig =  piFig)       
                 piFig.write_html("piFig.html")
             return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
                     max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth)]    
@@ -410,5 +410,48 @@ class alkeneSemiCylinders:
             percentBurriedVol = (atomVol/volCylinder) * 100 
             self.BuriedCylinder = percentBurriedVol
             return [percentBurriedVol]
+def main(logFile , smilesStr, radius):
+    from DFTWorkflow.AlkeneFeatures.alkeneFeatureExtractorMAST import getAtomCoordsRobust
+    cc , molec = getCC(smilesStr)
+    C1 = cc[1] + 1
+    C2 = cc[0] + 1 
+    g = Graph()
+    for bond in molec.GetBonds():
+        start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        g.add_edge(start, end)
+    CminNeighbors = list(g.neighbors(int(C1-1)))
+    CminNeighbors.remove(int(C2-1))
+    CmaxNeighbors = list(g.neighbors(int(C2-1)))
+    CmaxNeighbors.remove(int(C1-1))
+    CmaxContacts = []
+    CminContacts = []
+    coordHash = getAtomCoordsRobust(logFile , "GINC-COMPUTE" , 5  , 1)
+    idx = 0
+    for _ , coords in coordHash.items():
+        idx +=1
+        if idx == C1:
+            c1_coords = np.array(coords[2:5])
+            c1Idx = idx
+        elif idx == C2:
+            c2_coords = coords[2:5]
+            c2Idx = idx 
+        if (idx-1) in CminNeighbors:
+            crds = np.array(coords[2:5])
+            CminContacts.append(crds) 
+        if (idx-1) in CmaxNeighbors:
+            crds = np.array(coords[2:5])
+            CmaxContacts.append(crds) 
+    C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
+    C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
+    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius)
+    mainCylinder.getAtoms(coordHash , True)
+    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True , True)
+
 if __name__ == "__main__":
-    logFile = sys.argv[1]
+
+
+    logFile = str(sys.argv[1])
+    smilesStr = str(sys.argv[2])
+    radius = float(sys.argv[3])
+    main(logFile , smilesStr , radius)
+    
