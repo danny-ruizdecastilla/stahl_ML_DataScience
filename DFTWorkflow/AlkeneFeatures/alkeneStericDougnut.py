@@ -1,5 +1,6 @@
 #The steric doughnut | Danny Ruiz de Castilla
 #Not really a doughnut
+import plotly 
 import numpy as np
 import plotly.graph_objects as go
 import sys
@@ -7,6 +8,9 @@ from pathlib import Path
 from rdkit import Chem
 parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
+from breadthFirstSearch.radialBasedCorrelation import getCC
+from figs.stericVisuals import stericDrawer
+from DFTWorkflow.AlkeneFeatures.alkeneFeatureExtractorMAST import getAtomCoordsRobust
 def vdw_radius(symbol):
     pt = Chem.GetPeriodicTable()
     return pt.GetRvdw(pt.GetAtomicNumber(symbol))
@@ -225,10 +229,9 @@ class alkeneSemiCylinders:
     def __init__(self, C1Hash, C2Hash,radius  ):
         self.C1Idx = int(C1Hash["idx"]) #Index of alkene Carbon 1
         self.C2Idx = int(C2Hash["idx"]) #Index of alkene Carbon 2
-        print("C1" , C1Hash["0"])
-        print("C2" , C2Hash["0"])
-        print("C1Contacts" , C1Hash["1"])
-        print("C2Contacts" , C2Hash["1"])
+        self.C1 =  C1Hash["0"]
+        self.C2 =  C2Hash["0"]
+
         alkeneVec = C1Hash["0"] - C2Hash["0"] #vector between C1 and C2
         self.alkeneVec = alkeneVec 
         self.height = np.linalg.norm(C1Hash["0"] - C2Hash["0"])#alkeneBondLength 
@@ -236,9 +239,13 @@ class alkeneSemiCylinders:
         c1Contacts = C1Hash["1"]
         c2Contacts = C2Hash["1"]
         c1Vec1 = c1Contacts[0] - C1Hash["0"]
+        self.c1Vec1 = c1Vec1
         c1Vec2 = c1Contacts[1] - C1Hash["0"]
+        self.c1Vec2 = c1Vec2
         c2Vec1 = c2Contacts[0] - C2Hash["0"]
+        self.c2Vec1 = c2Vec1
         c2Vec2 = c2Contacts[1] - C2Hash["0"]
+        self.c2Vec2 = c2Vec2
 
         # plane normals
         c1Orth = np.cross(c1Vec1, c1Vec2)
@@ -263,7 +270,7 @@ class alkeneSemiCylinders:
         self.bisector = bisector
         self.radius = radius
 
-    def getAtoms(self ,  atomHash):
+    def getAtoms(self ,  atomHash , makeFig):
         atoms = []
         idxList = []
         symbolList = [] 
@@ -276,6 +283,23 @@ class alkeneSemiCylinders:
                 idxList.append(idx)
                 atoms.append(coords)
                 symbolList.append(val[0])
+        if makeFig:
+            pt = Chem.GetPeriodicTable()
+            radiiList = []
+            for symbol in symbolList:
+                atomRadii = pt.GetRvdw(pt.GetAtomicNumber(symbol))
+                radiiList.append(atomRadii)
+            figHash = {"atomCoords" : atoms , "atomSymbol" : symbolList , "radii" : radiiList}
+            stericFigure = stericDrawer(figHash , 30)
+            for i in range(len(atoms)):
+                stericFigure.drawAtom(i)
+            stericFigure.drawBond(self.C1Idx , self.C2Idx , "double")
+
+            stericFigure.drawLine({"shapeType" : "line" , "origin" : self.C1 , "vector" : self.c1Vec1 })
+            stericFigure.drawLine({"shapeType" : "line" , "origin" : self.C1 , "vector" : self.c1Vec2 })
+            stericFigure.drawLine({"shapeType" : "line" , "origin" : self.C2 , "vector" : self.c2Vec1 })
+            stericFigure.drawLine({"shapeType" : "line" , "origin" : self.C2 , "vector" : self.c2Vec2 })            
+            self.Fig = stericFigure
         atoms = np.array(atoms)
         cx, cy, cz = self.centerPoint
         xList = atoms[:, 0] - cx
@@ -298,7 +322,7 @@ class alkeneSemiCylinders:
         self.acceptedIdx = acceptedIdx
         self.acceptedSymbols = acceptedSymbols 
 
-    def getBurriedVolume(self, semiSpheres):
+    def getBurriedVolume(self, semiSpheres , saveFig):
         if not hasattr(self, "acceptedAtoms"):
             raise RuntimeError("getAtoms() must be called before getBurriedVolume()")
         from rdkit import Chem
@@ -341,9 +365,45 @@ class alkeneSemiCylinders:
             negBuried_Pi = (negVol_Pi / (volCylinder / 2)) * 100
             posBuried_Orth = (posVol_Orth / (volCylinder / 2)) * 100
             negBuried_Orth = (negVol_Orth / (volCylinder / 2)) * 100
+            if saveFig:
+                piPlaneHash = {"shapeType" : "plane" , "C1" : self.C1 , "C2" : self.C2 ,
+                                "vector" : self.bisector, "reflect" : True , "color" : "blue" }
+                orthPlaneHash = {"shapeType" : "plane" , "C1" : self.C1 , "C2" : self.C2 , 
+                                 "vector" : n, "reflect" : True , "color" : "yellow" }
+                
+                c1SemiHash_Plus = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
+                                    "orthogonal" : self.alkeneVec  , "colorStr" : "green"}
+                c1SemiHash_Neg = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
+                                    "orthogonal" : -1 * np.array(self.alkeneVec)  , "colorStr" : "red"}
+                c2SemiHash_Plus = {"shapeType:" :  "semiCircle" , "origin" : self.C2 , "vector" : self.bisector , 
+                                    "orthogonal" : self.alkeneVec  , "colorStr" : "green"}
+                c2SemiHash_Neg = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
+                                    "orthogonal" :  -1 * np.array(self.alkeneVec)  , "colorStr" : "red"}
+                
+                c1SemiHash_Plus_orth = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : n, 
+                                    "orthogonal" : self.alkeneVec  , "colorStr" : "green"}
+                c1SemiHash_Neg_orth = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : n, 
+                                    "orthogonal" : -1 * np.array(self.alkeneVec)  , "colorStr" : "red"}
+                c2SemiHash_Plus_orth = {"shapeType:" :  "semiCircle" , "origin" : self.C2 , "vector" : n , 
+                                    "orthogonal" : self.alkeneVec  , "colorStr" : "green"}
+                c2SemiHash_Neg_orth = {"shapeType:" :  "semiCircle" , "origin" : self.C1 , "vector" : n , 
+                                    "orthogonal" :  -1 * np.array(self.alkeneVec)  , "colorStr" : "red"}    
 
+                orthFig = self.Fig.drawShapes(orthPlaneHash)  
+                orthFig = self.Fig.drawShapes(c1SemiHash_Plus_orth , orthFig)  
+                orthFig = self.Fig.drawShapes(c1SemiHash_Neg_orth , orthFig)  
+                orthFig = self.Fig.drawShapes(c2SemiHash_Plus_orth , orthFig)  
+                orthFig = self.Fig.drawShapes(c2SemiHash_Neg_orth , orthFig) 
+                orthFig.write_html("orthFig.html")
+
+                piFig = self.Fig.drawShapes(piPlaneHash)  
+                piFig = self.Fig.drawShapes(c1SemiHash_Plus , piFig)  
+                piFig = self.Fig.drawShapes(c1SemiHash_Neg , piFig)  
+                piFig = self.Fig.drawShapes(c2SemiHash_Plus , piFig)  
+                piFig = self.Fig.drawShapes(c2SemiHash_Neg , piFig)       
+                piFig.write_html("piFig.html")
             return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
-                    max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth)]
+                    max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth)]    
         else:
             atoms = list(self.acceptedSymbols)
             atomVol = getAtomsVol(atoms)
@@ -351,34 +411,4 @@ class alkeneSemiCylinders:
             self.BuriedCylinder = percentBurriedVol
             return [percentBurriedVol]
 if __name__ == "__main__":
-    # Define cylinder parameters
-    inner_r = 2.0
-    outer_r = 5.0
-    h = 8.0
-    cylinder_center = (0, 0, 0)
-    
-    # Create sample atoms (random coordinates)
-    np.random.seed(42)
-    n_atoms = 100
-    atoms = np.random.uniform(-7, 7, size=(n_atoms, 3))
-    atoms[:, 2] = np.random.uniform(-2, 10, size=n_atoms)  # z coordinates
-    
-    print("Sample atom coordinates (first 5):")
-    print(atoms[:5])
-    print()
-    
-    # Check which atoms are inside the cylinder
-    inside_atoms = check_atoms_in_cylinder(atoms, inner_r, outer_r, h, cylinder_center)
-    
-    print("Atoms inside the cylinder:")
-    for idx, coord in inside_atoms.items():
-        print(f"  Atom {idx}: {coord}")
-    print()
-    
-    # Get summary
-    get_atoms_summary(inside_atoms, atoms)
-    print()
-    
-    # Visualize with Plotly (interactive!)
-    plot_cylinder_with_atoms(atoms, inside_atoms, inner_r, outer_r, h, 
-                            cylinder_center, resolution=50)
+    logFile = sys.argv[1]
