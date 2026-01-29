@@ -1,17 +1,16 @@
-from dash import Dash, dcc, html, Input, Output, no_update, callback
 import plotly.graph_objects as go
 import plotly 
 import pandas as pd
 import os 
 import sys
 import glob
-import chemdraw
 import base64
 import numpy as np
 import json
 from pathlib import Path
 parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
+from figs.repositoryGraphVisualization import str_to_rgb
 def string_to_hex_color(s):
   """Convert any string to a consistent hex color."""
   hash_value = hash(s)
@@ -87,22 +86,75 @@ class stericDrawer:
             hovertemplate=f'<b>line_{shapeHash["name"]}</b><br>' +
                           '<extra></extra>',
             showlegend=False))
-      elif typeStr == "semiCylinder":
-        radius = shapeHash["radius"]
+      elif typeStr == "semiCircle":
+        resolution = self.resolution
         origin = shapeHash["origin"]
-        resolution = shapeHash["resolution"]
-        height = shapeHash["length"]
+        vector = shapeHash["vector"]
+        orthogonal = shapeHash["orthogonal"]
+        colorStr = shapeHash["color"]
+        rgb = str_to_rgb(colorStr)
+        rgb.append(0.8)
+
+        R = np.linalg.norm(vector)
+        u_hat = vector / R
+
+        v_hat = np.cross(u_hat, orthogonal)
+        v_hat /= np.linalg.norm(v_hat)
+
+        r = np.linspace(0, R, resolution)
         theta = np.linspace(0, np.pi, resolution)
-        z = np.linspace(0, height, resolution)
-        theta_grid, z_grid = np.meshgrid(theta, z)
-        x_outer = radius * np.cos(theta_grid)
-        y_outer = radius * np.sin(theta_grid)
-        z_outer = z_grid
+        Rg, Tg = np.meshgrid(r, theta)
+
+        X = origin[0] + Rg * np.cos(Tg) * u_hat[0] + Rg * np.sin(Tg) * v_hat[0]
+        Y = origin[1] + Rg * np.cos(Tg) * u_hat[1] + Rg * np.sin(Tg) * v_hat[1]
+        Z = origin[2] + Rg * np.cos(Tg) * u_hat[2] + Rg * np.sin(Tg) * v_hat[2]
+
         self.Figure.add_trace(go.Surface(
-        x=x_outer + origin[0], y=y_outer + origin[1], z=z_outer + origin[2],
-        opacity=0.3,
-        colorscale=[[0, 'steelblue'], [1, 'steelblue']],
+        x=X,
+        y=Y,
+        z=Z,
+        opacity=0.5,
         showscale=False,
-        name='Outer Wall',
-        hoverinfo='skip'))
+        colorscale=[[0, f'rgba({rgb})'], [1, f'rgba({rgb})']],
+        name='Semicircle Surface'))
+      elif typeStr == "plane":
+        C1 = shapeHash["C1"]
+        C2 = shapeHash["C2"]
+        vector = shapeHash["vector"]
+        resolution = self.resolution
+        reflect = shapeHash["reflect"]
+        colorStr = shapeHash["color"]
+        rgb = str_to_rgb(colorStr)
+        rgb.append(0.8)
+
+        if reflect:
+            P00 = C1 + vector
+            P10 = C2 + vector
+            P01 = C1 - vector
+            P11 = C2 - vector
+        else:
+            P00 = C1
+            P10 = C2
+            P01 = C1 + vector
+            P11 = C2 + vector
+
+        # Parameter space
+        s = np.linspace(0, 1, resolution)
+        t = np.linspace(0, 1, resolution)
+        S, T = np.meshgrid(s, t)
+
+        # Bilinear interpolation
+        X = ((1 - S) * (1 - T) * P00[0] + S * (1 - T) * P10[0] + (1 - S) * T * P01[0] + S * T * P11[0])
+        Y = ((1 - S) * (1 - T) * P00[1] + S * (1 - T) * P10[1] + (1 - S) * T * P01[1] + S * T * P11[1])
+        Z = ((1 - S) * (1 - T) * P00[2] + S * (1 - T) * P10[2] + (1 - S) * T * P01[2] + S * T * P11[2])
+        self.Figure.add_trace(go.Surface(
+            x=X,
+            y=Y,
+            z=Z,
+            opacity=0.3,
+            colorscale=[[0, f'rgba({rgb})'], [1, f'rgba({rgb})']],
+            showscale=False,
+            hoverinfo='skip'))
+
+
 
