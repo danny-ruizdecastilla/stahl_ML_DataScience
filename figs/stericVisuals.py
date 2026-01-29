@@ -17,15 +17,16 @@ def string_to_hex_color(s):
   color_int = abs(hash_value) % 0xFFFFFF
   return f'#{color_int:06x}'
 class stericDrawer:
-    def __init__(self, atomsHash):
+    def __init__(self, atomsHash , resolution):
         self.atomList = atomsHash["atomCoords"]
         self.atomSymbols = atomsHash["atomSymbol"]
         self.atomRadii = atomsHash["radii"]
         fig = go.Figure()
         self.Figure = fig
-    def drawAtom(self ,idx,  resolution):
-      theta = np.linspace(0, 2 * np.pi, resolution)  # azimuthal angle
-      phi = np.linspace(0, np.pi, resolution)        # polar angle
+        self.resolution = resolution
+    def drawAtom(self ,idx,):
+      theta = np.linspace(0, 2 * np.pi, self.resolution)  # azimuthal angle
+      phi = np.linspace(0, np.pi, self.resolution)        # polar angle
       theta_grid, phi_grid = np.meshgrid(theta, phi)
       atomStr = self.atomSymbols[idx]
       atomColor = string_to_hex_color(atomStr)
@@ -48,9 +49,9 @@ class stericDrawer:
         if bondStr == "single":
           w = 5
         elif bondStr == "double":
-           w = 8
+           w = 15
         elif bondStr == "triple":
-           w = 12
+           w = 30
         bondColor = string_to_hex_color(bondStr)
         
         self.Figure.add_trace(go.Scatter3d(
@@ -68,12 +69,13 @@ class stericDrawer:
                           '<extra></extra>',
             showlegend=False
         ))
-    def drawShapes(self , shapeHash ):
+    def drawShapes(self , shapeHash , **kwargs):
+      fig = kwargs.get("fig", self.Figure)
       typeStr = shapeHash["shapeType"]
       if typeStr == "line":
         origin = shapeHash["origin"]
         vector = shapeHash["vector"]
-        self.Figure.add_trace(go.Scatter3d(
+        fig.add_trace(go.Scatter3d(
             x=[origin[0], vector[0]],
             y=[origin[1], vector[1]],
             z=[origin[2], vector[2]],
@@ -87,6 +89,7 @@ class stericDrawer:
                           '<extra></extra>',
             showlegend=False))
       elif typeStr == "semiCircle":
+        newFig = go.Figure(fig.to_dict())
         resolution = self.resolution
         origin = shapeHash["origin"]
         vector = shapeHash["vector"]
@@ -109,7 +112,7 @@ class stericDrawer:
         Y = origin[1] + Rg * np.cos(Tg) * u_hat[1] + Rg * np.sin(Tg) * v_hat[1]
         Z = origin[2] + Rg * np.cos(Tg) * u_hat[2] + Rg * np.sin(Tg) * v_hat[2]
 
-        self.Figure.add_trace(go.Surface(
+        newFig.Figure.add_trace(go.Surface(
         x=X,
         y=Y,
         z=Z,
@@ -117,7 +120,9 @@ class stericDrawer:
         showscale=False,
         colorscale=[[0, f'rgba({rgb})'], [1, f'rgba({rgb})']],
         name='Semicircle Surface'))
+        return newFig
       elif typeStr == "plane":
+        newFig = go.Figure(fig.to_dict())
         C1 = shapeHash["C1"]
         C2 = shapeHash["C2"]
         vector = shapeHash["vector"]
@@ -147,7 +152,7 @@ class stericDrawer:
         X = ((1 - S) * (1 - T) * P00[0] + S * (1 - T) * P10[0] + (1 - S) * T * P01[0] + S * T * P11[0])
         Y = ((1 - S) * (1 - T) * P00[1] + S * (1 - T) * P10[1] + (1 - S) * T * P01[1] + S * T * P11[1])
         Z = ((1 - S) * (1 - T) * P00[2] + S * (1 - T) * P10[2] + (1 - S) * T * P01[2] + S * T * P11[2])
-        self.Figure.add_trace(go.Surface(
+        newFig.add_trace(go.Surface(
             x=X,
             y=Y,
             z=Z,
@@ -155,6 +160,8 @@ class stericDrawer:
             colorscale=[[0, f'rgba({rgb})'], [1, f'rgba({rgb})']],
             showscale=False,
             hoverinfo='skip'))
-
-
-
+        return newFig
+      #elif typeStr == "semiArc":
+         
+       
+        
