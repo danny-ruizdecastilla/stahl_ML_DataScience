@@ -270,7 +270,7 @@ class alkeneSemiCylinders:
         self.bisector = bisector
         self.radius = radius
 
-    def getAtoms(self ,  atomHash , makeFig):
+    def getAtoms(self ,  atomHash ,bondHash ,  makeFig):
         atoms = []
         idxList = []
         symbolList = [] 
@@ -293,14 +293,14 @@ class alkeneSemiCylinders:
             stericFigure = stericDrawer(figHash , 30)
             for i in range(len(atoms)):
                 stericFigure.drawAtom(i)
-            stericFigure.drawBond(self.C1Idx , self.C2Idx , "double")
+            for _ , bdTable in bondHash.items():
+                bdAtoms =  bdTable["idxList"]
+                bondType = str(bdTable["bondType"])
+                stericFigure.drawBond( bdAtoms[0], bdAtoms[1], bondType)
 
-            stericFigure.drawShapes({"shapeType" : "line" , "origin" : self.C1 , "vector" : self.c1Vec1 , "color" : "pink" , "name" : "c1Bond" })
-            stericFigure.drawShapes({"shapeType" : "line" , "origin" : self.C1 , "vector" : self.c1Vec2 , "color" : "pink", "name" : "c1Bond2"})
-            stericFigure.drawShapes({"shapeType" : "line" , "origin" : self.C2 , "vector" : self.c2Vec1  , "color" : "pink", "name" : "c2Bond"})
-            stericFigure.drawShapes({"shapeType" : "line" , "origin" : self.C2 , "vector" : self.c2Vec2 , "color" : "pink" , "name" : "c2Bond2"})            
             self.Fig = stericFigure
         atoms = np.array(atoms)
+        #print(atoms)
         cx, cy, cz = self.centerPoint
         xList = atoms[:, 0] - cx
         yList = atoms[:, 1] - cy
@@ -377,7 +377,7 @@ class alkeneSemiCylinders:
                                     "orthogonal" : -1 * np.array(self.alkeneVec)  , "color" : "red"}
                 c2SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.C2 , "vector" : self.bisector , 
                                     "orthogonal" : self.alkeneVec  , "color" : "green"}
-                c2SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : self.bisector , 
+                c2SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.C2 , "vector" : self.bisector , 
                                     "orthogonal" :  -1 * np.array(self.alkeneVec)  , "color" : "red"}
                 
                 c1SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : n, 
@@ -386,7 +386,7 @@ class alkeneSemiCylinders:
                                     "orthogonal" : -1 * np.array(self.alkeneVec)  , "color" : "red"}
                 c2SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.C2 , "vector" : n , 
                                     "orthogonal" : self.alkeneVec  , "color" : "green"}
-                c2SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : n , 
+                c2SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.C2 , "vector" : n , 
                                     "orthogonal" :  -1 * np.array(self.alkeneVec)  , "color" : "red"}    
 
                 orthFig = self.Fig.drawShapes(orthPlaneHash)  
@@ -416,8 +416,14 @@ def main(logFile , smilesStr, radius):
     C1 = cc[1] + 1
     C2 = cc[0] + 1 
     g = Graph()
+    bondHash = {}
+    idx = 0
     for bond in molec.GetBonds():
+
         start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        bondStr = bond.GetBondType()
+        bondHash[idx] = {"idxList" : [start , end ] , "bondType" : bondStr}
+        idx +=1 
         g.add_edge(start, end)
     CminNeighbors = list(g.neighbors(int(C1-1)))
     CminNeighbors.remove(int(C2-1))
@@ -444,7 +450,7 @@ def main(logFile , smilesStr, radius):
     C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
     C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius)
-    mainCylinder.getAtoms(coordHash , True)
+    mainCylinder.getAtoms(coordHash ,bondHash, True)
     maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True , True)
 
 if __name__ == "__main__":
