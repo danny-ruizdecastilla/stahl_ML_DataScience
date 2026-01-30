@@ -451,7 +451,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 
                 for rad in radList:
                     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad)
-                    mainCylinder.getAtoms(coordHash , False)
+                    mainCylinder.getAtoms(coordHash ,{"Nan" : "Nan"} , False)
                     maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True , False)
                     Cburr = mainCylinder.getBurriedVolume(False , False)
                     CburrHash[rad].append(Cburr[0])
