@@ -11,11 +11,12 @@ from pathlib import Path
 parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
 from figs.repositoryGraphVisualization import str_to_rgb
-def string_to_hex_color(s):
-  """Convert any string to a consistent hex color."""
-  hash_value = hash(s)
-  color_int = abs(hash_value) % 0xFFFFFF
-  return f'#{color_int:06x}'
+atomColorHashRGB = { "H" : "rgba(220,220,220,0.7)" , "C" : "rgba(128,128,128,0.7)"
+                    , "O" : "rgba(197,5,12,0.7)" , "N" : "rgba(001,031,091,0.7)"
+                     , "S" : "rgba(254,242,80,0.7)" , "Si" : "rgba(170,089,043,0.7)"
+                      , "P" : "rgba(245,128,037,0.7)" , "F" : "rgba(138,206,0,0.7)"
+                       , "Br" :  "rgba(165,028,048,0.7)" , "Cl" :"rgba(255,206,207,0.7)"
+                         }
 class stericDrawer:
     def __init__(self, atomsHash , resolution):
         self.atomList = atomsHash["atomCoords"]
@@ -29,8 +30,8 @@ class stericDrawer:
       phi = np.linspace(0, np.pi, self.resolution)        # polar angle
       theta_grid, phi_grid = np.meshgrid(theta, phi)
       atomStr = self.atomSymbols[idx]
-      atomColor = string_to_hex_color(atomStr)
-      radius = float(0.01 * self.atomRadii[idx])
+      atomColor = atomColorHashRGB[atomStr]
+      radius = float(0.5* self.atomRadii[idx])
       atomCoord = self.atomList[idx]
       x_outer = radius * np.sin(phi_grid) * np.cos(theta_grid)
       y_outer = radius * np.sin(phi_grid) * np.sin(theta_grid)
@@ -46,14 +47,15 @@ class stericDrawer:
     def drawBond(self, idx1, idx2, bondStr):
         atom1 = self.atomList[idx1]
         atom2 = self.atomList[idx2]
-        if bondStr == "single":
+        if bondStr == "SINGLE":
           w = 5
-        elif bondStr == "double":
-           w = 15
-        elif bondStr == "triple":
-           w = 30
-        bondColor = string_to_hex_color(bondStr)
-        
+          bondColor = "grey"
+        elif bondStr == "DOUBLE":
+          bondColor = "red"
+          w = 15
+        elif bondStr == "TRIPLE":
+          bondColor = "grey"
+          w = 30    
         self.Figure.add_trace(go.Scatter3d(
             x=[atom1[0], atom2[0]],
             y=[atom1[1], atom2[1]],
@@ -95,8 +97,9 @@ class stericDrawer:
         vector = shapeHash["vector"]
         orthogonal = shapeHash["orthogonal"]
         colorStr = shapeHash["color"]
-        rgb = str_to_rgb(colorStr)
-        rgb.append(0.8)
+        rgb = (*str_to_rgb(colorStr), 0.8)
+        r, g, b, a = rgb
+        rgba_str = f'rgba({r}, {g}, {b}, {a})'
 
         R = np.linalg.norm(vector)
         u_hat = vector / R
@@ -112,13 +115,13 @@ class stericDrawer:
         Y = origin[1] + Rg * np.cos(Tg) * u_hat[1] + Rg * np.sin(Tg) * v_hat[1]
         Z = origin[2] + Rg * np.cos(Tg) * u_hat[2] + Rg * np.sin(Tg) * v_hat[2]
 
-        newFig.Figure.add_trace(go.Surface(
+        newFig.add_trace(go.Surface(
         x=X,
         y=Y,
         z=Z,
         opacity=0.5,
         showscale=False,
-        colorscale=[[0, f'rgba({rgb})'], [1, f'rgba({rgb})']],
+        colorscale=[[0, rgba_str], [1, rgba_str]],
         name='Semicircle Surface'))
         return newFig
       elif typeStr == "plane":
@@ -129,8 +132,9 @@ class stericDrawer:
         resolution = self.resolution
         reflect = shapeHash["reflect"]
         colorStr = shapeHash["color"]
-        rgb = str_to_rgb(colorStr)
-        rgb.append(0.8)
+        rgb = (*str_to_rgb(colorStr), 0.8)
+        r, g, b, a = rgb
+        rgba_str = f'rgba({r}, {g}, {b}, {a})'
 
         if reflect:
             P00 = C1 + vector
@@ -157,7 +161,7 @@ class stericDrawer:
             y=Y,
             z=Z,
             opacity=0.3,
-            colorscale=[[0, f'rgba({rgb})'], [1, f'rgba({rgb})']],
+            colorscale=[[0, rgba_str], [1, rgba_str]],
             showscale=False,
             hoverinfo='skip'))
         return newFig
