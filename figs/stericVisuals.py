@@ -92,37 +92,37 @@ class stericDrawer:
             showlegend=False))
       elif typeStr == "semiCircle":
         newFig = go.Figure(fig.to_dict())
-        resolution = self.resolution
+        resolution = self.resolution 
         origin = shapeHash["origin"]
         vector = shapeHash["vector"]
         orthogonal = shapeHash["orthogonal"]
         colorStr = shapeHash["color"]
-        rgb = (*str_to_rgb(colorStr), 0.8)
-        r, g, b, a = rgb
-        rgba_str = f'rgba({r}, {g}, {b}, {a})'
+        rgb = (*str_to_rgb(colorStr) , 0.8)
+        r,g,b,a = rgb
+        rgba_str = f'rgba({r},{g},{b},{a})'
 
         R = np.linalg.norm(vector)
         u_hat = vector / R
 
-        v_hat = np.cross(u_hat, orthogonal)
+        v_hat = np.cross(u_hat , orthogonal)
         v_hat /= np.linalg.norm(v_hat)
 
-        r = np.linspace(0, R, resolution)
-        theta = np.linspace(0, np.pi, resolution)
-        Rg, Tg = np.meshgrid(r, theta)
+        r = np.linspace(0,R , resolution)
+        theta = np.linspace(0,np.pi,resolution)
+        Rg,Tg = np.meshgrid(r, theta)
 
-        X = origin[0] + Rg * np.cos(Tg) * u_hat[0] + Rg * np.sin(Tg) * v_hat[0]
-        Y = origin[1] + Rg * np.cos(Tg) * u_hat[1] + Rg * np.sin(Tg) * v_hat[1]
-        Z = origin[2] + Rg * np.cos(Tg) * u_hat[2] + Rg * np.sin(Tg) * v_hat[2]
+        X = origin[0] + Rg*np.cos(Tg) * u_hat[0] + Rg*np.sin(Tg) * v_hat[0]
+        Y = origin[1] + Rg*np.cos(Tg) * u_hat[1] + Rg*np.sin(Tg) * v_hat[1]
+        Z = origin[2] + Rg*np.cos(Tg) * u_hat[2] + Rg*np.sin(Tg) * v_hat[2]
 
         newFig.add_trace(go.Surface(
-        x=X,
-        y=Y,
-        z=Z,
-        opacity=0.5,
-        showscale=False,
-        colorscale=[[0, rgba_str], [1, rgba_str]],
-        name='Semicircle Surface'))
+          x = X,
+          y = Y,
+          z = Z,
+          showscale = False,
+          colorscale = [[0 , rgba_str] , [1 , rgba_str]],
+          name = "Semicircle Face"
+        ))
         return newFig
       elif typeStr == "plane":
         newFig = go.Figure(fig.to_dict())
@@ -165,7 +165,58 @@ class stericDrawer:
             showscale=False,
             hoverinfo='skip'))
         return newFig
-      #elif typeStr == "semiArc":
-         
-       
-        
+      
+      elif typeStr == "semiArc":
+        newFig = go.Figure(fig.to_dict())
+        resolution = self.resolution 
+        origin = shapeHash["origin"]
+        origin = np.asarray(origin, dtype=float)
+        vector = shapeHash["vector"]
+        orthogonal = shapeHash["orthogonal"]
+        colorStr = shapeHash["color"]
+        alkeneVec = shapeHash["alkeneVec"]
+        rgb = (*str_to_rgb(colorStr) , 0.8)
+        r,g,b,a = rgb
+        rgba_str = f'rgba({r},{g},{b},{a})'
+
+        R = np.linalg.norm(vector)
+        u_hat = vector / R
+
+        v_hat = np.cross(u_hat , orthogonal)
+        v_hat /= np.linalg.norm(v_hat)
+
+        theta = np.linspace(0,np.pi,resolution)
+        s = np.linspace(-1 * np.linalg.norm(alkeneVec) / 2 ,np.linalg.norm(alkeneVec) / 2 , resolution)
+
+        x_local = R * np.cos(theta)
+        y_local = R * np.sin(theta)
+        points = (origin[None, :]
+        + x_local[:, None] * u_hat[None, :]
+        + y_local[:, None] * v_hat[None, :])
+
+        arc_grid = points[:, None, :]               # (Nθ, 1, 3)
+        s_grid   = s[None, :, None]               # (1, Ns, 1)
+
+        surface = arc_grid + s_grid * alkeneVec[None, None, :]
+
+        X = surface[:, :, 0]
+        Y = surface[:, :, 1]
+        Z = surface[:, :, 2]
+        newFig.add_surface(
+            x=X,
+            y=Y,
+            z=Z,
+            showscale=False,
+            opacity=a,
+            colorscale=[[0, rgba_str], [1, rgba_str]],
+            lighting=dict(
+                ambient=0.6,
+                diffuse=0.6,
+                specular=0.1,
+                roughness=0.9
+            )
+        )
+        return newFig
+
+
+
