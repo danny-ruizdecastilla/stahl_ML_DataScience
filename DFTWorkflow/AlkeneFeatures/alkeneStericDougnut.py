@@ -342,7 +342,7 @@ class alkeneSemiCylinders:
 
             planeNormal = np.cross(self.alkeneVec, self.bisector)
             n = planeNormal / np.linalg.norm(planeNormal)
-            n *= self.radius * n
+            n *= self.radius 
             signedDist_Pi = np.dot(atomCoords - self.centerPoint, n)
             signedDist_Orth = np.dot(atomCoords - self.centerPoint, self.bisector)
 
@@ -387,13 +387,17 @@ class alkeneSemiCylinders:
                 c2SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.C2 , "vector" : n , 
                                     "orthogonal" : self.alkeneVec  , "color" : "green"}
                 c2SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.C2 , "vector" : n , 
-                                    "orthogonal" :  -1 * np.array(self.alkeneVec)  , "color" : "red"}    
+                                    "orthogonal" :  -1 * np.array(self.alkeneVec)  , "color" : "red"} 
+                negOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : self.centerPoint , "radius" : self.radius , 
+                                    "length" : float(np.linalg.norm(self.alkeneVec)) , "vector" : n , "color" : "red",
+                                    "orthogonal" : -1 * np.array(self.alkeneVec) ,"alkeneVec" : -1 * np.array(self.alkeneVec)  }    
 
                 orthFig = self.Fig.drawShapes(orthPlaneHash)  
                 orthFig = self.Fig.drawShapes(c1SemiHash_Plus_orth , fig = orthFig)  
                 orthFig = self.Fig.drawShapes(c1SemiHash_Neg_orth , fig = orthFig)  
                 orthFig = self.Fig.drawShapes(c2SemiHash_Plus_orth ,fig =  orthFig)  
                 orthFig = self.Fig.drawShapes(c2SemiHash_Neg_orth , fig = orthFig) 
+                orthFig = self.Fig.drawShapes(negOrthSemiHash , fig = orthFig) 
                 orthFig.write_html("orthFig.html")
 
                 piFig = self.Fig.drawShapes(piPlaneHash)  
