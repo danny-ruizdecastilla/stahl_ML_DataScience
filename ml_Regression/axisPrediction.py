@@ -54,7 +54,7 @@ def rFR_2Source(X_trainDF, y_trainDF,X_testDF, yStr , hyperParmFile, outputDir):
         rfMAST = RandomForestRegressor(**gridSearch.best_params_, random_state=1)
         rfFinal = RandomForestRegressor(**gridSearch.best_params_, random_state=2)
 
-    mseCV, r2CV = stratifiedRegressionCV(X_trainDF, y_trainDF, 42 , rfMAST, n_splits=5 )
+    mseCV, r2CV = stratifiedRegressionCV(X_trainDF, y_trainDF, 42 , rfMAST, False , n_splits=5 )
 
     cvFile = Path(outputDir) / "randomForest" / "crossvalidation" / "scores.dat"
     cvFile.parent.mkdir(parents=True, exist_ok=True)
@@ -85,7 +85,7 @@ def rFR_2Source(X_trainDF, y_trainDF,X_testDF, yStr , hyperParmFile, outputDir):
     featDF.to_csv(featFile, index=False)
     X_testDF[yStr] = yPred
     return X_testDF
-def regressionPipeline(X_trainDF, y_trainDF, X_testDF, yStr, model_class, param_grid=None,
+def regressionPipeline(X_trainDF, y_trainDF, X_testDF, yStr, model_class, modelStr, param_grid=None,
                        hyperParmFile=None, outputDir=None, PipeObj=None, model_name="model"):
     import json
 
@@ -106,14 +106,19 @@ def regressionPipeline(X_trainDF, y_trainDF, X_testDF, yStr, model_class, param_
             gridSearch = GridSearchCV(PipeObj, param_grid, cv=5, scoring="neg_mean_squared_error", n_jobs=-1, refit=True)
         gridSearch.fit(X_trainDF, y_trainDF)
         best_params = gridSearch.best_params_
+        modelParams = {
+                key.split('__')[1]: value 
+                for key, value in best_params.items() 
+                if key.startswith(f'{modelStr}__')
+            }
         if hyperParmFile:
             with open(hyperParmFile, "w") as f:
                 json.dump({"best_score": gridSearch.best_score_, "best_params": best_params}, f, indent=4)
 
-    modelMAST = model_class(**best_params, random_state=1)
-    modelFinal = model_class(**best_params, random_state=2)
+    modelMAST = model_class(**modelParams, random_state=1)
+    modelFinal = model_class(**modelParams, random_state=2)
 
-    mseCV, r2CV = stratifiedRegressionCV(X_trainDF, y_trainDF, 42, modelMAST, n_splits=5)
+    mseCV, r2CV = stratifiedRegressionCV(X_trainDF, y_trainDF, 42, modelMAST, False, n_splits=5)
 
     cvFile = Path(outputDir) / model_name / "crossvalidation" / "scores.dat"
     cvFile.parent.mkdir(parents=True, exist_ok=True)
@@ -134,16 +139,30 @@ def regressionPipeline(X_trainDF, y_trainDF, X_testDF, yStr, model_class, param_
     with open(trainFile, "w") as f:
         f.write(f"Train Results: rmse {rmseTrain} | r2 {r2Train}\n")
 
-    importances = getattr(modelFinal, "feature_importances_", None) or getattr(modelFinal, "coef_", None)
-    if importances is not None:
+    #importances = getattr(modelFinal, "feature_importances_", None) or getattr(modelFinal, "coef_", None)
+    if modelStr != "mlp":
+        featureImportance = modelFinal.feature_importances_
         if isinstance(X_trainDF, pd.DataFrame):
             feature_names = X_trainDF.columns
         else:
-            feature_names = [f"f{i}" for i in range(importances.shape[0])]
-        featDF = pd.DataFrame({"feature": feature_names, "importance": importances}).sort_values(by="importance", ascending=False)
+            feature_names = [f"f{i}" for i in range(featureImportance.shape[0])]
+        featDF = pd.DataFrame({"feature": feature_names, "importance": featureImportance}).sort_values(by="importance", ascending=False)
         featFile = Path(outputDir) / model_name / "Eval" / "featureImportance.csv"
         featDF.to_csv(featFile, index=False)
+    elif modelStr == "mlp":
+        featureNames = X_trainDF.columns
+        firstLayerWeights= modelFinal.coefs_[0]  
 
+        featureImp = np.abs(firstLayerWeights).mean(axis=1)
+
+        featureImportance = featureImp / featureImp.sum()
+
+        featDF = pd.DataFrame({
+            'feature': featureNames,
+            'importance': featureImportance
+        }).sort_values('importance', ascending=False)
+        featFile = Path(outputDir) / model_name / "Eval" / "weightsFromFirstLayer.csv"
+        featDF.to_csv(featFile, index=False)
     X_testDF[yStr] = yPred
     return X_testDF
 
@@ -200,16 +219,21 @@ def main(training , testing , outputDir  , regressionType , featureStr ):
     trainingDF = trainingDF.drop(columns = dropColsStr)
     testingDF = testingDF.drop(columns = dropColsStr)
     #print(list(trainingDF.columns))
+    scaler = StandardScaler()
     if regressionType == "randomForrest":
         X_training , feature_labels = featureFiltering(outputDir , trainingDF , list(trainingDF.columns), featureStr)
         newCols = set(X_training.columns)
         testCols = set(testingDF.columns)
         removeCols = list(testCols - newCols)
         testingDF = testingDF.drop(columns = removeCols)
+        testing = scaler.fit_transform(testingDF)
+        testingDF = pd.DataFrame(testing, columns=testingDF.columns, index=testingDF.index)
+        X_scaled = scaler.fit_transform(X_training)
+        X_scaledDF = pd.DataFrame(X_scaled, columns=X_training.columns, index=X_training.index)
         hyperFileRF = Path(outputDir) / "randomForest" / "hyperParameter" / "params.dat"
         if not os.path.exists(str(Path(outputDir) / "randomForest" / "hyperParameter")): 
             os.makedirs(str(Path(outputDir) / "randomForest" / "hyperParameter") ) 
-        reducedDimDF = rFR_2Source(X_training, yTraining , testingDF, trainingYStr,  hyperFileRF, outputDir)
+        reducedDimDF = rFR_2Source(X_scaledDF, yTraining , testingDF, trainingYStr,  hyperFileRF, outputDir)
         dfFinal = addToDF(reducedDimDF, keepHash , rejectedDF)
         return dfFinal
     elif regressionType == "MLP":
@@ -218,24 +242,29 @@ def main(training , testing , outputDir  , regressionType , featureStr ):
         testCols = set(testingDF.columns)
         removeCols = list(testCols - newCols)
         testingDF = testingDF.drop(columns = removeCols)
+        testing = scaler.fit_transform(testingDF)
+        testingDF = pd.DataFrame(testing, columns=testingDF.columns, index=testingDF.index)
+        X_scaled = scaler.fit_transform(X_training)
+        X_scaledDF = pd.DataFrame(X_scaled, columns=X_training.columns, index=X_training.index)
         hyperFileMLP = Path(outputDir) / "MLP" / "hyperParameter" / "params.dat"
         if not os.path.exists(str(Path(outputDir) / "MLP" / "hyperParameter")): 
             os.makedirs(str(Path(outputDir) / "MLP" / "hyperParameter") ) 
         MLPipe = Pipeline([
-            ("scaler" , StandardScaler()),
             ("mlp" , MLPRegressor(
                 solver = "adam" , 
-                max_iter = 2000,
+                max_iter = 4000,
                 early_stopping = True,
                 validation_fraction = 0.1,
                 n_iter_no_change = 20,
                 random_state = 0
             ))
         ])
-        mlpGrid= { "mlp__hidden_layer_sizes" : [(64,32) , (128,64) , (128,64,32)], 
-                  "mlp__activation" : ["relu" , "tanh"], 
-                  "mlp__alpha" : [1e-4 , 1e-3 ]}
-        reducedDimDF = regressionPipeline(X_training, yTraining, testingDF, trainingYStr, MLPRegressor, param_grid=mlpGrid,
+        mlpGrid = {
+            'mlp__activation': ['relu', 'tanh', 'logistic'],
+            'mlp__learning_rate_init': [0.001, 0.01, 0.1],
+            'mlp__hidden_layer_sizes': [(50,), (100,), (50, 50)]
+        }
+        reducedDimDF = regressionPipeline(X_scaledDF, yTraining, testingDF, trainingYStr, MLPRegressor, "mlp",param_grid=mlpGrid,
                        hyperParmFile=hyperFileMLP, outputDir=outputDir, PipeObj=MLPipe, model_name="MLP")
         dfFinal = addToDF(reducedDimDF, keepHash , rejectedDF)
         return dfFinal
@@ -245,24 +274,27 @@ def main(training , testing , outputDir  , regressionType , featureStr ):
         testCols = set(testingDF.columns)
         removeCols = list(testCols - newCols)
         testingDF = testingDF.drop(columns = removeCols)
-        hyperFileMLP = Path(outputDir) / "GradientBoost" / "hyperParameter" / "params.dat"
+        testing = scaler.fit_transform(testingDF)
+        testingDF = pd.DataFrame(testing, columns=testingDF.columns, index=testingDF.index)
+        X_scaled = scaler.fit_transform(X_training)
+        X_scaledDF = pd.DataFrame(X_scaled, columns=X_training.columns, index=X_training.index)
+        hyperFileGBR = Path(outputDir) / "GradientBoost" / "hyperParameter" / "params.dat"
         if not os.path.exists(str(Path(outputDir) / "GradientBoost" / "hyperParameter")): 
             os.makedirs(str(Path(outputDir) / "GradientBoost" / "hyperParameter") ) 
         gbGrid = {
-            'n_estimators': [100, 200, 300],
-            'max_depth': [2, 4, 8, None],
-            'learning_rate': [0.01, 0.05, 0.1, 0.2],
-            'max_features': ['sqrt', 0.5, None]
+            'gbR__n_estimators': [100, 200, 300],
+            'gbR__max_depth': [2, 4, 8, None],
+            'gbR__learning_rate': [0.01, 0.05, 0.1, 0.2],
+            'gbR__max_features': ['sqrt', 0.5, None]
         }
         GBPipe = Pipeline([
-            ("scaler" , StandardScaler()),
             ("gbR" , GradientBoostingRegressor(
                 n_estimators=100,
                 random_state = 0
             ))
         ])
-        reducedDimDF = regressionPipeline(X_training, yTraining, testingDF, trainingYStr, MLPRegressor, param_grid=gbGrid,
-                       hyperParmFile=hyperFileMLP, outputDir=outputDir, PipeObj=GBPipe, model_name="MLP")
+        reducedDimDF = regressionPipeline(X_scaledDF, yTraining, testingDF, trainingYStr, GradientBoostingRegressor,"gbR", param_grid=gbGrid,
+                       hyperParmFile=hyperFileGBR, outputDir=outputDir, PipeObj=GBPipe, model_name="GradientBoostRegressor")
         dfFinal = addToDF(reducedDimDF, keepHash , rejectedDF)
         return dfFinal
 if __name__ == "__main__":

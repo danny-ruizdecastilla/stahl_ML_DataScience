@@ -7,6 +7,7 @@ import pandas as pd
 from pathlib import Path
 import json
 import random
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.svm import SVR
@@ -28,7 +29,12 @@ def stratifiedRegressionSplit(y, j , n_splits=5, n_bins=10 ):
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=j)
     return skf.split(range(len(y_ser)), yBinned)
 
-def stratifiedRegressionCV(X, y, j , model, n_splits=5 ):
+def stratifiedRegressionCV(X, y, j , model, standardScale ,n_splits=5 ):
+    if standardScale:
+        scaled = StandardScaler()
+        X = scaled.fit_transform(X)
+        X_scaled = scaled.fit_transform(X)
+        X = pd.DataFrame(X_scaled, columns=X.columns, index=X.index)
     is_df = isinstance(X, pd.DataFrame)
     X_arr = X.values if is_df else np.asarray(X)
     y_arr = np.asarray(y)
@@ -77,7 +83,7 @@ def randomForestRegression(X, y, hyperParmFile, outputDir , j ):
         rfMAST = RandomForestRegressor(**gridSearch.best_params_, random_state=j)
         rfFinal = RandomForestRegressor(**gridSearch.best_params_, random_state=j)
 
-    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV,  j , rfMAST, n_splits=5)
+    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV,  j , rfMAST, True ,  n_splits=5)
 
     cvFile = Path(outputDir) / "randomForest" / "crossvalidation" / "scores.dat"
     cvFile.parent.mkdir(parents=True, exist_ok=True)
@@ -141,7 +147,7 @@ def supportVectorRegression(kernelStr, X, y, hyperParmFile, outputDir):
         svrMAST = SVR(**gridSearch.best_params_)
         svrFinal = SVR(**gridSearch.best_params_)
 
-    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, svrMAST, n_splits=5)
+    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, svrMAST, True , n_splits=5)
 
     cvFile = Path(outputDir) / "supportVector" / "crossvalidation" / "scores.dat"
     cvFile.parent.mkdir(parents=True, exist_ok=True)
@@ -192,7 +198,7 @@ def gradientBoostRegression(X, y, hyperParmFile, outputDir):
         gbMAST = GradientBoostingRegressor(**gridSearch.best_params_, random_state=j)
         gbFinal = GradientBoostingRegressor(**gridSearch.best_params_, random_state=j)
 
-    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, gbMAST, n_splits=5)
+    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, gbMAST, True , n_splits=5)
 
     cvFile = Path(outputDir) / "gradientBoost" / "crossvalidation" / "scores.dat"
     cvFile.parent.mkdir(parents=True, exist_ok=True)
