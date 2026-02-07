@@ -23,6 +23,32 @@ class stericDrawer:
         self.atomSymbols = atomsHash["atomSymbol"]
         self.atomRadii = atomsHash["radii"]
         fig = go.Figure()
+        fig.update_layout(
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        scene=dict(
+            xaxis=dict(
+                visible=False,
+                showbackground=False,
+                showgrid=False,
+                zeroline=False
+            ),
+            yaxis=dict(
+                visible=False,
+                showbackground=False,
+                showgrid=False,
+                zeroline=False
+            ),
+            zaxis=dict(
+                visible=False,
+                showbackground=False,
+                showgrid=False,
+                zeroline=False
+            ),
+            bgcolor="white"
+        ),
+        margin=dict(l=0, r=0, t=0, b=0)
+    )
         self.Figure = fig
         self.resolution = resolution
     def drawAtom(self ,idx,):
@@ -38,7 +64,7 @@ class stericDrawer:
       z_outer = radius * np.cos(phi_grid)
       self.Figure.add_trace(go.Surface(
           x=x_outer + atomCoord[0], y=y_outer + atomCoord[1], z=z_outer + atomCoord[2],
-          opacity=0.3,colorscale=[[0, atomColor], [1, atomColor]],showscale=False,name=f'Atom_{idx}',
+          opacity=0.75,colorscale=[[0, atomColor], [1, atomColor]],showscale=False,name=f'Atom_{idx}',
           hovertemplate=f'<b>Atom_{idx}</b><br>' +
                   'x: %{x:.2f}<br>' +
                   'y: %{y:.2f}<br>' +
@@ -49,20 +75,19 @@ class stericDrawer:
         atom2 = self.atomList[idx2]
         if bondStr == "SINGLE":
           w = 5
-          bondColor = "grey"
         elif bondStr == "DOUBLE":
-          bondColor = "red"
           w = 15
         elif bondStr == "TRIPLE":
-          bondColor = "grey"
           w = 30    
+        elif bondStr == "AROMATIC":
+          w = 10
         self.Figure.add_trace(go.Scatter3d(
             x=[atom1[0], atom2[0]],
             y=[atom1[1], atom2[1]],
             z=[atom1[2], atom2[2]],
             mode='lines',
             line=dict(
-                color=bondColor,
+                color='rgba(0,0,0,0.5)',
                 width=w
             ),
             name=f'Bond_{idx1}-{idx2}',
@@ -97,7 +122,7 @@ class stericDrawer:
         vector = shapeHash["vector"]
         orthogonal = shapeHash["orthogonal"]
         colorStr = shapeHash["color"]
-        rgb = (*str_to_rgb(colorStr) , 0.8)
+        rgb = (*str_to_rgb(colorStr) , 0.35)
         r,g,b,a = rgb
         rgba_str = f'rgba({r},{g},{b},{a})'
 
@@ -123,6 +148,29 @@ class stericDrawer:
           colorscale = [[0 , rgba_str] , [1 , rgba_str]],
           name = "Semicircle Face"
         ))
+        return newFig
+      elif typeStr == "Sphere":
+        newFig = go.Figure(fig.to_dict())
+        theta = np.linspace(0, 2 * np.pi, self.resolution)  # azimuthal angle
+        phi = np.linspace(0, np.pi, self.resolution)        # polar angle
+        theta_grid, phi_grid = np.meshgrid(theta, phi)
+        radius = shapeHash["radius"]
+        atomCoord = shapeHash["coordinates"]
+        colorStr = shapeHash["color"]
+        rgb = (*str_to_rgb(colorStr), 0.35)
+        r, g, b, a = rgb
+        rgba_str = f'rgba({r}, {g}, {b}, {a})'
+        x_outer = radius * np.sin(phi_grid) * np.cos(theta_grid)
+        y_outer = radius * np.sin(phi_grid) * np.sin(theta_grid)
+        z_outer = radius * np.cos(phi_grid)
+        newFig.add_trace(go.Surface(
+            x=x_outer + atomCoord[0], y=y_outer + atomCoord[1], z=z_outer + atomCoord[2],
+            opacity=0.6,colorscale=[[0, rgba_str], [1, rgba_str]],showscale=False,name=f"Vburr_{radius}",
+            hovertemplate=f'<b>Vburr_{radius}</b><br>' +
+                    'x: %{x:.2f}<br>' +
+                    'y: %{y:.2f}<br>' +
+                    'z: %{z:.2f}<br>' +
+                    '<extra></extra>',))
         return newFig
       elif typeStr == "plane":
         newFig = go.Figure(fig.to_dict())
@@ -175,7 +223,7 @@ class stericDrawer:
         orthogonal = shapeHash["orthogonal"]
         colorStr = shapeHash["color"]
         alkeneVec = shapeHash["alkeneVec"]
-        rgb = (*str_to_rgb(colorStr) , 0.8)
+        rgb = (*str_to_rgb(colorStr) , 0.35)
         r,g,b,a = rgb
         rgba_str = f'rgba({r},{g},{b},{a})'
 
