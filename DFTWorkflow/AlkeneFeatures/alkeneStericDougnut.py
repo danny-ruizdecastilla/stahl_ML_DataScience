@@ -379,6 +379,12 @@ class alkeneSemiCylinders:
                                     "orthogonal" : self.alkeneVec  , "color" : "green"}
                 c2SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.C2 , "vector" : self.bisector , 
                                     "orthogonal" :  -1 * np.array(self.alkeneVec)  , "color" : "red"}
+                negPiSemiHash = {"shapeType" :  "semiArc" , "origin" : self.centerPoint , "radius" : self.radius , 
+                                    "length" : float(np.linalg.norm(self.alkeneVec)) , "vector" : self.bisector , "color" : "red",
+                                    "orthogonal" : -1 * np.array(self.alkeneVec) ,"alkeneVec" : -1 * np.array(self.alkeneVec)  } 
+                posPiSemiHash = {"shapeType" :  "semiArc" , "origin" : self.centerPoint , "radius" : self.radius , 
+                                    "length" : float(np.linalg.norm(self.alkeneVec)) , "vector" : self.bisector , "color" : "green",
+                                    "orthogonal" :  np.array(self.alkeneVec) ,"alkeneVec" : np.array(self.alkeneVec)  } 
                 
                 c1SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.C1 , "vector" : n, 
                                     "orthogonal" : self.alkeneVec  , "color" : "green"}
@@ -390,7 +396,10 @@ class alkeneSemiCylinders:
                                     "orthogonal" :  -1 * np.array(self.alkeneVec)  , "color" : "red"} 
                 negOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : self.centerPoint , "radius" : self.radius , 
                                     "length" : float(np.linalg.norm(self.alkeneVec)) , "vector" : n , "color" : "red",
-                                    "orthogonal" : -1 * np.array(self.alkeneVec) ,"alkeneVec" : -1 * np.array(self.alkeneVec)  }    
+                                    "orthogonal" : -1 * np.array(self.alkeneVec) ,"alkeneVec" : -1 * np.array(self.alkeneVec)  } 
+                posOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : self.centerPoint , "radius" : self.radius , 
+                                    "length" : float(np.linalg.norm(self.alkeneVec)) , "vector" : n , "color" : "green",
+                                    "orthogonal" :  np.array(self.alkeneVec) ,"alkeneVec" : np.array(self.alkeneVec)  }    
 
                 orthFig = self.Fig.drawShapes(orthPlaneHash)  
                 orthFig = self.Fig.drawShapes(c1SemiHash_Plus_orth , fig = orthFig)  
@@ -398,14 +407,23 @@ class alkeneSemiCylinders:
                 orthFig = self.Fig.drawShapes(c2SemiHash_Plus_orth ,fig =  orthFig)  
                 orthFig = self.Fig.drawShapes(c2SemiHash_Neg_orth , fig = orthFig) 
                 orthFig = self.Fig.drawShapes(negOrthSemiHash , fig = orthFig) 
+                orthFig = self.Fig.drawShapes(posOrthSemiHash , fig = orthFig) 
                 orthFig.write_html("orthFig.html")
 
                 piFig = self.Fig.drawShapes(piPlaneHash)  
                 piFig = self.Fig.drawShapes(c1SemiHash_Plus , fig = piFig)  
                 piFig = self.Fig.drawShapes(c1SemiHash_Neg ,fig =  piFig)  
                 piFig = self.Fig.drawShapes(c2SemiHash_Plus , fig = piFig)  
-                piFig = self.Fig.drawShapes(c2SemiHash_Neg ,fig =  piFig)       
+                piFig = self.Fig.drawShapes(c2SemiHash_Neg ,fig =  piFig) 
+                piFig = self.Fig.drawShapes(negPiSemiHash , fig = piFig) 
+                piFig = self.Fig.drawShapes(posPiSemiHash , fig = piFig)       
                 piFig.write_html("piFig.html")
+                
+                c1Burr = {"shapeType" :"Sphere" , "radius" : 3.0 , "coordinates" : self.C1 , "color" : "green"}
+                vBurrFig = self.Fig.drawShapes(c1Burr) 
+                c2Burr = {"shapeType" :"Sphere" , "radius" : 3.0 , "coordinates" : self.C2 , "color" : "red"}
+                vBurrFig = self.Fig.drawShapes(c2Burr , fig = vBurrFig) 
+                vBurrFig.write_html("vBurrFig.html")
             return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
                     max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth)]    
         else:
@@ -414,9 +432,10 @@ class alkeneSemiCylinders:
             percentBurriedVol = (atomVol/volCylinder) * 100 
             self.BuriedCylinder = percentBurriedVol
             return [percentBurriedVol]
-def main(logFile , smilesStr, radius):
+def main(logFile , smilesStr, radius , linkIdx):
     from DFTWorkflow.AlkeneFeatures.alkeneFeatureExtractorMAST import getAtomCoordsRobust
     cc , molec = getCC(smilesStr)
+    #print(cc)
     C1 = cc[1] + 1
     C2 = cc[0] + 1 
     g = Graph()
@@ -426,16 +445,19 @@ def main(logFile , smilesStr, radius):
 
         start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
         bondStr = bond.GetBondType()
-        bondHash[idx] = {"idxList" : [start , end ] , "bondType" : bondStr}
+        #print(bondStr)
+        bondHash[idx] = {"idxList" : [start , end ] , "bondType" : str(bondStr)}
         idx +=1 
         g.add_edge(start, end)
+    #print(bondHash)
     CminNeighbors = list(g.neighbors(int(C1-1)))
     CminNeighbors.remove(int(C2-1))
     CmaxNeighbors = list(g.neighbors(int(C2-1)))
     CmaxNeighbors.remove(int(C1-1))
     CmaxContacts = []
     CminContacts = []
-    coordHash = getAtomCoordsRobust(logFile , "GINC-COMPUTE" , 5  , 1)
+    coordHash = getAtomCoordsRobust(logFile , "GINC-COMPUTE" , linkIdx  , 1)
+    #print(coordHash)
     idx = 0
     for _ , coords in coordHash.items():
         idx +=1
@@ -463,5 +485,6 @@ if __name__ == "__main__":
     logFile = str(sys.argv[1])
     smilesStr = str(sys.argv[2])
     radius = float(sys.argv[3])
-    main(logFile , smilesStr , radius)
+    linkIdx = int(sys.argv[4])
+    main(logFile , smilesStr , radius , linkIdx)
     
