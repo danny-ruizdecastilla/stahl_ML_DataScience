@@ -1,3 +1,4 @@
+#3dscatterplot
 import pandas as pd
 import os 
 import sys
@@ -9,49 +10,8 @@ import plotly
 import shutil
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
-from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
-from figs.chemPlotlyV2 import createPNGDF,png64
-from figs.chemPlotlyV1 import convertCanonical
-from figs.threeDscatterPlot import htmlGenerator3D
-from figs.plotSubstrates import safeStringHTML , plotSubstratesMain
-#from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans , convertCanonical , featureFiltering
-#from DFTWorkflow.featureMaping import  createCSV
-def checkSubstratePath(substrateDF):
-    if not os.path.exists(substrateDF):
-        print(f"\nWarning: Could not locate master substrate dataset at:\n   → {substrateDF}")
-        print("It looks like it doesn't exist yet.")
-        print("Would you like to build it from scratch?")
-        while True:
-            userInput = input("➡️  Enter 1 to build from scratch, or 2 to abort: ").strip()
-            if userInput == "1":
-                print("Proceeding to build the dataset from scratch...\n")
-                return 1
-            elif userInput == "2":
-                print("Aborting the process\n")
-                return 2
-            else:
-                userInput = input("⚠️  Invalid input. Please enter 1 (yes) or 2 (no). ").strip()
-
-    else:
-        print(f"Found existing master dataset at: {substrateDF}")
-        return 0
-def createAxisMotifs(axisNum):
-    axisDict = {}
-    for num in range(1,axisNum+1):
-        motifList = listInputs(f"Enter motif names for axis {num}, Ex: [distance,Buried,angle,dihedral,Vbur]: ")
-        naming = input(f"Do you want to name this axis? | Enter 1 for yes, or 2 to accept {num} as the name for axis  {num}:")
-        while True:
-            if naming == "1":
-                name = input(f"Enter the name for axis {num}:")
-                break
-            elif naming == "2":
-                name = str(num)
-                break
-            else:
-                naming = input("⚠️  Invalid input. Please enter 1 (yes) or 2 (no).").strip()
-        axisDict[name] = motifList
-    return axisDict
-def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
+def htmlGenerator3D(jsonDict, axisList, chemStr, outputDir, partitionStr):
+    from figs.plotSubstrates import safeStringHTML
     plotChemStr = input("Name your new functional scatterplot: ")
     htmlAxis = "".join([safeStringHTML(axis) for axis in axisList])
     
@@ -85,6 +45,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                 const threshold = parseFloat(document.getElementById("yieldSlider").value);
                 const xCol = document.getElementById("xAxis").value;
                 const yCol = document.getElementById("yAxis").value;
+                const zCol = document.getElementById("zAxis").value;
 
                 // Update threshold display
                 document.getElementById("thresholdValue").textContent = threshold;
@@ -92,6 +53,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                 let traces = [];
                 let allXData = [];
                 let allYData = [];
+                let allZData = [];
 
                 for (const groupKey in groupedData) {{
                     const jsonData = groupedData[groupKey];
@@ -99,14 +61,17 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                     if (groupKey === selectedGroup) continue;
                     const xData = jsonData.map(p => p[xCol]);
                     const yData = jsonData.map(p => p[yCol]);
+                    const zData = jsonData.map(p => p[zCol]);
                     allXData.push(...xData);
                     allYData.push(...yData);
+                    allZData.push(...zData);
                     
                     const trace = {{
                         x: xData,
                         y: yData,
+                        z: zData,
                         mode: 'markers',
-                        type: 'scatter',
+                        type: 'scatter3d',
                         name: `${{groupKey}} (background)`,
                         text: jsonData.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
                         customdata: jsonData.map((p, i) => ({{
@@ -117,6 +82,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                             '<b>%{{text}}</b><br>' +
                             `${{xCol}}: %{{x}}<br>` +
                             `${{yCol}}: %{{y}}<br>` +
+                            `${{zCol}}: %{{z}}<br>` +
                             '<extra></extra>',
                         marker: {{
                             size: 8,
@@ -131,14 +97,17 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                 if (below.length > 0) {{
                     const xData = below.map(p => p[xCol]);
                     const yData = below.map(p => p[yCol]);
+                    const zData = below.map(p => p[zCol]);
                     allXData.push(...xData);
                     allYData.push(...yData);
+                    allZData.push(...zData);
                     
                     const traceBelow = {{
                         x: xData,
                         y: yData,
+                        z: zData,
                         mode: 'markers',
-                        type: 'scatter',
+                        type: 'scatter3d',
                         name: `${{selectedGroup}} ("{partitionStr}" ≤ ${{threshold}})`,
                         text: below.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
                         customdata: below.map((p, i) => ({{
@@ -149,6 +118,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                             '<b>%{{text}}</b><br>' +
                             `${{xCol}}: %{{x}}<br>` +
                             `${{yCol}}: %{{y}}<br>` +
+                            `${{zCol}}: %{{z}}<br>` +
                             '<extra></extra>',
                         marker: {{
                             size: 12,
@@ -164,14 +134,17 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                 if (above.length > 0) {{
                     const xData = above.map(p => p[xCol]);
                     const yData = above.map(p => p[yCol]);
+                    const zData = above.map(p => p[zCol]);
                     allXData.push(...xData);
                     allYData.push(...yData);
+                    allZData.push(...zData);
                     
                     const traceAbove = {{
                         x: xData,
                         y: yData,
+                        z: zData,
                         mode: 'markers',
-                        type: 'scatter',
+                        type: 'scatter3d',
                         name: `${{selectedGroup}} ("{partitionStr}" > ${{threshold}})`,
                         text: above.map(p => `"{partitionStr}": ${{p["{partitionStr}"]}}`),
                         customdata: above.map((p, i) => ({{
@@ -182,6 +155,7 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                             '<b>%{{text}}</b><br>' +
                             `${{xCol}}: %{{x}}<br>` +
                             `${{yCol}}: %{{y}}<br>` +
+                            `${{zCol}}: %{{z}}<br>` +
                             '<extra></extra>',
                         marker: {{
                             size: 12,
@@ -192,90 +166,26 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                     
                 }}
 
-                // Linear regression calculation
-                let lineTrace = null;
-                let equationAnnotation = null;
-                
-                if (allXData.length > 1 && document.getElementById("toggleFit").checked) {{
-                    try {{
-                        const dataPoints = allXData.map((x, i) => [x, allYData[i]]).filter(([x, y]) => 
-                            !isNaN(x) && !isNaN(y) && isFinite(x) && isFinite(y)
-                        );
-                        
-                        if (dataPoints.length > 1) {{
-                            const linearRegression = ss.linearRegression(dataPoints);
-                            const linearFn = ss.linearRegressionLine(linearRegression);
-                            const r2 = ss.rSquared(dataPoints, linearFn);
-                            
-                            const xFit = [Math.min(...allXData), Math.max(...allXData)];
-                            const yFit = xFit.map(x => linearFn(x));
-                            const slope = linearRegression.m.toFixed(3);
-                            const intercept = linearRegression.b.toFixed(3);
-                            const yTrue = dataPoints.map(([x, y]) => y);
-                            const yPred = dataPoints.map(([x, y]) => linearFn(x));
-                            const rmse = Math.sqrt(ss.mean(yTrue.map((y, i) => Math.pow(y - yPred[i], 2))));
-                            const rmseText = rmse.toFixed(4);
-                            const r2Text = r2.toFixed(4);
-                            const equation = `y = ${{slope}}x + ${{intercept}}<br> RMSE = ${{rmseText}}`;
-
-                            lineTrace = {{
-                                x: xFit,
-                                y: yFit,
-                                mode: 'lines',
-                                type: 'scatter',
-                                name: 'Fit Line',
-                                line: {{ dash: 'dot', width: 2, color: 'red' }},
-                                showlegend: false
-                            }};
-                            
-                            equationAnnotation = {{
-                                x: 0.05,
-                                y: 0.95,
-                                xref: 'paper',
-                                yref: 'paper',
-                                text: equation,
-                                showarrow: false,
-                                align: 'left',
-                                font: {{ size: 14 }},
-                                bordercolor: 'blue',
-                                borderwidth: 1,
-                                borderpad: 4,
-                                bgcolor: 'white',
-                                opacity: 0.9
-                            }};
-                        }}
-                    }} catch (error) {{
-                        console.warn('Linear regression failed:', error);
-                    }}
-                }}
-                
-                if (lineTrace) {{
-                    traces.push(lineTrace);
-                }}
-
                 const layout = {{
-                    title: 'Literature derived Epoxidation Substrate Space',
+                title: 'Literature derived Epoxidation Substrate Space',
+                scene: {{
                     xaxis: {{
-                        title: {{text: xCol, font: {{family: 'Arial', size: 16, weight: 'bold'}}}},
-                        tickfont: {{family: 'Arial', size: 14, weight: 'bold'}},
-                        linecolor: 'black',
-                        linewidth: 2,
-                        mirror: true,
-                        showgrid: true,
-                        zeroline: false
+                    title: {{ text: xCol, font: {{ family: 'Arial', size: 16 }} }},
+                    tickfont: {{ family: 'Arial', size: 14 }},
+                    showgrid: true,
+                    zeroline: false
                     }},
                     yaxis: {{
-                        title: {{text: yCol, font: {{family: 'Arial', size: 16, weight: 'bold'}}}},
-                        tickfont: {{family: 'Arial', size: 14, weight: 'bold'}},
-                        linecolor: 'black',
-                        linewidth: 2,
-                        mirror: true,
-                        showgrid: true,
-                        zeroline: false
+                    title: {{ text: yCol }},
+                    showgrid: true
                     }},
-                    hovermode: 'closest',
-                    showlegend: true,
-                    annotations: equationAnnotation ? [equationAnnotation] : []
+                    zaxis: {{
+                    title: {{ text: zCol }},
+                    showgrid: true
+                    }}
+                }},
+                hovermode: 'closest',
+                showlegend: true
                 }};
 
                 const config = {{
@@ -343,20 +253,21 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                 // Set initial selections and plot
                 const xAxisSelect = document.getElementById("xAxis");
                 const yAxisSelect = document.getElementById("yAxis");
+                const zAxisSelect = document.getElementById("zAxis");
                 const yieldSlider = document.getElementById("yieldSlider");
-                const toggleFit = document.getElementById("toggleFit");
                 
-                if (xAxisSelect && yAxisSelect) {{
+                if (xAxisSelect && yAxisSelect && zAxisSelect) {{
                     xAxisSelect.selectedIndex = 0;
                     yAxisSelect.selectedIndex = 1;
+                    zAxisSelect.selectedIndex = 2;
                     plotData();
                     
                     // Add event listeners
                     xAxisSelect.addEventListener("change", plotData);
                     yAxisSelect.addEventListener("change", plotData);
+                    zAxisSelect.addEventListener("change", plotData);
                     dropdown.addEventListener("change", plotData);
                     yieldSlider.addEventListener("input", plotData);
-                    toggleFit.addEventListener("change", plotData);
                 }}
             }};
 
@@ -394,11 +305,6 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                 margin-right: 5px;
             }}
             .slider-container {{
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }}
-            .linRegChk {{
                 display: flex;
                 align-items: center;
                 gap: 10px;
@@ -462,6 +368,11 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                 <select id="yAxis">
                     {htmlAxis}
                 </select>
+
+                <label for="zAxis">Z-axis:</label>
+                <select id="zAxis">
+                    {htmlAxis}
+                </select>
             </div>
             
             <div class="control-row">
@@ -469,14 +380,6 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                     <label for="yieldSlider">"{partitionStr}" Threshold:</label>
                     <input type="range" id="yieldSlider" min="{sliderMin}" max="{sliderMax}" value="{sliderStart}" step="1">
                     <span id="thresholdValue">50</span>%
-                </div>
-            </div>
-            <div class="control-row">
-                <div class="linRegChk">
-                    <label>
-                        <input type="checkbox" id="toggleFit" checked/>
-                        Show Fit line
-                    </label>
                 </div>
             </div>
         </div>
@@ -492,106 +395,5 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
     </html>
     """
     
-    with open(outputDir + "/" + chemStr + "interactiveMASTER.html", "w", encoding="utf-8") as f:
+    with open(outputDir + "/" + chemStr + "3dinteractiveMASTER.html", "w", encoding="utf-8") as f:
         f.write(html)
-def getBackgrounds(df , smileList , smileStr):
-    return df[~df[smileStr].isin(smileList)].copy()
-def main(chemistryFiles, masterDF, chemistriesDict , chemistry, outputDir , partitionStr):
-    cols = masterDF.columns
-    if "base64" in cols:
-        pass
-    else:
-        figDir = input("Enter the figure Directory where PNG's of the substrates will be stored (temporarily): ")
-        masterDF = createPNGDF(masterDF ,"SMILES" , figDir)
-        base64Col = []
-        for img in list(masterDF["pngPath"]):
-
-            base64 = png64(img)
-            base64Col.append(base64)
-        masterDF["base64"] = base64Col
-        masterDF = masterDF.drop(columns=['pngPath'])
-        if "Unnamed: 0" in masterDF.columns:
-            masterDF = masterDF.drop(columns=['Unnamed: 0'])
-        shutil.rmtree(figDir)
-    jsonDict = {}
-    allSmiles = []
-    for file in chemistryFiles:
-        chemName = file.split("/")[-1].split(".")[0]
-        columnList = list(masterDF.columns)
-        if not partitionStr in columnList:
-            columnList.append(partitionStr)
-        df = pd.DataFrame(columns= columnList)
-        chemDF = pd.read_csv(file)  
-        for _, row in chemDF.iterrows():
-            smiles = row["SMILES"]
-            canonical = convertCanonical(smiles)
-            matches = masterDF[masterDF["canonicalSMILES"] == canonical]
-            if not matches.empty:
-                allSmiles.append(canonical)
-                rowMatch = matches.head(1).copy()
-                rowMatch[partitionStr] = float(row[partitionStr])
-                df = pd.concat([df, rowMatch], ignore_index=True)
-            else:
-                continue
-        jsonChem = df.to_json(orient="records" , force_ascii=False )
-        jsonChem = jsonChem.replace('\\/', '/')
-        dfName = str(chemistriesDict[chemName])
-        jsonDict[dfName] = json.loads(jsonChem)
-    allSmiles = list(set(allSmiles))
-    masterDF = getBackgrounds(masterDF , allSmiles , "canonicalSMILES")
-    jsonRemain = masterDF.to_json(orient='records' , force_ascii= False)
-    jsonRemain = jsonRemain.replace('\\/', '/')
-    jsonDict['Background Molecules'] = json.loads(jsonRemain)
-    axisList = masterDF.select_dtypes(include='number').columns
-    dimensionType = input("Do you want to plot in 2 dimensions or 3?").strip()
-    if int(dimensionType) == 2:
-        htmlGenerator2(jsonDict , axisList , chemistry , outputDir, partitionStr)
-    elif int(dimensionType) == 3:
-        htmlGenerator3D(jsonDict , axisList , chemistry , outputDir, partitionStr)
-
-
-if __name__ == "__main__":
-    chemistriesDir = str(sys.argv[1])
-    substrateFile = str(sys.argv[2])
-    chemistry = str(sys.argv[3])
-    outputDir = str(sys.argv[4])
-    partitionStr = str(sys.argv[5])
-    if not os.path.exists(outputDir):
-        os.makedirs(outputDir)
-    initDataSets = glob.glob(chemistriesDir + "/*.csv")
-    initdataSets = sorted(initDataSets)
-    chemistryNames = [name.split("/")[-1].split(".")[0] for name in initdataSets]
-    chemistriesDict = {}
-    for name in chemistryNames:
-        nameList = listInputs(f"For Chemistry: {name} Please type the name you want this chemistry to be represented by: ")
-        name_ = nameList[0]
-        chemistriesDict[name] = name_
-    #print(chemistriesDict)
-    dataOption = checkSubstratePath(substrateFile)
-    if dataOption == 2:
-        sys.exit()
-    elif dataOption == 1:
-        datasetsDir = input("Enter the directory where the substrate Data resides: ")
-        eliminatedFile = listInputs(f"Enter the dataframe eliminated phrases for {chemistry} chemistry: ")
-        elimFile = eliminatedFile[0]
-        if os.path.exists(elimFile):
-            with open(elimFile, 'r') as file:
-                content = file.read()
-                eliminatedPhrases = [item.strip() for item in content.split(',') if item.strip()]
-        else: 
-            eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType",  "Unnamed" , "ID" , "Canonicals" , "canonicalSMILES"]
-        figDir = input("Enter the figure Directory: ")
-        if not os.path.exists(figDir):
-            os.makedirs(figDir)
-        axisMotifs = createAxisMotifs(2)        
-        masterDF = plotSubstratesMain(datasetsDir,chemistry , figDir  , axisMotifs, eliminatedPhrases , outputDir)
-    elif dataOption== 0:
-        masterDF = pd.read_csv(substrateFile , encoding='utf-8')
-    if not "canonicalSMILES" in list(masterDF.columns):
-        smilesList = masterDF["SMILES"]
-        canonicals = []
-        for smiles in smilesList:
-            canonical = convertCanonical(smiles)
-            canonicals.append(canonical)
-        masterDF["canonicalSMILES"] = canonicals
-    main(initDataSets , masterDF , chemistriesDict, chemistry, outputDir , partitionStr)

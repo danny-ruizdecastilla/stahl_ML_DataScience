@@ -340,7 +340,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
 
-            radList = [2.0, 2.5, 3.0, 3.5]
+            radList = [1.3,1.7,2.0]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             weight_sum = weights.sum()
 
