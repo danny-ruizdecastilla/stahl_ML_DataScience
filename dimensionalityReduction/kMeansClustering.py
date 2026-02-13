@@ -247,7 +247,7 @@ def kMeansCluster(dfMAST , dim1Str , dim2Str , kMin, kMax , dimStr , outputDir):
     colsKeep = [dim1Str , dim2Str , "Cluster" , "SMILES"]
     dfNew = dfMAST[colsKeep]
 
-    htmlGeneratorCluster(dfNew, outputDir, outputDir + "/png/", dim1Str, dim2Str, dimStr + "_kMeans")
+    htmlGeneratorCluster(dfNew, outputDir, outputDir / "png" , dim1Str, dim2Str, dimStr + "_kMeans")
 
     outputDir = Path(outputDir)
     outputDir.mkdir(parents=True, exist_ok=True)
