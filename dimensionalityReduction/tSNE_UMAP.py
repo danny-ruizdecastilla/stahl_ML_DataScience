@@ -34,12 +34,11 @@ def generate_UMAP_tSNE(X):
         
         sil = silhouette_score(X_tsne, labels)
         tSNE_Hash[perp] = sil
-    silScoreMin = max(list(tSNE_Hash.items()))
-    for key , val in tSNE_Hash.items():
-        if val == silScoreMin:
-            tsne = TSNE(n_components=2, perplexity=int(key), random_state=0)
-            tSNE_1 = X_tsne[:, 0] 
-            tSNE_2 = X_tsne[:, 1]
+    perplexSilScoreMax = max(tSNE_Hash, key=tSNE_Hash.get)
+
+    tsne = TSNE(n_components=2, perplexity=int(perplexSilScoreMax), random_state=0)
+    tSNE_1 = X_tsne[:, 0] 
+    tSNE_2 = X_tsne[:, 1]
     UMAP_Hash ={}
     for n_neighbors in [30,50,70,90,110,130,150]:
         for min_dist in [0.0, 0.1, 0.25 , 0.5]:
@@ -58,3 +57,26 @@ def generate_UMAP_tSNE(X):
     UMAP_1 = X_umap[:, 0]
     UMAP_2 = X_umap[:, 1]
     return UMAP_1, UMAP_2,tSNE_1,tSNE_2
+
+def main(df:np.array , outputDir:str , featureType:str):
+    from pathlib import Path
+    from dimensionalityReduction.kMeansClustering import kMeansCluster
+    UMAP_1, UMAP_2,tSNE_1,tSNE_2 = generate_UMAP_tSNE(df)
+    df[f"{featureType}_UMAP_1"] = UMAP_1
+    df[f"{featureType}_UMAP_2"] = UMAP_2
+    df[f"{featureType}_tSNE_1"] = tSNE_1
+    df[f"{featureType}_tSNE_2"] = tSNE_2
+    outputDir_tSNE = Path(outputDir) / "tSNE"
+    outputDir_tSNE.mkdir(parents=True, exist_ok=True)
+    dftSNE = kMeansCluster(df, f"{featureType}_tSNE_1", f"{featureType}_tSNE_1", 15, 45, "tSNE" , outputDir_tSNE)
+    dftSNE.to_csv(outputDir_tSNE  / f"clustered_{featureType}.csv")
+    outputDir_UMAP = Path(outputDir) / "UMAP"
+    outputDir_UMAP.mkdir(parents=True, exist_ok=True)
+    dftSNE = kMeansCluster(df, f"{featureType}_UMAP_1", f"{featureType}_UMAP_1", 15, 45 , "UMAP" , outputDir_tSNE)
+    dftSNE.to_csv(outputDir_tSNE  / f"clustered_{featureType}.csv")
+if __name__ == "__main__":
+    datasetDir = str(sys.argv[1])
+    outputDir = str(sys.argv[2])
+    featureType =  str(sys.argv[3])
+    dataset = pd.read_csv(datasetDir)
+    main(dataset, outputDir)
