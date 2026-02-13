@@ -79,12 +79,20 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 const layout = {{
                     title: '{plotTitle}',
                     xaxis: {{
-                        title: '{xCol}',
+                        title: {{text : '{xCol}' , font : {{ family: 'Arial' , size: 16 , weight : 'bold'   }} }},
+                        tickfont: {{family: 'Arial' , size : 14 , weight: 'bold'}},
+                        linecolor: 'black'
+                        linewwidth: 2 ,
+                        mirror: true,
                         showgrid: true,
                         zeroline: false
                     }},
                     yaxis: {{
-                        title: '{yCol}',
+                        title: {{text : '{yCol}' , font : {{ family: 'Arial' , size: 16 , weight : 'bold'   }} }},
+                        tickfont: {{family: 'Arial' , size : 14 , weight: 'bold'}},
+                        linecolor: 'black'
+                        linewwidth: 2 ,
+                        mirror: true,
                         showgrid: true,
                         zeroline: false
                     }},
@@ -94,6 +102,14 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
 
                 const config = {{
                     responsive: true,
+                    displayModeBar: true,
+                    toImageButtonOptions: {{
+                        format: 'png',
+                        filename: '{plotTitle}_scatterplot',
+                        height: 600,
+                        width: 800,
+                        scale: 1
+                    }}
                 }};
 
                 Plotly.newPlot('plotContainer', [trace], layout, config).then(() => {{
@@ -143,6 +159,10 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 font-family: Arial, sans-serif;
                 margin: 20px;
                 background-color: #f5f5f5;
+            }}
+            label {{
+                font-weight: bold;
+                margin-right: 5px;
             }}
             .plot-container {{
                 display: flex;
