@@ -17,8 +17,6 @@ from sklearn.decomposition import PCA
 #from rdkit.Chem import AllChem
 from hdbscan import HDBSCAN
 import umap
-from expt2_create_features import *
-from expt2_feature_filtering import *
 #Danny Ruiz de Castilla 02.01.2025
 
 def createCSV(dataFrame , saveDir, saveStr: str):
@@ -188,6 +186,8 @@ def uniqueIntCounter(list1):
             uniqueDict[num] = 1
     return uniqueDict
 if __name__ == "__main__":
+    from expt2_create_features import *
+    from expt2_feature_filtering import *
 #input an xlsx dataframe and depending on what features you want to calculate, export .csv of features, performs feature elimination, maps features, and creates clusters 
     mainDir = str(sys.argv[1]) #Dataframe of Smiles and yields and ID numbers, and citations 
     rdkitAllow = int(sys.argv[2])
