@@ -1,36 +1,30 @@
 import pandas as pd
-import os
 import sys
-import numpy as np
-import chemdraw
-from pathlib import Path
 import random
-
-parentDir = Path(__file__).resolve().parents[1]
-sys.path.append(str(parentDir))
-
+import chemdraw
 #Danny Ruiz de Castilla
-def getInformerLibraryFromCluster(dfMAST, smilesStr, informerInt,clusterStr , outputDir ):
+
+def getInformerLibraryFromCluster(dfMAST, smilesStr, informerInt, clusterStr, outputDir):
     clusters = list(dfMAST[clusterStr])
     clusterCount = len(set(clusters))
-    eachCluster = clusterCount // informerInt
-    remain = clusterCount % informerInt
-
+    eachCluster = int(informerInt/clusterCount)
+    print(eachCluster)
+    remain = informerInt % clusterCount 
     informerLibrary = {}
     popType = {}
+    
     for cluster in list(set(clusters)):
         df = dfMAST[dfMAST[clusterStr] == cluster]
         selectRows = df.sample(n=eachCluster)
         smilesList = []
-        for row in selectRows.iterrows():
+        for idx, row in selectRows.iterrows():
             smiles = row[smilesStr]
-            smiles.append(smilesList)
-        
+            smilesList.append(smiles)
         informerLibrary[cluster] = smilesList
-    popType[cluster] = int(len(df))
-
+        popType[cluster] = int(len(df))
+    
     if remain != 0:
-        sortedPop= dict(sorted(popType.items(), key=lambda x: x[1], reverse=True))
+        sortedPop = dict(sorted(popType.items(), key=lambda x: x[1], reverse=True))
         count = 0
         for key, val in sortedPop.items():
             if count == remain:
@@ -42,21 +36,23 @@ def getInformerLibraryFromCluster(dfMAST, smilesStr, informerInt,clusterStr , ou
                 smiles = random.choice(selectSubstrates)
                 if smiles not in smilesList:
                     smilesList.append(smiles)
-                
                     break
                 else:
                     continue
             informerLibrary[key] = smilesList
-
             count += 1
+    
     smilesListMAST = []
     keyListMAST = []
     for key, val in informerLibrary.items():
         for smiles in val:
             smilesListMAST.append(smiles)
-            keyListMAST.apppend("cluster: " + str(key))
-    drawer = chemdraw.GridDrawer(smilesListMAST , title = keyListMAST)
-    drawer.draw_png(outputDir + "/informerLibraray.png")
+            keyListMAST.append("cluster: " + str(key))
+    
+    print(keyListMAST)
+    drawer = chemdraw.GridDrawer(smilesListMAST)
+    drawer.draw_png(outputDir + "/informerLibrary.png")
+
 if __name__ == "__main__":
     dfMASTDir = str(sys.argv[1])
     outputDir = str(sys.argv[2])
@@ -64,4 +60,4 @@ if __name__ == "__main__":
     informerInt = int(sys.argv[3])
     clusterStr = "Cluster"
     dfMAST = pd.read_csv(dfMASTDir)
-    getInformerLibraryFromCluster(dfMAST, smilesStr, informerInt,clusterStr , outputDir )
+    getInformerLibraryFromCluster(dfMAST, smilesStr, informerInt, clusterStr, outputDir)
