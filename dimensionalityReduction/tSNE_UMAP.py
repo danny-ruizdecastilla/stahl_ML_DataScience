@@ -79,4 +79,4 @@ if __name__ == "__main__":
     outputDir = str(sys.argv[2])
     featureType =  str(sys.argv[3])
     dataset = pd.read_csv(datasetDir)
-    main(dataset, outputDir)
+    main(dataset, outputDir , featureType)
