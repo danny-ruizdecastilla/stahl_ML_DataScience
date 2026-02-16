@@ -12,7 +12,7 @@ sys.path.append(parentDir)
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 from figs.chemPlotlyV2 import createPNGDF,png64
 from figs.chemPlotlyV1 import convertCanonical
-from figs.threeDscatterPlot import htmlGenerator3D
+from figs.threescatterPlot import htmlGenerator3D
 from figs.plotSubstrates import safeStringHTML , plotSubstratesMain
 #from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans , convertCanonical , featureFiltering
 #from DFTWorkflow.featureMaping import  createCSV
