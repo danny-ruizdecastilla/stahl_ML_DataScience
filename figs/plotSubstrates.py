@@ -6,8 +6,9 @@ import json
 import numpy as np
 import html
 import plotly
-parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parentDir)
+from pathlib import Path
+parentDir = Path(__file__).resolve().parents[1]
+sys.path.append(str(parentDir))
 from figs.chemPlotlyV2 import createPNGDF,png64
 from figs.stericvselectroPCA import pcafeatureSplitter
 from DFTWorkflow.pitchingATent import compressData , locateNans , eliminateNans , convertCanonical , featureFiltering
@@ -259,7 +260,7 @@ def plotSubstratesMain(substrateData,chemistry ,  figDir , axisMotifs, eliminate
         canonicalSMILES.append(canonical)
     featureLabels = list(Xdataframe.columns)
     #print(isinstance(Xdataframe, pd.DataFrame))
-    X , featureLabels  = featureFiltering(outputDir, Xdataframe ,featureLabels , chemistry)
+    X , featureLabels  = featureFiltering(Path(outputDir), Xdataframe ,featureLabels , chemistry)
 
     axisDF , axisMotifs = pcafeatureSplitter(X , axisMotifs , 1 , outputDir)
     axisDF["canonicalSMILES"] = canonicalSMILES
