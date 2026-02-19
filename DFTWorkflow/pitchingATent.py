@@ -5,15 +5,15 @@ import os
 #from rdkit import Chem
 import pandas as pd
 #from rdkit.Chem.PandasTools import LoadSDF
-import matplotlib.pyplot as plt
+from pathlib import Path
 import json
 import umap
 from itertools import combinations
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parentDir)
+parentDir = Path(__file__).resolve().parents[1]
+sys.path.append(str(parentDir))
 from DFTWorkflow.featureMaping import savePNG , createCSV
 from DFTWorkflow.featureFiltering import spearmanr_correlation , correlation_analysis , remove_by_variance
 from figs.featureCorrelation import correlationGenerator
@@ -148,6 +148,7 @@ def findHighlights(smilesDict, partition1, chemistryDict):
 
 
 def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors , partitionStr , reduceType): 
+    import matplotlib.pyplot as plt
     xLabel = str(reduceType) + "1"
     yLabel = str(reduceType) + "2"
     for partition in partitionList:
@@ -202,31 +203,53 @@ def makePlots(pcaDict ,  partitionList , chemistryDicts  ,chemistryStr , colors 
             plt.savefig(reduceDir + "/" + chemistryLabel + "/" + str(chemistryLabel) + "at" + str(partition) + ".png", dpi=300, bbox_inches='tight')
             plt.close()
     
-def featureFiltering(outDir , X , feature_labels , featureStr):
-    if not os.path.exists(outDir + "/" + str(featureStr) + "featureFiltering.dat"):
-        with open(outDir + "/" + str(featureStr) + "featureFiltering.dat", "w") as f:
+def featureFiltering(outDir, X, feature_labels, featureStr):
+    out_path = Path(outDir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    filter_file = out_path / f"{featureStr}featureFiltering.dat"
+    
+    if not filter_file.exists():
+        with filter_file.open("w") as f:
             f.write(f"Total starting feature count: {len(feature_labels)}")
             f.write("".join([f'\n\t{label}' for label in feature_labels]))
             
+            # Variance filtering
             X, feature_labels, dropped_features = remove_by_variance(X, feature_labels)
-            text = "\n\n\nFeatures drop due to low variance: " + "".join([f'\n\t{label}' for label in dropped_features])
+            text = "\n\n\nFeatures drop due to low variance: "
+            text += "".join([f'\n\t{label}' for label in dropped_features])
+            f.write(text)
 
-            X, feature_labels, drop_group , pearsonDF = correlation_analysis(X, threshold=0.95)
+            # Pearson correlation filtering
+            X, feature_labels, drop_group, pearsonDF = correlation_analysis(X, threshold=0.95)
             text = "\n\n\nFeatures drop due Pearson correlation:  "
             text += json.dumps(drop_group, indent=4).replace('\n', '\n\t')
             f.write(text)
 
-            pearsonFig = correlationGenerator(pearsonDF, "pearsonGrid" , savePath = outDir + "/pearsonMatrix.html" ,template = None)
+            pearson_path = out_path / "pearsonMatrix.html"
+            pearsonFig = correlationGenerator(
+                pearsonDF,
+                "pearsonGrid",
+                savePath=str(pearson_path),
+                template=None
+            )
 
-            #print("97" , type(X))
-            X, dropFeats, spearmanDF  = spearmanr_correlation(X, threshold=0.95)
+            # Spearman correlation filtering
+            X, dropFeats, spearmanDF = spearmanr_correlation(X, threshold=0.95)
+            #print(X)
             text = "\n\n\nFeatures drop due Spearman correlation:  "
             text += json.dumps(dropFeats, indent=4).replace('\n', '\n\t')
             f.write(text)
-            
-            spearmanFig = correlationGenerator(spearmanDF, "spearmanGrid", savePath = outDir + "/spearmanMatrix.html",template = None  )
-            #print("103" , type(X))
-    return X , feature_labels
+
+            spearman_path = out_path / "spearmanMatrix.html"
+            spearmanFig = correlationGenerator(
+                spearmanDF,
+                "spearmanGrid",
+                savePath=str(spearman_path),
+                template=None
+            )
+
+    return X, list(X.columns)
 def locateNans(df):
     columns = df.columns.tolist()
     nanDict = {}

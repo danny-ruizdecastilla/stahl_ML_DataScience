@@ -13,10 +13,10 @@ parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
 from dimensionalityReduction.reactivityFeatures import boxGen
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
-
+from DFTWorkflow.pitchingATent import featureFiltering
 #Danny Ruiz de Castilla 05.02.25
 
-def main(df, saveDir):
+def main(df, saveDir, filterings : False):
     df = Path(df)
     saveDir = Path(saveDir)
     dfMAST = pd.read_csv(df)
@@ -40,8 +40,10 @@ def main(df, saveDir):
 
     scaler = StandardScaler()
     scaledX = scaler.fit_transform(X)
+    if filterings:
+        scaledX , featureLabels  = featureFiltering(saveDir, scaledX ,list(X.columns), saveStr)
 
-    pca = PCA(n_components=X.shape[1], svd_solver="full")
+    pca = PCA(n_components=scaledX.shape[1], svd_solver="full")
     xPCAFullRank = pca.fit_transform(scaledX)
 
     explainedVar = pca.explained_variance_ratio_
@@ -57,11 +59,7 @@ def main(df, saveDir):
 
     xPCA_ = scaledX @ top2PCA.T + 11
 
-    loadings = pd.DataFrame(
-        pca.components_.T * np.sqrt(pca.explained_variance_),
-        columns=[f"PC{i+1}" for i in range(pca.n_components_)],
-        index=X.columns
-    )
+    loadings = pd.DataFrame(pca.components_.T * np.sqrt(pca.explained_variance_),columns=[f"PC{i+1}" for i in range(pca.n_components_)],index=featureLabels)
 
     top_features_pc1 = loadings["PC1"].abs().sort_values(ascending=False)
     top_features_pc2 = loadings["PC2"].abs().sort_values(ascending=False)
@@ -75,9 +73,15 @@ def main(df, saveDir):
     topFeaturesFile = saveDir / "topFeatures.csv"
     if not topFeaturesFile.exists():
         topFeatures.to_csv(topFeaturesFile, sep="\t", index=False)
+    if isinstance(xPCA_, pd.DataFrame):
+        pc1 = xPCA_.iloc[:, 0]
+        pc2 = xPCA_.iloc[:, 1]
+    else:
+        pc1 = xPCA_[:, 0]
+        pc2 = xPCA_[:, 1]
 
-    dfMAST["pc1"] = xPCA_[:, 0]
-    dfMAST["pc2"] = xPCA_[:, 1]
+    dfMAST["pc1"] = pc1
+    dfMAST["pc2"] = pc2
 
     for col, info in colsHash.items():
         dfMAST[col] = info
@@ -91,7 +95,11 @@ if __name__ == "__main__":
     dfPath = Path(dfMain).resolve()
     saveDir = dfPath.parent / f"pca_{saveStr}"
     saveDir.mkdir(parents=True, exist_ok=True)
-
-    main(dfMain, saveDir)
+    filterBool = int(sys.argv[3])
+    if filterBool == 0:
+        filtering = True 
+    else:
+        filtering = False
+    main(dfMain, saveDir , filtering)
 
     
