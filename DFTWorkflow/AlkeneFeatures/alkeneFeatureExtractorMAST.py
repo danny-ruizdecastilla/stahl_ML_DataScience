@@ -340,7 +340,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
 
-            radList = [1.3,1.7,2.0]
+            radList = [1.5,2.0,2.5,3.0,3.5,4.0]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             weight_sum = weights.sum()
 
@@ -406,7 +406,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             hashList.append(BurVolHash)
 
         if "%VburSemiCylinders" in featureList:
-            radList = [3, 4, 5]
+            radList = [1.5,2.0,2.5,3.0,3.5,4.0]
 
             maxSemiHash = {r: [] for r in radList}
             minSemiHash = {r: [] for r in radList}
@@ -453,8 +453,8 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad)
                     mainCylinder.getAtoms(coordHash ,{"Nan" : "Nan"} , False)
                     maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True , False)
-                    Cburr = mainCylinder.getBurriedVolume(False , False)
-                    CburrHash[rad].append(Cburr[0])
+                    #Cburr = mainCylinder.getBurriedVolume(False , False)
+                    #CburrHash[rad].append(Cburr[0])
                     maxSemiHash[rad].append(maxSemi_Pi)
                     minSemiHash[rad].append(minSemi_Pi)
                     maxSemiHashOrth[rad].append(maxSemi_Orth)
@@ -468,13 +468,15 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             Vbur_MinSemi = { r: (minSemiHash[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MaxSemi_Orth = { r: (maxSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MinSemi_Orth = { r: (minSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
-            Vburr_Cylinder = { r: (CburrHash[r] * weights).sum() / weight_sum  for r in radList } 
-            Vburr_SemiCircles = {"Vbur_MaxSemi_Pi_3" :Vbur_MaxSemi[3] ,"Vbur_MaxSemi_Pi_4" :Vbur_MaxSemi[4] , "Vbur_MaxSemi_Pi_5" :Vbur_MaxSemi[5] , 
-                                 "Vbur_MinSemi_Pi_3" :Vbur_MinSemi[3] ,"Vbur_MinSemi_Pi_4" :Vbur_MinSemi[4] , "Vbur_MinSemi_Pi_5" :Vbur_MinSemi[5],
-                                 "Vbur_MaxSemi_Orth_3" :Vbur_MaxSemi_Orth[3] ,"Vbur_MaxSemi_Orth_4" :Vbur_MaxSemi_Orth[4] , "Vbur_MaxSemi_Orth_5" :Vbur_MaxSemi_Orth[5] , 
-                                 "Vbur_MinSemi_Orth_3" :Vbur_MinSemi_Orth[3] ,"Vbur_MinSemi_Orth_4" :Vbur_MinSemi_Orth[4] , "Vbur_MinSemi_Orth_5" :Vbur_MinSemi_Orth[5],
-                                 "Vbur_Cylinder_3" : Vburr_Cylinder[3] ,"Vbur_Cylinder_4" :Vburr_Cylinder[4] , "Vbur_Cylinder_5" :Vburr_Cylinder[5] }
-            hashList.append(Vburr_SemiCircles)
+            #Vburr_Cylinder = { r: (CburrHash[r] * weights).sum() / weight_sum  for r in radList } 
+            Vburr_SemiCylinders ={}
+            for rad in radList:
+                Vburr_SemiCylinders[f"Vbur_MaxSemi_Pi_{rad}"] = Vbur_MaxSemi[rad]
+                Vburr_SemiCylinders[f"Vbur_MinSemi_Pi_{rad}"] = Vbur_MinSemi[rad]
+                Vburr_SemiCylinders[f"Vbur_MaxSemi_Orth_{rad}"] = Vbur_MaxSemi_Orth[rad]
+                Vburr_SemiCylinders[f"Vbur_MinSemi_Orth_{rad}"] = Vbur_MinSemi_Orth[rad]
+
+            hashList.append(Vburr_SemiCylinders)
 
         if "EvsZ" in featureList:
             conformer = conformerFiles[0]
