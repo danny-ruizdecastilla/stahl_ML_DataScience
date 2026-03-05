@@ -39,7 +39,8 @@ def checkCol(df):
     colStr = input("Enter the name of the column from the dataframe you want to add: ").strip()
 
     if colStr in df.columns:
-        return colStr
+        name = input("Enter the name for the violin plot for this column: ").strip()
+        return colStr , name
     else:
         print(f"'{colStr}' is not a valid column.")
         print("Available columns:")
@@ -52,15 +53,17 @@ def compareSources(fig , saveDir , saveStr):
     if addSources:
         dfDir = input("Enter the source of the dataframe: ").strip()
         df = pd.read_csv(dfDir)
-        col = checkCol(df)
+        col , name = checkCol(df)
         fig.add_trace(go.Violin(
             y=df[col].dropna(),
-            name=col,
+            name=name,
             box_visible=True,
-            meanline_visible=True
+            meanline_visible=True,
+            offsetgroup=col
         ))
         
         fig.update_layout(template=violinTemplate())
+        fig.update_layout(template=violinTemplate(),violinmode="group")
         
         return compareSources(fig ,saveDir , saveStr)
     else:
@@ -69,6 +72,6 @@ if __name__ == "__main__":
     saveDir = str(sys.argv[1])
     saveStr = str(sys.argv[2])
     savePath = Path(saveDir)
-    savePath.mkdir()
+    savePath.mkdir(parents=True, exist_ok=True)
     fig = go.Figure()
     compareSources(fig , saveDir , saveStr)
