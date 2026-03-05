@@ -46,7 +46,7 @@ def checkCol(df):
         print(", ".join(df.columns))
         return checkCol(df)
 
-def compareSources(fig , saveDir):
+def compareSources(fig , saveDir , saveStr):
     addSources = askingForAddition("Do you want to add another source to your violin plot? (yes/no): ")
 
     if addSources:
@@ -62,10 +62,13 @@ def compareSources(fig , saveDir):
         
         fig.update_layout(template=violinTemplate())
         
-        return compareSources(fig)
+        return compareSources(fig ,saveDir , saveStr)
     else:
-        fig.write_html(saveDir) 
+        fig.write_html(saveDir + f"/{saveStr}_Violin.html") 
 if __name__ == "__main__":
     saveDir = str(sys.argv[1])
+    saveStr = str(sys.argv[2])
+    savePath = Path(saveDir)
+    savePath.mkdir()
     fig = go.Figure()
-    compareSources(fig , saveDir )
+    compareSources(fig , saveDir , saveStr)
