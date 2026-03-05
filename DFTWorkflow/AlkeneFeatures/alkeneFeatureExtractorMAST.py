@@ -1,4 +1,5 @@
 #Master Feature Extractor
+#Danny Ruiz de Castilla | 11.24.2025
 import os 
 import sys
 import glob
@@ -497,7 +498,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             if hydrogens <=2: #Easy check for E vs Z 
                 alkeneType = eVszAlkenes(molec , g , {int(C1-1): CminNeighbors} , {int(C2-1) : CmaxNeighbors} ,  coordHash)# 0 if neither E or Z, -1 if Z, 1 if E
             else:
-                alkeneType = 0
+                alkeneType = 0 #gem substituted
             alkeneHash = {"HCount" : hydrogens , "EvsZ" : alkeneType}
             hashList.append(alkeneHash)
         if "Dist." in featureList:

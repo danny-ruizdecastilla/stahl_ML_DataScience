@@ -90,7 +90,7 @@ def smiles_to_coords(smiles):
         exit()
      
 def eVszAlkenes(molec , graph , C1Hash , C2Hash , coordinates):
-    #C1Hash = {"C1" : [cont1 , cont2]}
+    # 0 if neither E or Z, -1 if Z, 1 if E
     c1Atom = list(C1Hash.keys())[0]
     c1Contacts = C1Hash[c1Atom]
 
@@ -101,7 +101,7 @@ def eVszAlkenes(molec , graph , C1Hash , C2Hash , coordinates):
     pathRank2 , same2 = maxPathCompare(molec, graph , [c2Contacts[0]] , [c2Contacts[1]] , [c2Atom , c2Contacts[0]] , [c2Atom , c2Contacts[1]] , False)
     if same1 or same2:
         #Gem substituted, both routs are the same
-        return -1
+        return 0
     else:
         maxWildC1 = pathRank1[0][0]
 
@@ -118,9 +118,9 @@ def eVszAlkenes(molec , graph , C1Hash , C2Hash , coordinates):
 
         if distanceC1_maxC2 >= distanceC1_minC2:
             #E Alkene
-            return 0
-        else:
             return 1
+        else:
+            return -1
             #Z Alkene
 def main(featureDir , outputDir):
     featureList = glob.glob(featureDir + "/*.csv")
