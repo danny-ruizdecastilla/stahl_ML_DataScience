@@ -419,9 +419,9 @@ class alkeneSemiCylinders:
                 piFig = self.Fig.drawShapes(posPiSemiHash , fig = piFig)       
                 piFig.write_html("piFig.html")
                 
-                c1Burr = {"shapeType" :"Sphere" , "radius" : 3.0 , "coordinates" : self.C1 , "color" : "green"}
+                c1Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.C1 , "color" : "green"}
                 vBurrFig = self.Fig.drawShapes(c1Burr) 
-                c2Burr = {"shapeType" :"Sphere" , "radius" : 3.0 , "coordinates" : self.C2 , "color" : "red"}
+                c2Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.C2 , "color" : "red"}
                 vBurrFig = self.Fig.drawShapes(c2Burr , fig = vBurrFig) 
                 vBurrFig.write_html("vBurrFig.html")
             return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
