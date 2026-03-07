@@ -13,6 +13,9 @@ def violinTemplate():
     template.layout.font = dict(family="Arial", size=18, color="black")
     template.layout.plot_bgcolor = "white"
     template.layout.width, template.layout.height = 1200, 600
+    template.layout.xaxis.showline = True
+    template.layout.xaxis.linewidth = 5
+    template.layout.xaxis.linecolor = "black"
     template.layout.xaxis.showgrid = False
     template.layout.xaxis.mirror = True
     template.layout.yaxis.tickprefix = "<b>"
@@ -57,7 +60,7 @@ def compareSources(fig , saveDir , saveStr):
         fig.add_trace(go.Violin(
             y=df[col].dropna(),
             name=name,
-            box_visible=True,
+            box_visible=False,
             meanline_visible=True,
             offsetgroup=col
         ))
@@ -67,6 +70,8 @@ def compareSources(fig , saveDir , saveStr):
         
         return compareSources(fig ,saveDir , saveStr)
     else:
+        titleStr = input("Enter the title for your violin plot: ")
+        fig.update_layout(title=titleStr)
         fig.write_html(saveDir + f"/{saveStr}_Violin.html") 
 if __name__ == "__main__":
     saveDir = str(sys.argv[1])
