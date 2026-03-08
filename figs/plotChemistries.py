@@ -126,8 +126,8 @@ def htmlGenerator2(jsonDict, axisList, chemStr, outputDir, partitionStr):
                     traces.push(trace);
                 }}
                 const selectedData = groupedData[selectedGroup] || [];
-                const above = selectedData.filter(p => p["{partitionStr}"] > threshold);
-                const below = selectedData.filter(p => p["{partitionStr}"] <= threshold);
+                const above = selectedData.filter(p => p["{partitionStr}"] >= threshold);
+                const below = selectedData.filter(p => p["{partitionStr}"] < threshold);
                 if (below.length > 0) {{
                     const xData = below.map(p => p[xCol]);
                     const yData = below.map(p => p[yCol]);
