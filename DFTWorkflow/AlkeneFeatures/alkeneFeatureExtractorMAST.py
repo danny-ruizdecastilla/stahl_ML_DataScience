@@ -24,14 +24,30 @@ from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
 from dimensionalityReduction.reactivityFeatures import boxGen
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
-def time_to_seconds(s):
-    d, h, m, s = map(float, re.findall(r"[\d.]+", s))
+def regexLocateInLog(logFile, textStr, returnType: str):
+    pattern = re.compile(textStr)
+
+    with open(logFile) as f:
+        matchingLines = [i for i, line in enumerate(f) if pattern.search(line)]
+    if len(matchingLines) != 0:
+        if returnType == "earliest":
+            return matchingLines[0]
+
+        elif returnType == "latest":
+            return matchingLines[-1]
+        else:
+            indx = int(returnType)
+            return matchingLines[indx]
+    else:
+        return "Poison"
+def time_to_seconds(line):
+    d, h, m, s = map(float, re.findall(r"\d+(?:\.\d+)?", line))
     return d*86400 + h*3600 + m*60 + s
 def extractNBOOccupancies(logFile , nboStr , charge:int):
     logName = str(logFile.name.split(".")[0])
     #print(logName)
-    nboIdx = locateinLog(logFile , logName + f"{nboStr}" , 1 )
-    nboIdx2 = locateinLog(logFile , logName + f"{nboStr}" , 2 )
+    nboIdx = regexLocateInLog(logFile ,rf"{logName}_?{nboStr}" , 1 )
+    nboIdx2 = regexLocateInLog(logFile , rf"{logName}_?{nboStr}" , 2 )
     nbo7Hash = {}
     bondsHash = {}
     if charge == 0:
@@ -174,8 +190,8 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
 def getGlobalGreeks(logFile , neutralStr , greekStr1 , greekStr2):
     logName = str(logFile.name.split(".")[0])
     #print(logName)
-    nboIdx = locateinLog(logFile , logName + f"{neutralStr}" , 1 )
-    nboIdx2 = locateinLog(logFile , logName + f"{neutralStr}" , 2 )
+    nboIdx = regexLocateInLog(logFile , rf"{logName}_?{neutralStr}", 0 )
+    nboIdx2 = regexLocateInLog(logFile ,rf"{logName}_?{neutralStr}" , 2 )
     with open(logFile, 'r') as f:
         for i, line in enumerate(islice(f, nboIdx, nboIdx2), start=nboIdx):
             if greekStr1 in line:
@@ -558,8 +574,8 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 "dipole": [],
                 "polarizability": []
             }
-            cpuStr = re.compile("Job cpu time:")
-            walltimeStr = re.compile("Elapsed time:")
+            cpuStr = "Job cpu time:"
+            walltimeStr = "Elapsed time:"
             weights = boltzmannDF["boltzWeights"]
             for name in list(boltzmannDF["logID"]):
                 fileStr = f"{name}.log"
@@ -590,8 +606,8 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 with open(str(conformer), "r") as f:
                     lines = f.readlines()
 
-                    cpu_line = lines[cpuIdx]
-                    wall_line = lines[wallTimeIdx]
+                    cpu_line = lines[cpuIdx].split(cpuStr)[-1]
+                    wall_line = lines[wallTimeIdx].split(walltimeStr)[-1]
 
                     features["cpuTime"].append(time_to_seconds(cpu_line))
                     features["wallTime"].append(time_to_seconds(wall_line))
@@ -605,7 +621,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 key: np.average(values, weights=weights)
                 for key, values in features.items()
             }   
-            hashList.append(distHash)
+            hashList.append(globalRow)
 
         #if "sterimol" in featureList:
 
