@@ -11,6 +11,7 @@ import base64
 import re
 from pathlib import Path
 from morfeus import BuriedVolume
+from morfeus import SASA
 from rdkit import Chem
 from networkx import Graph
 from itertools import islice
@@ -23,6 +24,9 @@ from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
 from dimensionalityReduction.reactivityFeatures import boxGen
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
+def time_to_seconds(s):
+    d, h, m, s = map(float, re.findall(r"[\d.]+", s))
+    return d*86400 + h*3600 + m*60 + s
 def extractNBOOccupancies(logFile , nboStr , charge:int):
     logName = str(logFile.name.split(".")[0])
     #print(logName)
@@ -167,6 +171,24 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
         finalHash["antiPiBond"] ="Nan"
         finalHash["antiPiEnergy"] = "Nan"  
     return finalHash
+def getGlobalGreeks(logFile , neutralStr , greekStr1 , greekStr2):
+    logName = str(logFile.name.split(".")[0])
+    #print(logName)
+    nboIdx = locateinLog(logFile , logName + f"{neutralStr}" , 1 )
+    nboIdx2 = locateinLog(logFile , logName + f"{neutralStr}" , 2 )
+    with open(logFile, 'r') as f:
+        for i, line in enumerate(islice(f, nboIdx, nboIdx2), start=nboIdx):
+            if greekStr1 in line:
+                eigens = line.split(" -- ")[-1]
+                lastEigen = float(re.findall(r'[-+]?\d*\.\d+(?:[Ee][-+]?\d+)?', eigens)[-1])
+            elif greekStr2 in line:
+                eigens = line.split(" -- ")[-1]
+                firstEigen = float(re.findall(r'[-+]?\d*\.\d+(?:[Ee][-+]?\d+)?', eigens)[0])
+                break 
+    mu = (lastEigen+firstEigen)/2 # chemical potential or negative of molecular electronegativity
+    eta = firstEigen-lastEigen # hardness/softness
+    omega = round(mu**2/(2*eta),5) # electrophilicity index
+    return lastEigen , firstEigen , mu , eta , omega 
 def extractShiftsByIdx(logFile: str, extract1:str, extract2:str,location1:str ,location2, idxList  , m , b):
     lowerInd = locateinLog(logFile , extract1, location1)
     upperInd = locateinLog(logFile , extract2, location2 )
@@ -520,6 +542,73 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             distMAST = ( (distList * weights).sum()    / weights.sum()  )  
             distHash = {"C1C2Dist" : distMAST} 
             hashList.append(distHash)
+        if "globalFeatures" in featureList:
+            nboNeutralStr = featureHash["globalFeatures"][0]
+            features = {
+                "sasaVol": [],
+                "sasaArea": [],
+                "sasaSurface": [],
+                "homo": [],
+                "lumo": [],
+                "eta": [],
+                "mu": [],
+                "omega": [],
+                "cpuTime": [],
+                "wallTime": [],
+                "dipole": [],
+                "polarizability": []
+            }
+            cpuStr = re.compile("Job cpu time:")
+            walltimeStr = re.compile("Elapsed time:")
+            weights = boltzmannDF["boltzWeights"]
+            for name in list(boltzmannDF["logID"]):
+                fileStr = f"{name}.log"
+                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5 , 1 )
+                elements = []
+                coordinates = []
+                for _, coords in coordHash.items():
+                    elements.append(str(coords[0]))
+                    coordinates.append(np.array(coords[2:5]))
+                sasa_ = SASA(elements,coordinates) 
+                sphericity = np.cbrt((36*np.pi*sasa_.volume**2))/sasa_.area
+                area = sasa_.area
+                vol = sasa_.volume
+                homoE , lumoE,  muMolec , etaMolec , omegaMolec = getGlobalGreeks(conformer ,nboNeutralStr  , "Alpha  occ. eigenvalues --" , "Alpha virt. eigenvalues --") 
+                features["sasaVol"].append(vol)
+                features["sasaArea"].append(area)
+                features["sasaSurface"].append(sphericity)
+                features["homo"].append(homoE)
+                features["lumo"].append(lumoE)
+                features["mu"].append(muMolec)
+                features["eta"].append(etaMolec)
+                features["omega"].append(omegaMolec)
+                cpuIdx = locateinLog(str(conformer) , cpuStr , 0 )
+                wallTimeIdx = locateinLog(str(conformer) , walltimeStr , 0 )
+                dipoleIdx = locateinLog(str(conformer) , "Dipole moment (field-independent basis, Debye):" , 0)
+                polarIdx = locateinLog(str(conformer) , "Approx polarizability:   " , 0)
+                with open(str(conformer), "r") as f:
+                    lines = f.readlines()
+
+                    cpu_line = lines[cpuIdx]
+                    wall_line = lines[wallTimeIdx]
+
+                    features["cpuTime"].append(time_to_seconds(cpu_line))
+                    features["wallTime"].append(time_to_seconds(wall_line))
+
+                    dipoleStr = lines[dipoleIdx + 1].split("Tot=")[-1].strip()
+                    features["dipole"].append(float(dipoleStr))
+
+                    polarStr = lines[polarIdx].split("Approx polarizability:   ")[-1]
+                    features["polarizability"].append(float(polarStr.split()[0]))
+            globalRow = {
+                key: np.average(values, weights=weights)
+                for key, values in features.items()
+            }   
+            hashList.append(distHash)
+
+        #if "sterimol" in featureList:
+
         masterDict = {}
         for d in hashList:
             masterDict.update(d)
@@ -575,7 +664,7 @@ def compartmentalization(logDir , outputDir , substrateFile):
                 continue
     extractNum = input(f"Enter the number corresponding to which substructre you want to extract information from:\n [0] Alkenes\n")
     if int(extractNum) == 0:
-        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburSemiCylinders" ]
+        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburSemiCylinders" , "globalFeatures" , "Sterimol" ]
         localDescriptorsInput = boxGen(localStrs)
         featureList = listInputs(f"Enter the indexes corresponding to the features you would like to extract\n{localDescriptorsInput}")
         featuresMAST = {}
@@ -588,6 +677,9 @@ def compartmentalization(logDir , outputDir , substrateFile):
             elif feature == "NBO7":
                 neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
                 featuresMAST["NBO7"] = [neutralStr]
+            elif feature == "globalFeatures":
+                neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
+                featuresMAST["globalFeatures"] = [neutralStr]
             else:
                 featuresMAST[feature] = [feature]
         logEnergyStr = input(f"Please enter the .log Energy string for these jobs: ")
