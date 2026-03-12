@@ -16,9 +16,6 @@ sys.path.append(str(parentDir))
 from DFTWorkflow.cleanLogs import basicTerm
 from DFTWorkflow.ionComGenerator import locateinLog , getAtomCoords
 from DFTWorkflow.fukuiGenerator.fukuiExtractorV1 import  getBoltzmannWeightsGauss
-from DFTWorkflow.AlkeneFeatures.alkeneNBOExtract import alkeneNBOExtractor
-from DFTWorkflow.AlkeneFeatures.alkeneFukuiExtractor import getAlkeneFukuiFunctions
-from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
 from dimensionalityReduction.reactivityFeatures import boxGen
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
@@ -76,6 +73,9 @@ def getOverlap(mainFilesHash , anionFiles, cationFiles):
     return newHash, anionHash, cationHash
 
 def getAlkenes(substratesHash , smilesHash , featureList , **kwargs):
+    from DFTWorkflow.AlkeneFeatures.alkeneNBOExtract import alkeneNBOExtractor
+    from DFTWorkflow.AlkeneFeatures.alkeneFukuiExtractor import getAlkeneFukuiFunctions
+    from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
     if kwargs.get("anions") is None:
         pass
     else:
@@ -240,11 +240,10 @@ def compartmentalization(logDir , outputDir , substrateFile):
             break
         except:
             print("Try again, enter an integer")
-    
-
-
     logPaths = Path(logDir)
-    logFiles = list(logPaths.glob('*.log'))  
+    logFiles = [
+        p for p in logPaths.glob('*.log')
+        if '.' not in p.stem]
     firstLog = logFiles[0] if logFiles else None 
     fileSplit = input(f"{str(firstLog)} Enter the string iteral that seperates the common name with the conf. type : ")
 
@@ -255,49 +254,60 @@ def compartmentalization(logDir , outputDir , substrateFile):
         if not termError:
             substrates = list(substrateHash.keys())
             fileID = log.name.split(fileSplit)[0]
-            if fileID in substrates:
-                substrateHash[fileID].append(log)
-            else:
-                substrateHash[fileID] = [log]
+            try:
                 pos = idMAST[idMAST == fileID].index[0]
-                smilesHash[fileID] = smilesMAST[pos]
-    extractNum = input(f"Enter the number corresponding to which substructre you want to extract information from:\n [0] Alkenes\n")
+                if fileID in substrates:
+                    substrateHash[fileID].append(log)
+                else:
+                    substrateHash[fileID] = [log]
+                    pos = idMAST[idMAST == fileID].index[0]
+                    smilesHash[fileID] = smilesMAST[pos]
+            except:
+                continue
+    extractNum = input(f"Enter the number corresponding to which substructre you want to extract information from:\n [0] Alkenes\n [1] Sulfides\n")
     if int(extractNum) == 0:
-        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist." ]
+        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburSemiCylinders" , "globalFeatures" , "Sterimol" ]
         localDescriptorsInput = boxGen(localStrs)
         featureList = listInputs(f"Enter the indexes corresponding to the features you would like to extract\n{localDescriptorsInput}")
-        featuresMAST = []
+        featuresMAST = {}
         for idx in featureList:
             feature = localStrs[int(idx)]
-            featuresMAST.append(feature)
-        print(featuresMAST)
-        if "fukuiParameters" in featuresMAST:
-            cationDir = input(f"Enter the directory corresponding to the cation files for {logDir}: ")
-            cationPaths = Path(cationDir)
-            anionDir = input(f"Enter the directory corresponding to the anion files for {logDir}: ")
-            anionPaths = Path(anionDir)
-            anionFiles = list(anionPaths.glob("*.log"))
-            cationFiles = list(cationPaths.glob("*.log"))
-            anionRefined = []
-            cationRefined = []
-            for file in anionFiles:
-                termError = basicTerm(file, "Error termination" , "Normal termination")
-                if not termError:
-                    anionRefined.append(file)
-            for file in cationFiles:
-                termError = basicTerm(file, "Error termination" , "Normal termination")
-                if not termError:
-                    cationRefined.append(file)
-            
-            substrateHash , anionHash , cationHash = getOverlap(substrateHash , anionRefined, cationRefined)
-            substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST , anions = anionHash, cations = cationHash)
-            outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
-            substratesMAST.to_csv(outputFile , index=False )
-        else:
+            if feature == "fukuiParameters":
+                cationStr = input(f"Please enter the --link-- string for the cationic molecule: ")
+                anionStr = input(f"Please enter the --link-- string for the anionic molecule: ")
+                featuresMAST["fukuiParameters"] = [cationStr , anionStr]
+            elif feature == "NBO7":
+                neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
+                featuresMAST["NBO7"] = [neutralStr]
+            elif feature == "globalFeatures":
+                neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
+                featuresMAST["globalFeatures"] = [neutralStr]
+            else:
+                featuresMAST[feature] = [feature]
+        logEnergyStr = input(f"Please enter the .log Energy string for these jobs: ")
+        return substrateHash , smilesHash , featuresMAST , logEnergyStr
 
-            substratesMAST = getAlkenes(substrateHash , smilesHash , featuresMAST)
-            outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
-            substratesMAST.to_csv(outputFile , index=False )
+    if int(extractNum) == 1:
+        localStrs = ["SulfurShift" , "NBO7" , "fukuiParameters" , "%Vbur" ,  "globalFeatures" , "Sterimol" ]
+        localDescriptorsInput = boxGen(localStrs)
+        featureList = listInputs(f"Enter the indexes corresponding to the features you would like to extract\n{localDescriptorsInput}")
+        featuresMAST = {}
+        for idx in featureList:
+            feature = localStrs[int(idx)]
+            if feature == "fukuiParameters":
+                cationStr = input(f"Please enter the --link-- string for the cationic molecule: ")
+                anionStr = input(f"Please enter the --link-- string for the anionic molecule: ")
+                featuresMAST["fukuiParameters"] = [cationStr , anionStr]
+            elif feature == "NBO7":
+                neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
+                featuresMAST["NBO7"] = [neutralStr]
+            elif feature == "globalFeatures":
+                neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
+                featuresMAST["globalFeatures"] = [neutralStr]
+            else:
+                featuresMAST[feature] = [feature]
+        logEnergyStr = input(f"Please enter the .log Energy string for these jobs: ")
+        return substrateHash , smilesHash , featuresMAST , logEnergyStr
 
 if __name__ == "__main__":
     logDir = str(sys.argv[1])
