@@ -34,7 +34,11 @@ def getS(smiles):
             else:
                 sulfideIdx.append(sulfideID)
     return sulfideIdx , aromaticSulfides , molec 
-
+def weightedAvg(values, weights):
+    weightTot = sum(weights)
+    if weightTot == 0:
+        return 0
+    return sum(v * w for v, w in zip(values, weights)) / weightTot
 def getSulfidesNBOInfo(logList , sulfurIdx ,  energyStr , logNameMAST , smiles , nboStr , charge, logEnergyStr):
     weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
     lonePairMax = []
@@ -55,9 +59,16 @@ def getSulfidesNBOInfo(logList , sulfurIdx ,  energyStr , logNameMAST , smiles ,
         lonePairMin.append(sulfurLP2["occupancy"])
         lonePairEnergyMax.append(sulfurLP1["energy"])
         lonePairEnergyMin.append(sulfurLP2["energy"])
+    finalHash = {}
+    finalHash["ID"] = logNameMAST
+    finalHash["SMILES"] = smiles
+    finalHash["SulfurNBO"] =weightedAvg(sulfurNBO , list(weightsDF["boltzWeights"]))
+    finalHash["lonePair1"] =weightedAvg(lonePairMax , list(weightsDF["boltzWeights"]))
+    finalHash["lonePair2"] =weightedAvg(lonePairMin, list(weightsDF["boltzWeights"]))
+    finalHash["lonePairEnergy1"] =weightedAvg(lonePairEnergyMax , list(weightsDF["boltzWeights"]))
+    finalHash["lonePairEnergy2"] =weightedAvg(lonePairEnergyMin  , list(weightsDF["boltzWeights"]))
 
-    
-
+    return finalHash
 
 def getSulfides(substratesHash , smilesHash , featureHash, logEnergyStr ):
     featuresMASTDF = pd.DataFrame()
@@ -91,8 +102,36 @@ def getSulfides(substratesHash , smilesHash , featureHash, logEnergyStr ):
             hashList.append(neutralHash)
 
         if "fukuiParameters" in featureList:
+            nboNeutralStr = featureHash["NBO7"][0]
+            nboCationStr = featureHash["fukuiParameters"][0]
+            nboAnionStr = featureHash["fukuiParameters"][1]
+            fukPos = []
+            fukNeg = []
+            fukNeut = []
+            for name in list(boltzmannDF["logID"]):
+                fileStr = f"{name}.log"
+                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+                chargeHash  , bondHash , lonePairHash = extractNBOOccupancies(conformer , nboNeutralStr , 0)
+                neutralCharge = float(chargeHash[(sulfides[0]+1)][1])
+                chargeHash  , bondHash , lonePairHash = extractNBOOccupancies(conformer , nboCationStr, 1)
+                cationCharge = float(chargeHash[(sulfides[0]+1)][1])
+                chargeHash  , bondHash , lonePairHash = extractNBOOccupancies(conformer , nboAnionStr , -1)
+                anionCharge = float(chargeHash[(sulfides[0]+1)][1])
 
-        
+                f_minus = float(neutralCharge) - float(anionCharge)
+                f_plus= float(cationCharge) - float(neutralCharge)
+                f_neut= 0.5 * ((cationCharge) - float(anionCharge))
+                fukPos.append(f_plus)
+                fukNeg.append(f_minus)
+                fukNeut.append(f_neut)
+
+            weights = boltzmannDF["boltzWeights"]
+            avgFukPos = weightedAvg(fukPos ,weights )
+            avgFukNeg = weightedAvg(fukNeg ,weights )
+            avgFukNeut = weightedAvg(fukNeut ,weights )
+
+            hashList.append({"f_neg_Sulfide" : avgFukNeg , "f_pos_Sulfide" : avgFukPos, "f_neut_mxAlk" : avgFukNeut })
+
         if "%Vbur" in featureList:
 
         if "globalFeatures" in featureList:
