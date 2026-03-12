@@ -1,0 +1,111 @@
+#Danny's version of the sulfide feature extractor 
+import os 
+import sys
+import glob
+import tkinter
+import pandas as pd 
+import numpy as np
+import chemdraw
+import base64
+import re
+from pathlib import Path
+from morfeus import BuriedVolume
+from morfeus import SASA
+from rdkit import Chem
+from networkx import Graph
+from itertools import islice
+parentDir = Path(__file__).resolve().parents[2]
+sys.path.append(str(parentDir))
+from DFTWorkflow.cleanLogs import basicTerm
+from DFTWorkflow.ionComGenerator import locateinLog
+from DFTWorkflow.dftFeatureExtractorMAST import compartmentalization
+from DFTWorkflow.alkeneFeatureExtractorMAST import getBoltzmannWeightsGauss ,  extractNBOOccupancies , getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks
+def getS(smiles):
+    molec = Chem.MolFromSmiles(smiles)
+    sulfideIdx = []
+    aromaticSulfides = []
+    for atom in molec.GetAtoms():
+        if atom.GetAtomicNum() == 16:
+            aromatic = atom.GetIsAromatic()
+            sulfideID = atom.GetIdx()
+            if aromatic:
+                aromaticSulfides.append(sulfideID)
+                continue
+            else:
+                sulfideIdx.append(sulfideID)
+    return sulfideIdx , aromaticSulfides , molec 
+
+def getSulfidesNBOInfo(logList , sulfurIdx ,  energyStr , logNameMAST , smiles , nboStr , charge, logEnergyStr):
+    weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
+    lonePairMax = []
+    lonePairMin = []    
+    sulfurNBO = []
+    lonePairEnergyMax = []
+    lonePairEnergyMin = []
+    for idx , row in weightsDF.iterrows():
+        logFile = row["logID"]
+        logPath = f"{logFile}.log"
+        conformer  = next((f for f in logList if logPath in f.name), None)
+        chargeHash  , bondHash , lonePairHash = extractNBOOccupancies(conformer , nboStr , charge)
+        sulfurCharge = float(chargeHash[sulfurIdx][1])
+        sulfurNBO.append(sulfurCharge)
+        sulfurLP1 = lonePairHash[f"S_{sulfurIdx}_lp_1"]
+        sulfurLP2 = lonePairHash[f"S_{sulfurIdx}_lp_2"]
+        lonePairMax.append(sulfurLP1["occupancy"])
+        lonePairMin.append(sulfurLP2["occupancy"])
+        lonePairEnergyMax.append(sulfurLP1["energy"])
+        lonePairEnergyMin.append(sulfurLP2["energy"])
+
+    
+
+
+def getSulfides(substratesHash , smilesHash , featureHash, logEnergyStr ):
+    featuresMASTDF = pd.DataFrame()
+    for id , smilesStr in smilesHash.items():
+        #print(id,smilesStr)
+        hashList = []
+        sulfides , aromaticSulfides , molec  = getS(smilesStr)
+        conformerFiles = substratesHash[id]
+        boltzmannDF = getBoltzmannWeightsGauss(conformerFiles, 298, "electronic" , logEnergyStr)
+        idHash = {"SMILES" : smilesStr , "ID" : id}  
+        hashList.append(idHash)   
+        featureList = list(featureHash.keys())  
+        #["SulfurShift" , "NBO7" , "fukuiParameters" , "%Vbur" ,  "globalFeatures" , "Sterimol" ]
+        if "SulfurShift" in featureList:
+            sulfurShifts = []
+            for name in list(boltzmannDF["logID"]):
+                fileStr = f"{name}.log"
+                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+                sulfurShiftsHash = extractShiftsByIdx(conformer, "SCF GIAO Magnetic shielding tensor (ppm):", "Eigenvalues:  ", "earliest", "latest", 
+                                                      [s +1 for s in sulfides], 1, 0)
+                sulfurShifts.append(sulfurShiftsHash[sulfides[0] + 1][1])
+            weights = boltzmannDF["boltzWeights"]
+            sulfurIsotropic = ( (sulfurShifts * weights).sum()    / weights.sum()  )
+            sulfurIsotropicHash = {"sulfurIsotropicShift" : sulfurIsotropic}
+            hashList.append(sulfurIsotropicHash)
+
+        if "NBO7" in featureList:
+            nboNeutralStr = featureHash["NBO7"][0]
+
+            neutralHash = getSulfidesNBOInfo(conformerFiles ,  [s +1 for s in sulfides][0], "electronic", id , smilesStr , nboNeutralStr , 0 , logEnergyStr)
+            hashList.append(neutralHash)
+
+        if "fukuiParameters" in featureList:
+
+        
+        if "%Vbur" in featureList:
+
+        if "globalFeatures" in featureList:
+
+
+        if "Sterimol" in featureList:
+if __name__ == "__main__":
+    logDir = str(sys.argv[1])
+    outputDir = str(sys.argv[2])
+    if not os.path.exists(outputDir ): 
+        os.makedirs(outputDir) 
+    substrateCSV = str(sys.argv[3])
+    substrateHash , smilesHash , featuresMAST , logEnergyStr  = compartmentalization(logDir , outputDir, substrateCSV)
+    substratesMAST = getSulfides(substrateHash , smilesHash , featuresMAST , logEnergyStr)
+    outputFile = Path(outputDir) / "sulfideFeaturesMAST.csv"
+    substratesMAST.to_csv(outputFile , index=False )
