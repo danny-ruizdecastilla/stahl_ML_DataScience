@@ -51,6 +51,7 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
     nboIdx2 = regexLocateInLog(logFile , rf"{logName}_?{nboStr}" , 2 )
     nbo7Hash = {}
     bondsHash = {}
+    lonePairHash = {}
     if charge == 0:
         with open(logFile, 'r') as f:
             extractingDensities = False
@@ -95,6 +96,18 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
                             bondType = "antibonding_"
                         bondStr = bondType + atom1 + "_" + atom2 + "_" + str(bondID)
                         bondsHash[bondStr] = bondHash
+                    if ". LP" in line:
+                        lineList = line.strip().split("    ")
+                        #print(lineList)
+                        occupancy = float(lineList[3].strip())
+                        energy = float(lineList[-1].split("  ")[0])
+                        #print(energy)
+                        lonePairType = int(lineList[0].split("(")[-1].split(")")[0].strip())
+                        lonePairAtom = str(lineList[0].split(" ")[-2])
+                        lonePairIdx = int(lineList[0].split(" ")[-1])
+                        lpHash = {"occupancy" : occupancy , "lonePairType" : lonePairType , "lonePairAtom" : lonePairAtom , "energy" : energy}
+                        lpStr = f"{lonePairAtom}_{lonePairIdx}_lp_{lonePairType}"
+                        lonePairHash[lpStr] = lpHash
                             
     elif charge != 0:
         with open(logFile, 'r') as f:
@@ -119,7 +132,7 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
                             nbo7Hash[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)] 
                         except:
                             continue
-    return nbo7Hash, bondsHash
+    return nbo7Hash, bondsHash , lonePairHash
 def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboStr , charge, logEnergyStr):
     weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
     Cmin_NBO = []
@@ -136,7 +149,7 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
         logFile = row["logID"]
         logPath = f"{logFile}.log"
         conformer  = next((f for f in logList if logPath in f.name), None)
-        chargeHash  , bondHash = extractNBOOccupancies(conformer , nboStr , charge)
+        chargeHash  , bondHash , lpHash = extractNBOOccupancies(conformer , nboStr , charge)
         alkeneHash = {key: chargeHash[key] for key in chargeHash if key == C1 or key == C2}
         c1NBO = float(alkeneHash[C1][1])
         c2NBO = float(alkeneHash[C2][1])
@@ -310,7 +323,7 @@ def hCount(molec, wildCards):
 def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
-        print(id,smilesStr)
+        #print(id,smilesStr)
         hashList = []
         cc , molec = getCC(smilesStr)
         conformerFiles = substratesHash[id]
