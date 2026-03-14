@@ -9,8 +9,7 @@ import chemdraw
 import base64
 import re
 from pathlib import Path
-from morfeus import BuriedVolume
-from morfeus import SASA
+from morfeus import SASA , Sterimol, BuriedVolume
 from rdkit import Chem
 from networkx import Graph
 from itertools import islice
@@ -134,10 +133,60 @@ def getSulfides(substratesHash , smilesHash , featureHash, logEnergyStr ):
 
         if "%Vbur" in featureList:
 
-        if "globalFeatures" in featureList:
+            radList = [1.5,2.0,2.5,3.0,3.5,4.0]
+            weights = boltzmannDF["boltzWeights"].to_numpy()
+            weight_sum = weights.sum()
 
+            # Storage
+            Vbur_Sulfur = {r: [] for r in radList}
+
+            for name in boltzmannDF["logID"]:
+                fileStr = f"{name}.log"
+                conformer = next(
+                    (f for f in conformerFiles if fileStr in f.name),
+                    None
+                )
+                if conformer is None:
+                    continue
+
+                coordHash = getAtomCoordsRobust(
+                    str(conformer),
+                    "GINC-COMPUTE",
+                    5,
+                    1
+                )
+                elements = []
+                coordinates = []
+                for _, coords in coordHash.items():
+                    elements.append(str(coords[0]))
+                    coordinates.append(np.array(coords[2:5]))
+
+                for rad in radList:
+                    vburS = BuriedVolume(
+                        elements,
+                        coordinates,
+                        int(sulfides[0]),
+                        include_hs=True,
+                        radius=rad
+                    ).fraction_buried_volume
+
+                    Vbur_Sulfur[rad].append(vburS)
+
+            # Boltzmann-weighted averages
+            BurVolHash = {}
+            for rad in radList:
+                Vbur_Sulfur_arr = np.array(Vbur_Sulfur[rad])
+                Vburr_Sulf = (Vbur_Sulfur_arr * weights).sum() / weight_sum
+                BurVolHash[f"{rad}_Ang_Vburr_Sulfure"] = Vburr_Sulf
+
+            hashList.append(BurVolHash)
+
+        if "globalFeatures" in featureList:
+            
 
         if "Sterimol" in featureList:
+                sterimol_values = Sterimol(elements, coordinates, int(sterimol[0]), int(sterimol[1])) #calls morfeus
+                sterimol_values.bury(method="delete", sphere_radius=float(r_buried))
 if __name__ == "__main__":
     logDir = str(sys.argv[1])
     outputDir = str(sys.argv[2])
