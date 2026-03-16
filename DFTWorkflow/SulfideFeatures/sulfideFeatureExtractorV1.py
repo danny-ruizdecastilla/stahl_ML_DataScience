@@ -15,10 +15,8 @@ from networkx import Graph
 from itertools import islice
 parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
-from DFTWorkflow.cleanLogs import basicTerm
 from DFTWorkflow.ionComGenerator import locateinLog
-from DFTWorkflow.dftFeatureExtractorMAST import compartmentalization
-from DFTWorkflow.alkeneFeatureExtractorMAST import getBoltzmannWeightsGauss ,  extractNBOOccupancies , getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks
+from DFTWorkflow.dftFeatureExtractorMAST import compartmentalization ,  time_to_seconds , extractNBOOccupancies , getBoltzmannWeightsGauss, getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks
 def getS(smiles):
     molec = Chem.MolFromSmiles(smiles)
     sulfideIdx = []
@@ -182,11 +180,78 @@ def getSulfides(substratesHash , smilesHash , featureHash, logEnergyStr ):
             hashList.append(BurVolHash)
 
         if "globalFeatures" in featureList:
-            
+            nboNeutralStr = featureHash["globalFeatures"][0]
+            features = {
+                "sasaVol": [],
+                "sasaArea": [],
+                "sasaSurface": [],
+                "homo": [],
+                "lumo": [],
+                "eta": [],
+                "mu": [],
+                "omega": [],
+                "cpuTime": [],
+                "wallTime": [],
+                "dipole": [],
+                "polarizability": []
+            }
+            cpuStr = "Job cpu time:"
+            walltimeStr = "Elapsed time:"
+            weights = boltzmannDF["boltzWeights"]
+            for name in list(boltzmannDF["logID"]):
+                fileStr = f"{name}.log"
+                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5 , 1 )
+                elements = []
+                coordinates = []
+                for _, coords in coordHash.items():
+                    elements.append(str(coords[0]))
+                    coordinates.append(np.array(coords[2:5]))
+                sasa_ = SASA(elements,coordinates) 
+                sphericity = np.cbrt((36*np.pi*sasa_.volume**2))/sasa_.area
+                area = sasa_.area
+                vol = sasa_.volume
+                homoE , lumoE,  muMolec , etaMolec , omegaMolec = getGlobalGreeks(conformer ,nboNeutralStr  , "Alpha  occ. eigenvalues --" , "Alpha virt. eigenvalues --") 
+                features["sasaVol"].append(vol)
+                features["sasaArea"].append(area)
+                features["sasaSurface"].append(sphericity)
+                features["homo"].append(homoE)
+                features["lumo"].append(lumoE)
+                features["mu"].append(muMolec)
+                features["eta"].append(etaMolec)
+                features["omega"].append(omegaMolec)
+                cpuIdx = locateinLog(str(conformer) , cpuStr , 0 )
+                wallTimeIdx = locateinLog(str(conformer) , walltimeStr , 0 )
+                dipoleIdx = locateinLog(str(conformer) , "Dipole moment (field-independent basis, Debye):" , 0)
+                polarIdx = locateinLog(str(conformer) , "Approx polarizability:   " , 0)
+                with open(str(conformer), "r") as f:
+                    lines = f.readlines()
 
-        if "Sterimol" in featureList:
-                sterimol_values = Sterimol(elements, coordinates, int(sterimol[0]), int(sterimol[1])) #calls morfeus
-                sterimol_values.bury(method="delete", sphere_radius=float(r_buried))
+                    cpu_line = lines[cpuIdx].split(cpuStr)[-1]
+                    wall_line = lines[wallTimeIdx].split(walltimeStr)[-1]
+
+                    features["cpuTime"].append(time_to_seconds(cpu_line))
+                    features["wallTime"].append(time_to_seconds(wall_line))
+
+                    dipoleStr = lines[dipoleIdx + 1].split("Tot=")[-1].strip()
+                    features["dipole"].append(float(dipoleStr))
+
+                    polarStr = lines[polarIdx].split("Approx polarizability:   ")[-1]
+                    features["polarizability"].append(float(polarStr.split()[0]))
+            globalRow = {
+                key: np.average(values, weights=weights)
+                for key, values in features.items()
+            }   
+            hashList.append(globalRow)
+        masterDict = {}
+        for d in hashList:
+            masterDict.update(d)
+        df_row = pd.DataFrame([masterDict]) 
+        featuresMASTDF = pd.concat([featuresMASTDF, df_row], ignore_index=True)
+
+    return featuresMASTDF   
+
+
 if __name__ == "__main__":
     logDir = str(sys.argv[1])
     outputDir = str(sys.argv[2])

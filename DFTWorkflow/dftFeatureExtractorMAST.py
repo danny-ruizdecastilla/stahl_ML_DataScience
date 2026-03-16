@@ -7,6 +7,8 @@ import pandas as pd
 import numpy as np
 import chemdraw
 import base64
+import re
+from itertools import islice
 from pathlib import Path
 from morfeus import BuriedVolume
 from rdkit import Chem
@@ -15,10 +17,227 @@ parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
 from DFTWorkflow.cleanLogs import basicTerm
 from DFTWorkflow.ionComGenerator import locateinLog , getAtomCoords
-from DFTWorkflow.fukuiGenerator.fukuiExtractorV1 import  getBoltzmannWeightsGauss
 from dimensionalityReduction.reactivityFeatures import boxGen
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
+def regexLocateInLog(logFile, textStr, returnType: str):
+    pattern = re.compile(textStr)
+
+    with open(logFile) as f:
+        matchingLines = [i for i, line in enumerate(f) if pattern.search(line)]
+    if len(matchingLines) != 0:
+        if returnType == "earliest":
+            return matchingLines[0]
+
+        elif returnType == "latest":
+            return matchingLines[-1]
+        else:
+            indx = int(returnType)
+            return matchingLines[indx]
+    else:
+        return "Poison"
+def getGlobalGreeks(logFile , neutralStr , greekStr1 , greekStr2):
+    logName = str(logFile.name.split(".")[0])
+    #print(logName)
+    nboIdx = regexLocateInLog(logFile , rf"{logName}_?{neutralStr}", 0 )
+    nboIdx2 = regexLocateInLog(logFile ,rf"{logName}_?{neutralStr}" , 2 )
+    with open(logFile, 'r') as f:
+        for i, line in enumerate(islice(f, nboIdx, nboIdx2), start=nboIdx):
+            if greekStr1 in line:
+                eigens = line.split(" -- ")[-1]
+                lastEigen = float(re.findall(r'[-+]?\d*\.\d+(?:[Ee][-+]?\d+)?', eigens)[-1])
+            elif greekStr2 in line:
+                eigens = line.split(" -- ")[-1]
+                firstEigen = float(re.findall(r'[-+]?\d*\.\d+(?:[Ee][-+]?\d+)?', eigens)[0])
+                break 
+    mu = (lastEigen+firstEigen)/2 # chemical potential or negative of molecular electronegativity
+    eta = firstEigen-lastEigen # hardness/softness
+    omega = round(mu**2/(2*eta),5) # electrophilicity index
+    return lastEigen , firstEigen , mu , eta , omega 
+def extractShiftsByIdx(logFile: str, extract1:str, extract2:str,location1:str ,location2, idxList  , m , b):
+    lowerInd = locateinLog(logFile , extract1, location1)
+    upperInd = locateinLog(logFile , extract2, location2 )
+    if upperInd == "Poison" or lowerInd == "Poison":
+        raise ValueError(f"The Log file {logFile} did not terminate properly")
+    atomShifts = {}
+    with open(logFile , "r") as f:
+        for idx, line in enumerate(f):
+            if idx > int(lowerInd)  and idx < int(upperInd):
+                if "   Isotropic =  " in line:
+                    atomInd = line.split("   Isotropic =  ")[0].strip()
+                    atomIdx = int(atomInd.split(" ")[0].strip())
+                    if atomIdx in idxList:
+                        shiftsTots = line.split("   Isotropic =  ")[-1].strip()
+                        shifts = shiftsTots.split("Anisotropy")[0]
+                        atomName = str(atomInd.split(" ")[-1].strip())
+                        atomShifts[atomIdx] = [ atomName,(b - float(shifts.strip())) / m]
+    return atomShifts  
+def extractEnergies(logFile , linkStr, energyStr):
+    patterns = {
+        'electronic':r'SCF Done', 
+        'gibbs': r'Sum of electronic and thermal Free Energies',
+        'enthalpy': r'Sum of electronic and thermal Enthalpies',
+        'zpe': r'Sum of electronic and zero-point Energies'
+    }
+    try:
+        energyType = patterns[energyStr]
+    except:
+        raise ValueError(f"Unknown energy type: {energyStr}. "
+                f"Available types: {list(patterns.keys())}")
+    logName = str(logFile.name.split(".")[0])
+    firstIdx = locateinLog(logFile , logName + f"{linkStr}" , "earliest" )
+    secondIdx = locateinLog(logFile , logName + f"{linkStr}" , "latest" )
+    with open(logFile, 'r') as f:
+        for i, line in enumerate(f):
+            if int(firstIdx) <= i < secondIdx and energyType in line:
+                energyLevel = float(line.strip().split("=")[-1].split("A.U.")[0].strip())
+                return energyLevel
+        return "Poison"
+def getBoltzmannWeightsGauss(logDirs, temperature, energyStr , logEnergyStr):
+    R = 1.987204e-3
+    HARTREE_TO_KCAL = 627.5094740631
+    results = []
+    
+    for log in logDirs:
+        if not log.exists():
+            print(f"Warning: File {str(log)} not found. Skipping.")
+            continue        
+        try:
+            energy = extractEnergies(log, logEnergyStr, energyStr)
+            if energy != "Poison":
+                results.append({'logID': Path(log.name).stem,  'E_Ha': energy})
+            else:
+                print(f"Warning: Could not extract {energyStr} energy from {log}")     
+        except Exception as e:
+            print(f"Error processing {str(log)}: {str(e)}")
+            continue
+    if len(results) == 0:
+        raise ValueError(f"No energies could be extracted from any log files for the log types {logDirs[-1]}")
+    df = pd.DataFrame(results)
+    df['E_kCal'] = df['E_Ha'] * HARTREE_TO_KCAL
+    minE = df['E_kCal'].min()
+    df['rE_kCal'] = df['E_kCal'] - minE
+    df['boltzmannFacts'] = np.exp(-df['rE_kCal'] / (R * temperature))
+    normFacts = df['boltzmannFacts'].sum()
+    df['boltzWeights'] = df['boltzmannFacts'] / normFacts
+
+    df = df.sort_values('E_kCal').reset_index(drop=True)
+    
+    return df[['logID', 'E_Ha', 'rE_kCal', 'boltzWeights']]
+def getAtomCoordsRobust(logFile , xyzStr , commaSplit:int , locationIdx  ):
+    #Extracts atom coordinates into a dict from a log file
+    atomCoords = {}
+    lowerIdx = locateinLog(logFile , xyzStr, locationIdx )
+    upperIdx = locateinLog(logFile, "The archive entry for this job was punched." , locationIdx)
+    if not "Poison" in [lowerIdx , upperIdx]:
+        masterStr = ""
+        with open(logFile , "r") as f:
+            for idx, line in enumerate(f):
+                if idx >= lowerIdx and idx < upperIdx:
+                    cleaned = re.sub(r'\s+', '' , line)
+                    masterStr += cleaned
+        masterList = masterStr.split("\\")
+        for i ,  phrase in enumerate(masterList):
+            atomStr = phrase.split(",")
+            atomStr[2:5] = map(float, atomStr[2:5])
+            #print(atomStr)
+            if len(atomStr) == commaSplit:
+                atomCoords[i] = atomStr[:commaSplit]
+        return atomCoords
+    else:
+        return "Poison"
+def time_to_seconds(line):
+    d, h, m, s = map(float, re.findall(r"\d+(?:\.\d+)?", line))
+    return d*86400 + h*3600 + m*60 + s
+def extractNBOOccupancies(logFile , nboStr , charge:int):
+    logName = str(logFile.name.split(".")[0])
+    #print(logName)
+    nboIdx = regexLocateInLog(logFile ,rf"{logName}_?{nboStr}" , 1 )
+    nboIdx2 = regexLocateInLog(logFile , rf"{logName}_?{nboStr}" , 2 )
+    nbo7Hash = {}
+    bondsHash = {}
+    lonePairHash = {}
+    if charge == 0:
+        with open(logFile, 'r') as f:
+            extractingDensities = False
+            getBondOccupancies = False
+            for i, line in enumerate(islice(f, nboIdx, nboIdx2), start=nboIdx):
+                if "Atom No    Charge" in line and "Density" not in line:
+                    extractingDensities = True 
+                if extractingDensities:
+                    if "* Total * " in line:
+                        extractingDensities = False
+                    else:
+                        try:
+                            occupancies = line.strip()
+                            occupancyLines = occupancies.split("    ")
+                            atomNums = occupancyLines[0].split("   ")
+                            atomInd = atomNums[0].split()
+                            nums = []
+                            for num in occupancyLines[1:]:
+                                num = float(''.join(num.split()))
+                                nums.append(num)
+                            nbo7Hash[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)]
+                        except:
+                            continue
+                elif "Molecular unit" in line:
+                    getBondOccupancies = True
+
+                if getBondOccupancies:
+                    if ". RY " in line:
+                        getBondOccupancies = False
+                    if " BD " in line or " BD*"  in line: #collect bonding occupancies
+                        lineList = line.strip().split("    ")
+                        occupancy = float(lineList[1].strip())
+                        energy = float(lineList[-1].split("  ")[0])
+                        bondID = int(lineList[0].split("(")[-1].split(")")[0].strip())
+                        atoms = lineList[0].split(")")[-1].split("-")
+                        atom1 = "".join(atoms[0].split())
+                        atom2 = "".join(atoms[1].split())
+                        bondHash = {"occupancy" : occupancy , "bondType" : bondID , "atoms" : [atom1 , atom2 ] , "energy" : energy}
+                        if " BD " in line:
+                            bondType = "bonding_"
+                        elif " BD*" in line:
+                            bondType = "antibonding_"
+                        bondStr = bondType + atom1 + "_" + atom2 + "_" + str(bondID)
+                        bondsHash[bondStr] = bondHash
+                    if ". LP" in line:
+                        lineList = line.strip().split("    ")
+                        #print(lineList)
+                        occupancy = float(lineList[3].strip())
+                        energy = float(lineList[-1].split("  ")[0])
+                        #print(energy)
+                        lonePairType = int(lineList[0].split("(")[-1].split(")")[0].strip())
+                        lonePairAtom = str(lineList[0].split(" ")[-2])
+                        lonePairIdx = int(lineList[0].split(" ")[-1])
+                        lpHash = {"occupancy" : occupancy , "lonePairType" : lonePairType , "lonePairAtom" : lonePairAtom , "energy" : energy}
+                        lpStr = f"{lonePairAtom}_{lonePairIdx}_lp_{lonePairType}"
+                        lonePairHash[lpStr] = lpHash
+                            
+    elif charge != 0:
+        with open(logFile, 'r') as f:
+            extractingDensities = False
+            getBondOccupancies = False
+            for i, line in enumerate(islice(f, nboIdx, nboIdx2), start=nboIdx):
+                if "Atom No    Charge" in line and "Density" in line:
+                    extractingDensities = True 
+                if extractingDensities:
+                    if "* Total * " in line:
+                        extractingDensities = False
+                    else:
+                        try:
+                            occupancies = line.strip()
+                            occupancyLines = occupancies.split("    ")
+                            atomNums = occupancyLines[0].split("   ")
+                            atomInd = atomNums[0].split()
+                            nums = []
+                            for num in occupancyLines[1:]:
+                                num = float(''.join(num.split()))
+                                nums.append(num)
+                            nbo7Hash[int(atomInd[-1])] = [str(atomInd[0]) , np.max(nums)] 
+                        except:
+                            continue
+    return nbo7Hash, bondsHash , lonePairHash
 def extractShiftsByIdx(logFile: str, extract1:str, extract2:str,location1:str ,location2, idxList  , m , b):
     lowerInd = locateinLog(logFile , extract1, location1)
     upperInd = locateinLog(logFile , extract2, location2 )
