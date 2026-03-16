@@ -202,14 +202,17 @@ def extractNBOOccupancies(logFile , nboStr , charge:int):
                         bondStr = bondType + atom1 + "_" + atom2 + "_" + str(bondID)
                         bondsHash[bondStr] = bondHash
                     if ". LP" in line:
+                        #print(line)
                         lineList = line.strip().split("    ")
                         #print(lineList)
                         occupancy = float(lineList[3].strip())
                         energy = float(lineList[-1].split("  ")[0])
                         #print(energy)
                         lonePairType = int(lineList[0].split("(")[-1].split(")")[0].strip())
-                        lonePairAtom = str(lineList[0].split(" ")[-2])
-                        lonePairIdx = int(lineList[0].split(" ")[-1])
+                        atomID = lineList[0].split(")")
+                        match = re.search(r'([A-Z][a-z]?)\s+(\d+)', atomID[1])
+                        
+                        lonePairAtom , lonePairIdx = match.group(1), int(match.group(2))  
                         lpHash = {"occupancy" : occupancy , "lonePairType" : lonePairType , "lonePairAtom" : lonePairAtom , "energy" : energy}
                         lpStr = f"{lonePairAtom}_{lonePairIdx}_lp_{lonePairType}"
                         lonePairHash[lpStr] = lpHash

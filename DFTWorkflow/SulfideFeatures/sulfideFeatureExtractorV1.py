@@ -48,6 +48,7 @@ def getSulfidesNBOInfo(logList , sulfurIdx ,  energyStr , logNameMAST , smiles ,
         logPath = f"{logFile}.log"
         conformer  = next((f for f in logList if logPath in f.name), None)
         chargeHash  , bondHash , lonePairHash = extractNBOOccupancies(conformer , nboStr , charge)
+        #print(lonePairHash)
         sulfurCharge = float(chargeHash[sulfurIdx][1])
         sulfurNBO.append(sulfurCharge)
         sulfurLP1 = lonePairHash[f"S_{sulfurIdx}_lp_1"]
@@ -70,7 +71,7 @@ def getSulfidesNBOInfo(logList , sulfurIdx ,  energyStr , logNameMAST , smiles ,
 def getSulfides(substratesHash , smilesHash , featureHash, logEnergyStr ):
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
-        #print(id,smilesStr)
+        print(id,smilesStr)
         hashList = []
         sulfides , aromaticSulfides , molec  = getS(smilesStr)
         conformerFiles = substratesHash[id]
