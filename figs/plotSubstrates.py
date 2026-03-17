@@ -81,17 +81,25 @@ def htmlGenerator1(masterDF , outputDir, chemistry):
                 const layout = {{
                     title: 'Literature derived Epoxidation Substrate Space',
                     xaxis: {{
-                        title: xCol,
+                        title: {{text: xCol, font: {{family: 'Arial', size: 16, weight: 'bold'}}}},
+                        tickfont: {{family: 'Arial', size: 14, weight: 'bold'}},
+                        linecolor: 'black',
+                        linewidth: 2,
+                        mirror: true,
                         showgrid: true,
                         zeroline: false
                     }},
                     yaxis: {{
-                        title: yCol,
+                        title: {{text: yCol, font: {{family: 'Arial', size: 16, weight: 'bold'}}}},
+                        tickfont: {{family: 'Arial', size: 14, weight: 'bold'}},
+                        linecolor: 'black',
+                        linewidth: 2,
+                        mirror: true,
                         showgrid: true,
                         zeroline: false
                     }},
                     hovermode: 'closest',
-                    showlegend: false
+                    showlegend: false,
                 }};
 
                 const config = {{
@@ -217,7 +225,7 @@ def htmlGenerator1(masterDF , outputDir, chemistry):
         </style>
     </head>
     <body>
-        <h1>Literature Based Alkene Epoxidation Substrate Space</h1>
+        <h1>lily based Sulfide Space </h1>
 
         <div class="controls">
             <label for="xAxis">X-axis:</label>
@@ -265,7 +273,7 @@ def plotSubstratesMain(substrateData,chemistry ,  figDir , axisMotifs, eliminate
     axisDF , axisMotifs = pcafeatureSplitter(X , axisMotifs , 1 , outputDir)
     axisDF["canonicalSMILES"] = canonicalSMILES
     axisDF["SMILES"] = smileList
-    UMAP1 , UMAP2 ,tSNE1 , tSNE2 = generate_UMAP_tSNE(X)
+    UMAP1 , UMAP2 ,tSNE1 , tSNE2 = generate_UMAP_tSNE(X , False)
 
     axisDF["UMAP1"] = UMAP1
     axisDF["UMAP2"] = UMAP2
@@ -288,7 +296,7 @@ if __name__ == "__main__":
     figDir = str(sys.argv[2])
     if not os.path.exists(figDir):
         os.makedirs(figDir)
-    axisMotifs = {"sterics" : ["distance" , "Buried" , "angle" , "dihedral" , "Vbur"] , "electronics" : ["fuk" , "μ" , "ω" , "Dipole" , "NBO" , "polar" , "HOMO" , "NMR" , "η" ]}
+    axisMotifs = {"sterics" : ["sasa" , "Time" , "Vburr" ] , "electronics" : ["lonePair" , "NBO" , "IsotropicShift" , "eta" , "f_" , "mu" , "omega" , "homo" , "lumo" ]}
     elimFile = str(sys.argv[3])
     chemistry = str(sys.argv[4])
     outputDir = str(sys.argv[5])
@@ -299,7 +307,7 @@ if __name__ == "__main__":
             content = file.read()
             eliminatedPhrases = [item.strip() for item in content.split(',') if item.strip()]
     else: 
-        eliminatedPhrases = ["SMILES" , "Compound_Name", "Yield", "ChemistryType",  "Unnamed" ]
+        eliminatedPhrases = ["SMILES" ,"ID", "Compound_Name", "Yield", "ChemistryType",  "Unnamed" ]
     
     masterDF = plotSubstratesMain( chemistriesDir,chemistry ,  figDir , axisMotifs, eliminatedPhrases , outputDir )
 
