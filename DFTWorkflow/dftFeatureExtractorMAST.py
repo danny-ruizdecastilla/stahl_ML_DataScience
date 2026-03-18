@@ -510,7 +510,7 @@ def compartmentalization(logDir , outputDir , substrateFile):
         return substrateHash , smilesHash , featuresMAST , logEnergyStr
 
     if int(extractNum) == 1:
-        localStrs = ["SulfurShift" , "NBO7" , "fukuiParameters" , "%Vbur" ,  "globalFeatures" , "Sterimol" ]
+        localStrs = ["SulfurShift" , "NBO7" , "fukuiParameters" , "%Vbur" ,  "globalFeatures" ]
         localDescriptorsInput = boxGen(localStrs)
         featureList = listInputs(f"Enter the indexes corresponding to the features you would like to extract\n{localDescriptorsInput}")
         featuresMAST = {}
