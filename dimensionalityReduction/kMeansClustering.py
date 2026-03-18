@@ -79,7 +79,7 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 const layout = {{
                     title: '{plotTitle}',
                     xaxis: {{
-                        title: {{text: {xCol}, font: {{family: 'Arial', size: 16, weight: 'bold'}}}},
+                        title: {{text: '{xCol}', font: {{family: 'Arial', size: 16, weight: 'bold'}}}},
                         tickfont: {{family: 'Arial', size: 14, weight: 'bold'}},
                         linecolor: 'black',
                         linewidth: 2,
@@ -88,7 +88,7 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                         zeroline: false
                     }},
                     yaxis: {{
-                        title: {{text: {yCol}, font: {{family: 'Arial', size: 16, weight: 'bold'}}}},
+                        title: {{text: '{yCol}', font: {{family: 'Arial', size: 16, weight: 'bold'}}}},
                         tickfont: {{family: 'Arial', size: 14, weight: 'bold'}},
                         linecolor: 'black',
                         linewidth: 2,
