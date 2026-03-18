@@ -20,6 +20,7 @@ def safeStringHTML(unsafeString):
     value_name = html.escape(unsafeString, quote=True)
     return f'<option value="{value_name}">{display_name}</option>'
 def htmlGenerator1(masterDF , outputDir, chemistry):
+    plotChemStr = input("Name your new functional scatterplot: ")
     jsonMAST = masterDF.to_json(orient="records" , force_ascii=False )
     jsonMAST = jsonMAST.replace('\\/', '/')
     with open(outputDir + "/" + chemistry + "MAST.json", "w" , encoding='utf-8') as f:
@@ -225,7 +226,7 @@ def htmlGenerator1(masterDF , outputDir, chemistry):
         </style>
     </head>
     <body>
-        <h1>lily based Sulfide Space </h1>
+        <h1>{plotChemStr}</h1>
 
         <div class="controls">
             <label for="xAxis">X-axis:</label>
