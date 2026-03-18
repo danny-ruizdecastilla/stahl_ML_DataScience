@@ -276,7 +276,7 @@ if __name__ == "__main__":
         colList.append(column)
     axis1 = colList[0]
     axis2 = colList[1]
-    dfFinal = kMeansCluster(dfMAST , axis1 , axis2 , kMin, kMax , dimStr , outputDir)
     outputDir = Path(outputDir)
+    dfFinal = kMeansCluster(dfMAST , axis1 , axis2 , kMin, kMax , dimStr , outputDir)
     outputDir.mkdir(parents=True, exist_ok=True)
     dfFinal.to_csv(outputDir  / f"clustered_{dfName}.csv")
