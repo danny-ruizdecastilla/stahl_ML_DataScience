@@ -15,6 +15,7 @@ from reaxysProcessing.reaxysKMeans_Downselect import needleAlg
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 from figs.chemPlotlyV1 import plotly_template
 from figs.chemPlotlyV2 import createPNGDF,png64
+from figs.plotSubstrates import safeStringHTML
 #Danny Ruiz de Castilla | 11/06/2025
 def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
     masterDF = createPNGDF(masterDF, "SMILES", pngDir)
@@ -24,7 +25,8 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
         base64Col.append(base64)
     masterDF["base64"] = base64Col
     masterDF = masterDF.drop(columns=['pngPath'])
-    
+    clusterList = [ f"Cluster {clstr}" for clstr in set(masterDF["Cluster"] )]
+    htmlCluster = "".join(safeStringHTML(cluster) for cluster in clusterList)
     jsonMAST = masterDF.to_json(orient="records", force_ascii=False)
     jsonMAST = jsonMAST.replace('\\/', '/')
     plotTitle = input(f"Name your clustered scatterplot: ")
@@ -37,6 +39,34 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
         <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
         <script>
             const jsonData = {jsonMAST};
+            function printCluster() {{
+                const selectedCluster = docuemnt.getElementById("selectedCluster").value;
+                const clusterNumber = parseInt(selectedClusterStr.match(/\d+/)[0], 10);
+                const clusteredData = jsonData.filter(p => p["Cluster"] === clusterNumber)
+                const smilesImgs = clusteredData.map(p => p["base64"]); 
+                const smilesStrs = clusteredData.map(p => p["SMILES"]); 
+                selectedIndices.clear();
+                showPopup(smilesImgs,smilesStrs);
+            }}
+            function showPopup(base64,smiles){{
+                const grid = document.getElementById("structureGrid");
+                grid.innerHTML = "";
+
+                images.forEach((imgData, i) => {{
+                    const img = document.createElement("img");
+                    img.src = imgData;
+                    img.style.width = "100px";
+                    img.style.height = "100px";
+                    img.style.objectFit = "contain";
+
+                    grid.appendChild(img);
+                }});
+
+                document.getElementById("popupOverlay").style.display = "flex";
+            }}
+            function closePopup() {{
+                document.getElementById("popupOverlay").style.display = "none";
+            }}
             function plotData() {{
 
                 if (!jsonData || !Array.isArray(jsonData)) {{
@@ -160,6 +190,53 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 margin: 20px;
                 background-color: #f5f5f5;
             }}
+            .cluster-selection {{
+                display: flex;
+                align-items: center;
+                margin-bottom: 15px;
+                flex-wrap: wrap;
+                gap: 15px;
+                position: absolute;
+                top: 600px;
+                left: 20px;
+            }}
+            .generateStructures {{
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+            }}
+            .popup-overlay {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.6);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            }}
+
+            .popup-content {{
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                max-width: 80%;
+                max-height: 80%;
+                overflow-y: auto;
+            }}
+            .close-btn {{
+                float: right;
+                cursor: pointer;
+                font-size: 24px;
+            }}
+
+            #structureGrid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fill, 120px);
+                gap: 10px;
+            }}
             label {{
                 font-weight: bold;
                 margin-right: 5px;
@@ -201,7 +278,30 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 <div class="image-placeholder">Hover over a point to see its image</div>
             </div>
         </div>
+    
+        <div class="cluster-selection">
+            <label for="selectedCluster">Selected Cluster:</label>
+            <select id="selectedCluster">
+                {htmlCluster}
+            </select>
+            
+            <div class="generateStructures">
+                <button onclick="printCluster()">Generate Substrate List</button>
+            </div>
+
+        </div>
     </body>
+    <div id="popupOverlay" class="popup-overlay" style="display:none;">
+        <div class="popup-content">
+            <span class="close-btn" onclick="closePopup()">&times;</span>
+            <h3>Cluster Structures</h3>
+
+            <button onclick="downloadSelected()">Download Selected SMILES</button>
+            <button onclick="resetSelection()">Reset Selection</button>
+
+            <div id="structureGrid"></div>
+        </div>
+    </div>
     </html>
     """
     outputDir = Path(outputDir)
