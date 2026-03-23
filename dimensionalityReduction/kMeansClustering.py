@@ -38,9 +38,11 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
         <title>Scatter Plot with Hover Images</title>
         <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
         <script>
+            let selectedIndices = new Set();
+            let currentClusterData = [];
             const jsonData = {jsonMAST};
             function printCluster() {{
-                const selectedCluster = docuemnt.getElementById("selectedCluster").value;
+                const selectedClusterStr = document.getElementById("selectedCluster").value;
                 const clusterNumber = parseInt(selectedClusterStr.match(/\d+/)[0], 10);
                 const clusteredData = jsonData.filter(p => p["Cluster"] === clusterNumber)
                 selectedIndices.clear();
