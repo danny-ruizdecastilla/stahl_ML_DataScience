@@ -43,26 +43,75 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 const selectedCluster = docuemnt.getElementById("selectedCluster").value;
                 const clusterNumber = parseInt(selectedClusterStr.match(/\d+/)[0], 10);
                 const clusteredData = jsonData.filter(p => p["Cluster"] === clusterNumber)
-                const smilesImgs = clusteredData.map(p => p["base64"]); 
-                const smilesStrs = clusteredData.map(p => p["SMILES"]); 
                 selectedIndices.clear();
-                showPopup(smilesImgs,smilesStrs);
+                showPopup(clusteredData);
             }}
-            function showPopup(base64,smiles){{
+            function showPopup(clusteredData){{
                 const grid = document.getElementById("structureGrid");
                 grid.innerHTML = "";
 
-                images.forEach((imgData, i) => {{
-                    const img = document.createElement("img");
-                    img.src = imgData;
+                clusteredData.forEach((point,i) => {{
+                    const container = document.createElement("div");
+                    container.style.border = "2px solid transparent";
+                    container.style.padding = "5px";
+                    container.style.cursor = "pointer";
+                    const img = document.createElement("img")
+                    img.src = point["base64"];
                     img.style.width = "100px";
                     img.style.height = "100px";
                     img.style.objectFit = "contain";
+                    container.onclick = () => toggleSelection(i, container);
 
-                    grid.appendChild(img);
+                    container.appendChild(img);
+                    grid.appendChild(container);
+
                 }});
 
-                document.getElementById("popupOverlay").style.display = "flex";
+                document.getElementById("popupOverlay").style.display = "flex"
+
+            }}
+            function toggleSelection(idx , element){{
+            if (selectedIndices.has(indx)) {{
+                selectedIndices.delete(index);
+                element.style.border = "2px solid transparent";
+                element.style.backgroundColor = "white";
+
+            }} else {{
+                selectedIndices.add(index);
+                element.style.border = "2px solid blue";
+                element.style.backgroundColor = "#e6f0ff";
+
+                }}
+
+            }}
+            function resetSelection(){{
+                selectedIndices.clear();
+                const grid = document.getElementById("structureGrid").children;
+                for (let el of grid) {{
+                    el.style.border = "2px solid transparent";
+                    el.style.backgroundColor = "white";
+
+                }}
+            }}
+            function downloadSelected(clusterStr){{
+                const safeLabel = clusterLabel.replace(/\s+/g, "_")
+                if (selectedIndices.size===0){{
+                    alert("No structures selected");
+                }}
+                const selectedSMILES = Array.from(selectedIndices).map(i =>
+                    clusteredData[i]["SMILES"]                    
+                );
+
+                const smilesStr = selectedSmiles.join("\n");
+                const blob = new Blob([smilesStr] , {{type: "text/plain"}});
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = 'sekected_smiles_${{safeLabel}}.txt';
+                a.click();
+                URL.revokeObjectURL(url);
+
             }}
             function closePopup() {{
                 document.getElementById("popupOverlay").style.display = "none";
@@ -296,7 +345,7 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
             <span class="close-btn" onclick="closePopup()">&times;</span>
             <h3>Cluster Structures</h3>
 
-            <button onclick="downloadSelected()">Download Selected SMILES</button>
+            <button onclick="downloadSelected(document.getElementById('selectedCluster').value)">Download Selected SMILES</button>
             <button onclick="resetSelection()">Reset Selection</button>
 
             <div id="structureGrid"></div>
