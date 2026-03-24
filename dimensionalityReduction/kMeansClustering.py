@@ -39,14 +39,14 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
         <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
         <script>
             let selectedIndices = new Set();
-            let currentClusterData = [];
+            let currentClusteredData = [];
             const jsonData = {jsonMAST};
             function printCluster() {{
                 const selectedClusterStr = document.getElementById("selectedCluster").value;
                 const clusterNumber = parseInt(selectedClusterStr.match(/\d+/)[0], 10);
-                const clusteredData = jsonData.filter(p => p["Cluster"] === clusterNumber)
+                currentClusteredData = jsonData.filter(p => p["Cluster"] === clusterNumber)
                 selectedIndices.clear();
-                showPopup(clusteredData);
+                showPopup(currentClusteredData);
             }}
             function showPopup(clusteredData){{
                 const grid = document.getElementById("structureGrid");
@@ -96,15 +96,17 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 }}
             }}
             function downloadSelected(clusterStr){{
+                console.log("currentClusterData:", currentClusteredData);
+                console.log("selectedIndices:", selectedIndices);
                 const safeLabel = clusterStr.replace(/\s+/g, "_")
                 if (selectedIndices.size===0){{
                     alert("No structures selected");
                 }}
-                const selectedSMILES = Array.from(selectedIndices).map(i =>
-                    clusteredData[i]["SMILES"]                    
+                const selectedSMILES = Array.from(selectedIndices).map(i => 
+                    currentClusteredData[i]["SMILES"]
                 );
 
-                const smilesStr = selectedSmiles.join("\\n");
+                const smilesStr = selectedSMILES.join("\\n");
                 const blob = new Blob([smilesStr] , {{type: "text/plain"}});
                 const url = URL.createObjectURL(blob);
 
@@ -341,18 +343,18 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
             </div>
 
         </div>
-    </body>
-    <div id="popupOverlay" class="popup-overlay" style="display:none;">
-        <div class="popup-content">
-            <span class="close-btn" onclick="closePopup()">&times;</span>
-            <h3>Cluster Structures</h3>
+        <div id="popupOverlay" class="popup-overlay" style="display:none;">
+            <div class="popup-content">
+                <span class="close-btn" onclick="closePopup()">&times;</span>
+                <h3>Cluster Structures</h3>
 
-            <button onclick="downloadSelected(document.getElementById('selectedCluster').value)">Download Selected SMILES</button>
-            <button onclick="resetSelection()">Reset Selection</button>
+                <button onclick="downloadSelected(document.getElementById('selectedCluster').value)">Download Selected SMILES</button>
+                <button onclick="resetSelection()">Reset Selection</button>
 
-            <div id="structureGrid"></div>
+                <div id="structureGrid"></div>
+            </div>
         </div>
-    </div>
+    </body>
     </html>
     """
     outputDir = Path(outputDir)
