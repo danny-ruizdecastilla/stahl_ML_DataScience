@@ -37,10 +37,58 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
     <head>
         <title>Scatter Plot with Hover Images</title>
         <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+        <script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
         <script>
+            window.initRDKitModule()
+                .then(function (RDKit) {{
+                    console.log("RDKit version: " + RDKit.version());
+                    window.RDKit = RDKit;
+                }})
+                .catch((err) => {{
+                    console.error("RDKit failed to load:", err);
+                }});
+        </script>
+        <script>
+
             let selectedIndices = new Set();
             let currentClusteredData = [];
             const jsonData = {jsonMAST};
+            function structureFiltering(smartStr){{
+                const noMatchLength = 2;
+                const subMolec = window.RDKit.get_qmol(smartStr)
+                if (typeof completeJSON === "undefined") {{
+                    completeJSON = structuredClone(jsonData);
+                }}
+                const removeIdxList = [];
+
+                jsonData.forEach((point, i) => {{
+                    const smilesStr = point["SMILES"];
+                    const mol = window.RDKit.get_mol(smilesStr);
+
+                    if (!mol || !mol.is_valid()) {{
+                        mol?.delete();
+                        return;
+                    }}
+
+                    const matchResult = mol.get_substruct_match(subMolec);
+                    const isMatch = matchResult.length > noMatchLength;
+
+                    if (isMatch) {{
+                        removeIdxList.push(i);
+                    }}
+
+                    mol.delete();
+                }});
+                jsonData = jsonData.filter((_, i) => !removeIdxList.includes(i));
+                subMolec.delete();
+                plotData();
+                }}
+            function resetJSONDATA(){{
+                if (completeJSON){{
+                    jsonData = structuredClone(completeJSON);
+                    }}
+                plotData();
+            }}
             function printCluster() {{
                 const selectedClusterStr = document.getElementById("selectedCluster").value;
                 const clusterNumber = parseInt(selectedClusterStr.match(/\d+/)[0], 10);
@@ -80,8 +128,8 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
 
             }} else {{
                 selectedIndices.add(idx);
-                element.style.border = "2px solid blue";
-                element.style.backgroundColor = "#e6f0ff";
+                element.style.border = "2px solid red";
+                element.style.backgroundColor = "#C5050C";
 
                 }}
 
@@ -318,6 +366,21 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 text-align: center;
                 padding: 50px 0;
             }}
+            .smartsString{{
+                display: flex;
+                align-items: center;
+                margin-bottom: 15px;
+                flex-wrap: wrap;
+                gap: 15px;
+                position: absolute;
+                top: 50px;
+                left: 1188px;
+            }}
+            .resetSubSearch{{
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+            }}
         </style>
     
     </head>
@@ -331,7 +394,17 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 <div class="image-placeholder">Hover over a point to see its image</div>
             </div>
         </div>
-    
+        <div class="smartsString">
+        <input 
+            type="text" 
+            id="smartsInput" 
+            placeholder="Enter SMARTS string to filter out substrates..."
+        />
+        <button onclick="structureFiltering(document.getElementById('smartsInput').value.trim())">Search</button>
+        </div>
+        <div class="resetSubSearch">
+            <button onclick="resetJSONDATA()">Reset Substrate Scope</button>
+        </div>
         <div class="cluster-selection">
             <label for="selectedCluster">Selected Cluster:</label>
             <select id="selectedCluster">
