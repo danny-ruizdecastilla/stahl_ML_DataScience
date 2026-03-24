@@ -73,13 +73,13 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
 
             }}
             function toggleSelection(idx , element){{
-            if (selectedIndices.has(indx)) {{
-                selectedIndices.delete(index);
+            if (selectedIndices.has(idx)) {{
+                selectedIndices.delete(idx);
                 element.style.border = "2px solid transparent";
                 element.style.backgroundColor = "white";
 
             }} else {{
-                selectedIndices.add(index);
+                selectedIndices.add(idx);
                 element.style.border = "2px solid blue";
                 element.style.backgroundColor = "#e6f0ff";
 
@@ -96,7 +96,7 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                 }}
             }}
             function downloadSelected(clusterStr){{
-                const safeLabel = clusterLabel.replace(/\s+/g, "_")
+                const safeLabel = clusterStr.replace(/\s+/g, "_")
                 if (selectedIndices.size===0){{
                     alert("No structures selected");
                 }}
@@ -104,7 +104,7 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
                     clusteredData[i]["SMILES"]                    
                 );
 
-                const smilesStr = selectedSmiles.join("\n");
+                const smilesStr = selectedSmiles.join("\\n");
                 const blob = new Blob([smilesStr] , {{type: "text/plain"}});
                 const url = URL.createObjectURL(blob);
 
