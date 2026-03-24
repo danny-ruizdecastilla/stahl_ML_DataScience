@@ -112,7 +112,7 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
 
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = 'sekected_smiles_${{safeLabel}}.txt';
+                a.download = `selected_smiles_${{safeLabel}}.txt`;
                 a.click();
                 URL.revokeObjectURL(url);
 
