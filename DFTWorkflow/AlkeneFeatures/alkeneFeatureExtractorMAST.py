@@ -102,7 +102,7 @@ def hCount(molec, wildCards):
 def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
-        #print(id,smilesStr)
+        print(id,smilesStr)
         hashList = []
         cc , molec = getCC(smilesStr)
         conformerFiles = substratesHash[id]
@@ -145,15 +145,15 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
         if "NBO7" in featureList:
             nboNeutralStr = featureHash["NBO7"][0]
 
-            neutralHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboNeutralStr , 0 , logEnergyStr)
+            neutralHash = getAlkeneNBOInfo(conformerFiles , C1 , C2, "electronic", id , smilesStr , nboNeutralStr , 0 , logEnergyStr)
             hashList.append(neutralHash)
         if "fukuiParameters" in featureList:
             nboNeutralStr = featureHash["NBO7"][0]
             nboCationStr = featureHash["fukuiParameters"][0]
             nboAnionstr = featureHash["fukuiParameters"][1]
-            neutralHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboNeutralStr , 0, logEnergyStr)
-            cationHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr , nboCationStr , 1 , logEnergyStr)
-            anionHash = getAlkeneNBOInfo(conformerFiles , min([C1,C2]) , max([C1,C2]) , "electronic", id , smilesStr, nboAnionstr , -1, logEnergyStr)
+            neutralHash = getAlkeneNBOInfo(conformerFiles ,  C1 , C2, "electronic", id , smilesStr , nboNeutralStr , 0, logEnergyStr)
+            cationHash = getAlkeneNBOInfo(conformerFiles ,  C1 , C2 , "electronic", id , smilesStr , nboCationStr , 1 , logEnergyStr)
+            anionHash = getAlkeneNBOInfo(conformerFiles ,  C1 , C2,"electronic", id , smilesStr, nboAnionstr , -1, logEnergyStr)
             q0_mx = neutralHash["NBO_mxAlk"]
             q1_mx = cationHash["NBO_mxAlk"]
             q1__mx = anionHash["NBO_mxAlk"]
@@ -417,7 +417,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             hashList.append(globalRow)
 
         if "Sterimol" in featureList:
-            radList = [1.5,2.0,2.5,3.0,3.5,4.0]
+            radList = [3.0,4.0,4.5]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             weight_sum = weights.sum()
 
@@ -447,7 +447,8 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     elements.append(str(coords[0]))
                     coordinates.append(np.array(coords[2:5]))
                 for rad in radList:
-                    sterimol_values = Sterimol(elements, coordinates, int(C1 -1), int(C2-1)) 
+                    print(C1 , C2)
+                    sterimol_values = Sterimol(elements, coordinates, int(C1), int(C2)) 
                     sterimol_values.bury(method="delete", sphere_radius=float(rad))
                     L = sterimol_values.L_value
                     B1 = sterimol_values.B_1_value
