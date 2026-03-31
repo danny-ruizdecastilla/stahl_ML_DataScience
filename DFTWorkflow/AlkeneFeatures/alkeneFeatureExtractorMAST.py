@@ -52,8 +52,8 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
         NBO_mean.append(float(np.mean([c1NBO,c2NBO])))
         if charge == 0:
             try:
-                alkeneBondStr = f"bonding_C{C1}_C{C2}_2"
-                alkeneAntiBondStr = f"antibonding_C{C1}_C{C2}_2"
+                alkeneBondStr = f"bonding_C{min([C1,C2])}_C{max([C1,C2])}_2"
+                alkeneAntiBondStr = f"antibonding_C{min([C1,C2])}_C{max([C1,C2])}_2"
                 piOccupancy = float(bondHash[alkeneBondStr]["occupancy"])
                 piEnergy_ = float(bondHash[alkeneBondStr]["energy"])
                 piBond.append(piOccupancy)
@@ -144,7 +144,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
 
         if "NBO7" in featureList:
             nboNeutralStr = featureHash["NBO7"][0]
-
+            print(C1,C2)
             neutralHash = getAlkeneNBOInfo(conformerFiles , C1 , C2, "electronic", id , smilesStr , nboNeutralStr , 0 , logEnergyStr)
             hashList.append(neutralHash)
         if "fukuiParameters" in featureList:
@@ -447,7 +447,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     elements.append(str(coords[0]))
                     coordinates.append(np.array(coords[2:5]))
                 for rad in radList:
-                    print(C1 , C2)
+                    #print(C1 , C2)
                     sterimol_values = Sterimol(elements, coordinates, int(C1), int(C2)) 
                     sterimol_values.bury(method="delete", sphere_radius=float(rad))
                     L = sterimol_values.L_value
