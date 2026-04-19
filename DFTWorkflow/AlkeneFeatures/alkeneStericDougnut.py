@@ -424,6 +424,18 @@ class alkeneSemiCylinders:
                 c2Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.C2 , "color" : "red"}
                 vBurrFig = self.Fig.drawShapes(c2Burr , fig = vBurrFig) 
                 vBurrFig.write_html("vBurrFig.html")
+
+                from plotly_gif import GIF, three_d_scatter_rotate
+                gifVburr = GIF()
+                three_d_scatter_rotate(gifVburr, vBurrFig)
+                gifOrth = GIF()
+                three_d_scatter_rotate(gifOrth, orthFig)
+                gifPi = GIF()
+                three_d_scatter_rotate(gifPi, piFig)
+                
+                gifPi.create_gif()
+                gifVburr.create_gif()
+                gifOrth.create_gif()
             return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
                     max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth)]    
         else:
@@ -433,7 +445,7 @@ class alkeneSemiCylinders:
             self.BuriedCylinder = percentBurriedVol
             return [percentBurriedVol]
 def main(logFile , smilesStr, radius , linkIdx):
-    from DFTWorkflow.AlkeneFeatures.alkeneFeatureExtractorMAST import getAtomCoordsRobust
+    from DFTWorkflow.dftFeatureExtractorMAST import getAtomCoordsRobust
     cc , molec = getCC(smilesStr)
     #print(cc)
     C1 = cc[1] + 1
