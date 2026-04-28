@@ -464,7 +464,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             radList = [3.0,4.0,4.5]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             weight_sum = weights.sum()
-
+            sterimol_MinIdx = min( enumerate(weights)  , index = lambda x:x[1])[0]
             # Storage
             ster_B1 = {r: [] for r in radList}
             ster_L = {r: [] for r in radList}
@@ -503,6 +503,10 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             
             sterHash = {}
             for rad in radList:
+                sterB1_lowE = ster_B1[rad][sterimol_MinIdx]
+                sterB5_lowE = ster_B5[rad][sterimol_MinIdx]
+                sterL_lowE = ster_L[rad][sterimol_MinIdx]
+
                 sterB1 = np.array(ster_B1[rad])
                 sterB5 = np.array(ster_B5[rad])
                 sterL = np.array(ster_L[rad])
@@ -512,6 +516,9 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 sterHash[f"sterB1_{rad}"] = avgSterB1
                 sterHash[f"sterB5_{rad}"] = avgSterB5
                 sterHash[f"sterL_{rad}"] = avgSterL
+                sterHash[f"sterB1_{rad}_lowE"] = sterB1_lowE
+                sterHash[f"sterB5_{rad}_lowE"] = sterB5_lowE
+                sterHash[f"sterL_{rad}_lowE"] = sterL_lowE
 
             hashList.append(sterHash)
         masterDict = {}
