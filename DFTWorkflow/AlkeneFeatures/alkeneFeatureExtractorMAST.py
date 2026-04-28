@@ -464,7 +464,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             radList = [3.0,4.0,4.5]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             weight_sum = weights.sum()
-            sterimol_MinIdx = min( enumerate(weights)  , index = lambda x:x[1])[0]
+            sterimol_MinIdx = min( enumerate(weights)  , key = lambda x:x[1])[0]
             # Storage
             ster_B1 = {r: [] for r in radList}
             ster_L = {r: [] for r in radList}
