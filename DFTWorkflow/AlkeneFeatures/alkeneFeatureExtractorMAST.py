@@ -78,11 +78,25 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
     finalHash["NBO_mnAlk"] =weightedAvg(Cmax_NBO , list(weightsDF["boltzWeights"]))
     finalHash["NBO_Mean"] =weightedAvg(NBO_mean , list(weightsDF["boltzWeights"]))
     finalHash["NBO_Delta"] =weightedAvg(NBO_delta , list(weightsDF["boltzWeights"]))
+
+    lowEidx = min(enumerate(list(weightsDF["boltzWeights"])), key=lambda x: x[1])[0]
+    Cmin_NBO_lowE = Cmin_NBO[lowEidx]
+    Cmax_NBO_lowE = Cmax_NBO[lowEidx]
+    finalHash["NBO_mxAlk_lowE"] = Cmin_NBO_lowE
+    finalHash["NBO_mnAlk_lowE"] =Cmax_NBO_lowE
+    finalHash["NBO_Mean_lowE"] = np.mean([Cmin_NBO_lowE, Cmax_NBO_lowE])
+    finalHash["NBO_Delta_lowE"] =abs(Cmin_NBO_lowE - Cmax_NBO_lowE)
     if charge == 0 and len(piBond) != 0:
+        piBondlowEIdx = min(enumerate(piBondEnergyWeights), key=lambda x: x[1])[0]
         finalHash["piBond"] = weightedAvg(piBond, piBondEnergyWeights)
         finalHash["piEnergy"] = weightedAvg(piEnergy, piBondEnergyWeights)
         finalHash["antiPiBond"] = weightedAvg(piAntiBond, piBondEnergyWeights)
         finalHash["antiPiEnergy"] = weightedAvg(antiPiEnergy, piBondEnergyWeights)
+
+        finalHash["piBond_lowE"] = piBond[piBondlowEIdx]
+        finalHash["piEnergy_lowE"] = piEnergy[piBondlowEIdx]
+        finalHash["antiPiBond_lowE"] = piAntiBond[piBondlowEIdx]
+        finalHash["antiPiEnergy_lowE"] = antiPiEnergy[piBondlowEIdx]
     elif charge == 0 and len(piBond) == 0:
         finalHash["piBond"] = "Nan"
         finalHash["piEnergy"] ="Nan"
@@ -132,11 +146,18 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 C13_C1.append(alkeneHash[C1][1])
                 C13_C2.append(alkeneHash[C2][1])
             weights = boltzmannDF["boltzWeights"]
+            minWeightID = min(enumerate(weights), key=lambda x: x[1])[0]
+            C13_Cmx_min = C13_C2[minWeightID]
+            C13_Cmn_min = C13_C1[minWeightID]
+            C13_delta_min = abs(C13_Cmx_min - C13_Cmn_min)
+            C13_Mean_min = np.mean([C13_Cmx_min,C13_Cmn_min])
+
             C13_Cmx = ( (C13_C2 * weights).sum()    / weights.sum()  )
             C13_Cmn = ( (C13_C1 * weights).sum()    / weights.sum()  )
             C13_delta = abs(C13_Cmx - C13_Cmn)
             C13_Mean = np.mean([C13_Cmx,C13_Cmn])
-            c13Hash = {"C13_Cmx" : C13_Cmx , "C13_Cmn" : C13_Cmn , "C13_delta" : C13_delta , "C13_Mean" : C13_Mean}
+            c13Hash = {"C13_Cmx" : C13_Cmx , "C13_Cmn" : C13_Cmn , "C13_delta" : C13_delta , "C13_Mean" : C13_Mean , 
+                       "C13_Cmx_lowE" : C13_Cmx_min , "C13_Cmn_lowE" : C13_Cmn_min , "C13_delta_lowE" : C13_delta_min , "C13_Mean_lowE" : C13_Mean_min}
             hashList.append(c13Hash)
         else:
             C1 = cc[1] + 1
@@ -172,8 +193,9 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
 
-            radList = [1.5,2.0,2.5,3.0,3.5,4.0]
+            radList = [1.5,2.0,2.5,3.0,]
             weights = boltzmannDF["boltzWeights"].to_numpy()
+            minWeightIdx = min(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
 
             # Storage
@@ -224,6 +246,15 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             # Boltzmann-weighted averages
             BurVolHash = {}
             for rad in radList:
+                Vbur_Cmin_lowE = Vbur_Cmin[rad][minWeightIdx]
+                Vbur_Cmax_lowE = Vbur_Cmax[rad][minWeightIdx]
+                Vbur_delta_lowE = abs(Vbur_Cmin_lowE - Vbur_Cmax_lowE)
+                Vbur_mean_lowE = (Vbur_Cmin_lowE + Vbur_Cmax_lowE)/2
+                BurVolHash[f"{rad}_Ang_Vburr_Cmn_lowE"] = Vbur_Cmin_lowE
+                BurVolHash[f"{rad}_Ang_Vburr_Cmx_lowE"] = Vbur_Cmax_lowE 
+                BurVolHash[f"{rad}_Ang_Vburr_delta_lowE"] = Vbur_delta_lowE
+                BurVolHash[f"{rad}_Ang_Vburr_mean_lowE"] = Vbur_mean_lowE
+
                 Vbur_Cmin_arr = np.array(Vbur_Cmin[rad])
                 Vbur_Cmax_arr = np.array(Vbur_Cmax[rad])
                 Vburr_Cmin = (Vbur_Cmin_arr * weights).sum() / weight_sum
@@ -294,12 +325,18 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     
 
             weights = boltzmannDF["boltzWeights"]
+            SemiCylinder_lowEIdx = min(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
 
             Vbur_MaxSemi = { r: (maxSemiHash[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MinSemi = { r: (minSemiHash[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MaxSemi_Orth = { r: (maxSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MinSemi_Orth = { r: (minSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
+
+            Vbur_MaxSemi_lowE = {r : maxSemiHash[r][SemiCylinder_lowEIdx] for r in radList}
+            Vbur_MinSemi_lowE = {r : minSemiHash[r][SemiCylinder_lowEIdx] for r in radList}
+            Vbur_MaxSemi_Orth_lowE = {r : maxSemiHashOrth[r][SemiCylinder_lowEIdx] for r in radList}
+            Vbur_MinSemi_Orth_lowE = {r : minSemiHashOrth[r][SemiCylinder_lowEIdx] for r in radList}
             #Vburr_Cylinder = { r: (CburrHash[r] * weights).sum() / weight_sum  for r in radList } 
             Vburr_SemiCylinders ={}
             for rad in radList:
@@ -307,6 +344,11 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 Vburr_SemiCylinders[f"Vbur_MinSemi_Pi_{rad}"] = Vbur_MinSemi[rad]
                 Vburr_SemiCylinders[f"Vbur_MaxSemi_Orth_{rad}"] = Vbur_MaxSemi_Orth[rad]
                 Vburr_SemiCylinders[f"Vbur_MinSemi_Orth_{rad}"] = Vbur_MinSemi_Orth[rad]
+
+                Vburr_SemiCylinders[f"Vbur_MaxSemi_Pi_{rad}_lowE"] = Vbur_MaxSemi_lowE[rad]
+                Vburr_SemiCylinders[f"Vbur_MinSemi_Pi_{rad}_lowE"] = Vbur_MinSemi_lowE[rad]
+                Vburr_SemiCylinders[f"Vbur_MaxSemi_Orth_{rad}_lowE"] = Vbur_MaxSemi_Orth_lowE[rad]
+                Vburr_SemiCylinders[f"Vbur_MinSemi_Orth_{rad}_lowE"] = Vbur_MinSemi_Orth_lowE[rad]
 
             hashList.append(Vburr_SemiCylinders)
 
@@ -348,8 +390,10 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                         c2_coords = coords[2:5]
                 dist1 = np.linalg.norm(np.array(c1_coords , dtype=float) - np.array(c2_coords , dtype=float))
                 distList.append(dist1)
+            alkeneDist_lowE_idx = min(enumerate(weights), key = lambda x:x[1])[0]
+            alkeneDist_lowE = distList[alkeneDist_lowE_idx]
             distMAST = ( (distList * weights).sum()    / weights.sum()  )  
-            distHash = {"C1C2Dist" : distMAST} 
+            distHash = {"C1C2Dist" : distMAST , "C1C2Dist_lowE" : alkeneDist_lowE} 
             hashList.append(distHash)
         if "globalFeatures" in featureList:
             nboNeutralStr = featureHash["globalFeatures"][0]
