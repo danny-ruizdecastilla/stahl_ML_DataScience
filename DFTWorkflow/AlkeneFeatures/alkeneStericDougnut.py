@@ -225,16 +225,24 @@ def getBurriedDougnut(atomHash, innerR, outerR, h, center ):
             atomVol += vol
     percentBurriedVol = (atomVol/volDoughnut) * 100
     return percentBurriedVol
+
 class alkeneSemiCylinders:
-    def __init__(self, C1Hash, C2Hash,radius  ):
+    def __init__(self, C1Hash, C2Hash,radius ,padding ):
+        self.padding = padding
         self.C1Idx = int(C1Hash["idx"]) #Index of alkene Carbon 1
         self.C2Idx = int(C2Hash["idx"]) #Index of alkene Carbon 2
         self.C1 =  C1Hash["0"]
         self.C2 =  C2Hash["0"]
 
-        alkeneVec = C1Hash["0"] - C2Hash["0"] #vector between C1 and C2
+        #create new x vector 
+        center = [(float(a) + float(b)) * 0.5 for a, b in zip(list(C1Hash["0"]), list(C2Hash["0"]))]
+        self.centerPoint = center 
+        xVec = self.C1 - self.centerPoint #unit x axis starts at center between C1 and C2 and goes towards C1
+        xVec /= np.linalg.norm(xVec)
+        self.xVec = xVec
+        alkeneVec = self.C1- self.C2 #vector between C1 and C2
         self.alkeneVec = alkeneVec 
-        self.height = np.linalg.norm(C1Hash["0"] - C2Hash["0"])#alkeneBondLength 
+        self.height = np.linalg.norm(alkeneVec)#alkeneBondLength 
         # vectors from carbons to neighbors
         c1Contacts = C1Hash["1"]
         c2Contacts = C2Hash["1"]
@@ -255,42 +263,65 @@ class alkeneSemiCylinders:
         c1Orth /= np.linalg.norm(c1Orth)
         c2Orth /= np.linalg.norm(c2Orth)
 
-        # ALIGN DIRECTIONS
+        # align directions
         if np.dot(c1Orth, c2Orth) < 0:
             c2Orth *= -1
 
         # scale
         c1OrthScaled = radius * c1Orth
         c2OrthScaled = radius * c2Orth
-        center = [(float(a) + float(b)) * 0.5 for a, b in zip(list(C1Hash["0"]), list(C2Hash["0"]))]
-        self.centerPoint = center 
-        bisector = (c1OrthScaled + c2OrthScaled )
-        bisector /= np.linalg.norm(c1OrthScaled + c2OrthScaled )
+        bisector = (c1OrthScaled + c2OrthScaled ) #bisector between the 2 orthonormal vectors of the alkene planes 
+        bisector /= np.linalg.norm(bisector)
+        yTarget = self.centerPoint + bisector
+        yVec = (yTarget - self.centerPoint) / np.linalg.norm(yTarget - self.centerPoint)
         bisector *= radius
         self.bisector = bisector
         self.radius = radius
+
+        #Gram Schmidt for y axis 
+        yVec = yVec - np.dot(yVec, xVec) * xVec
+        yVec /= np.linalg.norm(yVec)
+        self.yVec = yVec
+        #z axis 
+        zVec = np.cross(self.xVec, self.yVec)
+        zVec /= np.linalg.norm(zVec)
+        self.zVec = zVec
+
+        #change of basis 
+        self.basisMatrix = np.column_stack([self.xVec, self.yVec, self.zVec])
+        #print(self.basisMatrix)
+        self.basisMatrixInv = self.basisMatrix.T
+        #print(self.basisMatrixInv@self.basisMatrix)
+
+        assert np.allclose(self.basisMatrixInv @ self.basisMatrix, np.eye(3), rtol=1e-5)  # should be identity
 
     def getAtoms(self ,  atomHash ,bondHash ,  makeFig):
         atoms = []
         idxList = []
         symbolList = [] 
-        for _ , val in atomHash.items():
+        for _ , val in atomHash.items(): #break down the hash table into atoms their respective indices and the symbols connected to each atom 
             coords = [float(a) for a in val[2:5]]
 
             idxList.append(_)
             atoms.append(coords)
             symbolList.append(val[0])
         atoms = np.array(atoms)
-        #print(atoms)
-        cx, cy, cz = self.centerPoint
-        xList = atoms[:, 0] - cx
-        yList = atoms[:, 1] - cy
-        zList = atoms[:, 2] - cz
+        #print("coordinates" , atoms)
+        #print("center" , self.centerPoint)
+        atoms = np.array(atoms)  
+        translated = atoms - self.centerPoint
+        newAtoms = (self.basisMatrixInv @ translated.T).T
+        #print(self.height)
+        xMin = -1 * (self.height/2 + self.padding) #alkene bond range 
+        xMax = self.height/2 + self.padding #a "padded 0.3 Angstroms is added to resolve edge cases sitting on the bond"
 
-        # Calculate radial distance from cylinder axis (z-axis)
-        r = np.sqrt(xList**2 + yList**2)
-
-        inside_mask = (r <= self.radius)  & (zList <= self.height)
+        newXList = newAtoms[:,0]
+        newYList = newAtoms[:,1]
+        r = np.sqrt(newXList**2 + newYList**2)
+        #print(newXList)
+        print(self.radius)
+        print(r)
+        inside_mask = (newXList >= xMin) & (newXList <= xMax) & (r <= self.radius)
         acceptedAtoms = []
         acceptedIdx = []
         acceptedSymbols = []
@@ -469,7 +500,7 @@ def main(logFile , smilesStr, radius , linkIdx):
     CmaxContacts = []
     CminContacts = []
     coordHash = getAtomCoordsRobust(logFile , "GINC-COMPUTE" , linkIdx  , 1)
-    print(coordHash.keys())
+    #print(coordHash.keys())
     for atomIdx , coords in coordHash.items():
         atomIdx +=1
         if atomIdx == C1:
@@ -486,7 +517,7 @@ def main(logFile , smilesStr, radius , linkIdx):
             CmaxContacts.append(crds) 
     C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
     C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
-    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius)
+    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.1)
     mainCylinder.getAtoms(coordHash ,bondHash, True)
     maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True , True)
 
