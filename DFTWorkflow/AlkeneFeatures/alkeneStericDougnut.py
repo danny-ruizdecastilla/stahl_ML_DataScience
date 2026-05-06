@@ -276,29 +276,10 @@ class alkeneSemiCylinders:
         symbolList = [] 
         for _ , val in atomHash.items():
             coords = [float(a) for a in val[2:5]]
-            idx = val[1]
-            if idx in [self.C1Idx,self.C2Idx]:
-                pass
-            else:
-                idxList.append(idx)
-                atoms.append(coords)
-                symbolList.append(val[0])
-        if makeFig:
-            pt = Chem.GetPeriodicTable()
-            radiiList = []
-            for symbol in symbolList:
-                atomRadii = pt.GetRvdw(pt.GetAtomicNumber(symbol))
-                radiiList.append(atomRadii)
-            figHash = {"atomCoords" : atoms , "atomSymbol" : symbolList , "radii" : radiiList}
-            stericFigure = stericDrawer(figHash , 30)
-            for i in range(len(atoms)):
-                stericFigure.drawAtom(i)
-            for _ , bdTable in bondHash.items():
-                bdAtoms =  bdTable["idxList"]
-                bondType = str(bdTable["bondType"])
-                stericFigure.drawBond( bdAtoms[0], bdAtoms[1], bondType)
 
-            self.Fig = stericFigure
+            idxList.append(_)
+            atoms.append(coords)
+            symbolList.append(val[0])
         atoms = np.array(atoms)
         #print(atoms)
         cx, cy, cz = self.centerPoint
@@ -321,7 +302,21 @@ class alkeneSemiCylinders:
         self.acceptedAtoms = acceptedAtoms
         self.acceptedIdx = acceptedIdx
         self.acceptedSymbols = acceptedSymbols 
-
+        if makeFig:
+            pt = Chem.GetPeriodicTable()
+            radiiList = []
+            for symbol in symbolList:
+                atomRadii = pt.GetRvdw(pt.GetAtomicNumber(symbol))
+                radiiList.append(atomRadii)
+            figHash = {"atomCoords" : atoms , "atomSymbol" : symbolList , "radii" : radiiList}
+            stericFigure = stericDrawer(figHash , 30 , highlighted = acceptedIdx)
+            for i in range(len(atoms)):
+                stericFigure.drawAtom(i)
+            for _ , bdTable in bondHash.items():
+                bdAtoms =  bdTable["idxList"]
+                bondType = str(bdTable["bondType"])
+                stericFigure.drawBond( bdAtoms[0], bdAtoms[1], bondType)
+            self.Fig = stericFigure
     def getBurriedVolume(self, semiSpheres , saveFig):
         if not hasattr(self, "acceptedAtoms"):
             raise RuntimeError("getAtoms() must be called before getBurriedVolume()")
@@ -355,6 +350,10 @@ class alkeneSemiCylinders:
             negAtoms_Pi = atoms[negIdx_Pi]
             posAtoms_Orth = atoms[posIdx_Orth]
             negAtoms_Orth = atoms[negIdx_Orth]
+            print("posAtoms_Pi" , posIdx_Pi)
+            print("negAtoms_Pi" , negIdx_Pi)
+            print("posAtoms_Orth" , posIdx_Orth)
+            print("negAtoms_Orth" , negIdx_Orth)
 
             posVol_Pi = getAtomsVol(posAtoms_Pi)
             negVol_Pi = getAtomsVol(negAtoms_Pi)
@@ -424,7 +423,7 @@ class alkeneSemiCylinders:
                 c2Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.C2 , "color" : "red"}
                 vBurrFig = self.Fig.drawShapes(c2Burr , fig = vBurrFig) 
                 vBurrFig.write_html("vBurrFig.html")
-
+                '''
                 from plotly_gif import GIF, three_d_scatter_rotate
                 gifVburr = GIF()
                 three_d_scatter_rotate(gifVburr, vBurrFig)
@@ -436,6 +435,7 @@ class alkeneSemiCylinders:
                 gifPi.create_gif()
                 gifVburr.create_gif()
                 gifOrth.create_gif()
+                '''
             return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
                     max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth)]    
         else:
@@ -469,20 +469,19 @@ def main(logFile , smilesStr, radius , linkIdx):
     CmaxContacts = []
     CminContacts = []
     coordHash = getAtomCoordsRobust(logFile , "GINC-COMPUTE" , linkIdx  , 1)
-    #print(coordHash)
-    idx = 0
-    for _ , coords in coordHash.items():
-        idx +=1
-        if idx == C1:
+    print(coordHash.keys())
+    for atomIdx , coords in coordHash.items():
+        atomIdx +=1
+        if atomIdx == C1:
             c1_coords = np.array(coords[2:5])
-            c1Idx = idx
-        elif idx == C2:
+            c1Idx = atomIdx
+        elif atomIdx == C2:
             c2_coords = coords[2:5]
-            c2Idx = idx 
-        if (idx-1) in CminNeighbors:
+            c2Idx = atomIdx
+        if (atomIdx-1) in CminNeighbors:
             crds = np.array(coords[2:5])
             CminContacts.append(crds) 
-        if (idx-1) in CmaxNeighbors:
+        if (atomIdx-1) in CmaxNeighbors:
             crds = np.array(coords[2:5])
             CmaxContacts.append(crds) 
     C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
