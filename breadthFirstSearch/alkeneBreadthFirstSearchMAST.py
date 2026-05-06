@@ -5,22 +5,43 @@ import os
 from rdkit import Chem
 import pandas as pd
 from rdkit.Chem.PandasTools import LoadSDF
-import ast
-import networkx as nx
-from networkx import Graph
-import matplotlib.pyplot as plt
-from itertools import combinations
-from collections import deque 
-import random
-parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__) , "../.."))
-sys.path.append(parentDir)
 
-#Take a step
-#Check if you've entered a cyclic
-#If so, skip to edges, add 1 step
-#If not then add 1 step
-#Check termination
-#When terminated return final submolec 
-def isCyclic(mol, g , atomID , currentPath):
-    cyclit = False
-    
+def initAlkene(smiles , addHs):
+    molec = Chem.MolFromSmiles(smiles)
+    double = 0
+    for bond in molec.GetBonds():
+        atom1 = bond.GetBeginAtom()
+        atom2 = bond.GetEndAtom()
+        if atom1.GetAtomicNum() == 6 and atom2.GetAtomicNum() == 6 and bond.GetBondType() == Chem.BondType.DOUBLE:
+            double +=1
+            c1 = bond.GetBeginAtomIdx()
+            c2 = bond.GetEndAtomIdx()
+            CC = [c1 , c2]
+    if double != 1:
+        raise SystemError("More than 1 Alkene found in system")
+    elif addHs:
+        mol_with_hs = Chem.AddHs(molec)
+        return CC , mol_with_hs
+    else:
+        return CC , molec 
+def breadthFirstSearch(molec, period ,  contactHash , forbiddenAtoms ): #contactHash : { 0 : [startAtom] , 1 : [id1, id2, id3] , 2 : [id4,id5...]}
+    currentPeriod = list(contactHash.keys())[-1]
+    #print(contactHash)
+    if currentPeriod > period:
+        return contactHash
+    else:
+        prevTraversed = set(atom for neighbors in contactHash.values() for atom in neighbors)
+        if len(forbiddenAtoms) > 0:
+            prevTraversed.update(forbiddenAtoms)
+        eligibleIdxs = []
+        for idx in contactHash[currentPeriod]:
+            atom = molec.GetAtomWithIdx(idx)
+            neighbors = atom.GetNeighbors()
+            for nbr in neighbors:
+                nbrID = nbr.GetIdx()
+                if nbrID not in prevTraversed:
+                    eligibleIdxs.append(nbrID)
+        eligibleIds = set(eligibleIdxs)
+        newPeriod = currentPeriod +1 
+        contactHash[newPeriod] = list(eligibleIds)
+        return breadthFirstSearch(molec, period, contactHash, forbiddenAtoms)
