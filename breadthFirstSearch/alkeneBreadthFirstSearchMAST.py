@@ -24,24 +24,29 @@ def initAlkene(smiles , addHs):
         return CC , mol_with_hs
     else:
         return CC , molec 
-def breadthFirstSearch(molec, period ,  contactHash , forbiddenAtoms ): #contactHash : { 0 : [startAtom] , 1 : [id1, id2, id3] , 2 : [id4,id5...]}
+def breadthFirstSearch(molec, period, contactHash, forbiddenAtoms):
+    # contactHash: { 0: [[startAtom]], 1: [[startAtom, id1], [startAtom, id2]], 2: [[startAtom, id1, id4], ...] }
     currentPeriod = list(contactHash.keys())[-1]
-    #print(contactHash)
+
     if currentPeriod > period:
         return contactHash
     else:
-        prevTraversed = set(atom for neighbors in contactHash.values() for atom in neighbors)
+        prevTraversed = set(atom for paths in contactHash.values() for path in paths for atom in path)
         if len(forbiddenAtoms) > 0:
             prevTraversed.update(forbiddenAtoms)
-        eligibleIdxs = []
-        for idx in contactHash[currentPeriod]:
-            atom = molec.GetAtomWithIdx(idx)
+
+        eligiblePaths = []
+        for path in contactHash[currentPeriod]:
+            lastAtom = path[-1]  # the frontier atom of this trajectory
+            atom = molec.GetAtomWithIdx(lastAtom)
             neighbors = atom.GetNeighbors()
             for nbr in neighbors:
                 nbrID = nbr.GetIdx()
                 if nbrID not in prevTraversed:
-                    eligibleIdxs.append(nbrID)
-        eligibleIds = set(eligibleIdxs)
-        newPeriod = currentPeriod +1 
-        contactHash[newPeriod] = list(eligibleIds)
+                    newPath = path + [nbrID]  # extend trajectory
+                    eligiblePaths.append(newPath)
+                    prevTraversed.add(nbrID)  # mark as visited within this period expansion
+
+        newPeriod = currentPeriod + 1
+        contactHash[newPeriod] = eligiblePaths
         return breadthFirstSearch(molec, period, contactHash, forbiddenAtoms)
