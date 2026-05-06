@@ -18,10 +18,14 @@ atomColorHashRGB = { "H" : "rgba(220,220,220,0.7)" , "C" : "rgba(128,128,128,0.7
                        , "Br" :  "rgba(165,028,048,0.7)" , "Cl" :"rgba(255,206,207,0.7)"
                          }
 class stericDrawer:
-    def __init__(self, atomsHash , resolution):
+    def __init__(self, atomsHash , resolution, **kwargs):
         self.atomList = atomsHash["atomCoords"]
         self.atomSymbols = atomsHash["atomSymbol"]
         self.atomRadii = atomsHash["radii"]
+        if kwargs.get("highlighted") is None:
+            pass
+        else:
+            self.highlighted = kwargs["highlighted"]
         fig = go.Figure()
         fig.update_layout(
         paper_bgcolor="white",
@@ -56,7 +60,11 @@ class stericDrawer:
       phi = np.linspace(0, np.pi, self.resolution)        # polar angle
       theta_grid, phi_grid = np.meshgrid(theta, phi)
       atomStr = self.atomSymbols[idx]
-      atomColor = atomColorHashRGB[atomStr]
+      if hasattr(self , "highlighted") and idx in self.highlighted:
+        atomColor = "rgba(100,31.8,0,0.8)"
+        print("highlighted")
+      else:
+         atomColor = atomColorHashRGB[atomStr]
       radius = float(0.5* self.atomRadii[idx])
       atomCoord = self.atomList[idx]
       x_outer = radius * np.sin(phi_grid) * np.cos(theta_grid)
