@@ -137,12 +137,18 @@ def getAtomCoordsRobust(logFile , xyzStr , commaSplit:int , locationIdx  ):
                     cleaned = re.sub(r'\s+', '' , line)
                     masterStr += cleaned
         masterList = masterStr.split("\\")
+        beginLoop = False
         for i ,  phrase in enumerate(masterList):
             atomStr = phrase.split(",")
             atomStr[2:5] = map(float, atomStr[2:5])
             #print(atomStr)
             if len(atomStr) == commaSplit:
-                atomCoords[i] = atomStr[:commaSplit]
+                if not beginLoop:
+                    refactor = i 
+                    beginLoop = True
+                atomCoords[i-refactor] = atomStr[:commaSplit]
+
+
         return atomCoords
     else:
         return "Poison"
