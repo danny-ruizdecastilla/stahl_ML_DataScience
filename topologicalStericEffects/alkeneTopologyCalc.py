@@ -5,7 +5,6 @@ import argparse
 import pandas as pd 
 import sys 
 from pathlib import Path
-from networkx import Graph
 from rdkit import Chem
 from rdkit.Chem import rdmolops
 parentDir = Path(__file__).resolve().parents[1]
@@ -27,29 +26,50 @@ radii = {
     "Sn": [140, 130, 132]
 }
 def calcTopology(atomHash , molec):
-    v_rc = 0
-    mainAtom = atomHash[0][0]
-    atomMain = molec.GetAtomWithIdx(mainAtom)
-    
-    for period , contacts in atomHash.items():
-        for idx in contacts:
-            path = rdmolops.GetShortestPath(molec, mainAtom, idx)
-            if len(path) > 2:
-                for id in path[1:-1]:
-                    atom = molec.GetAtomWithIdx(id)
-            else:
-                
+    TSEI = 0
+    for period , nestedPaths in atomHash.items():
+        for path in nestedPaths:
+            if len(path) > 1:
+                lastIdx = path[-1]
+                denominator = 0
+                for i in range(len(path)-1):
+                    startIdx = path[i]
+                    endIdx = path[i+1]
+                    bond = molec.GetBondBetweenAtoms(startIdx, endIdx)
+                    bondType = bond.GetBondType()
+                    if bondType == "SINGLE":
+                        bondIdx = 0
+                    elif bondType == "AROMATIC" or bondType == "DOUBLE":
+                        bondIdx = 1
+                    else:
+                        bondIdx = 2
+                    startAtom = molec.GetAtomWithIdx(startIdx)
+                    endAtom = molec.GetAtomWithIdx(endIdx)
+                    startSymbol = startAtom.GetSymbol() 
+                    endSymbol = endAtom.GetSymbol()
+                    startRadii = radii[startSymbol][bondIdx]
+                    endRadii = radii[endSymbol][bondIdx]
+                    denominator += startRadii
+                    denominator += endRadii
+                    if endIdx == lastIdx:
+                        numerator = endRadii
+                v_rc = numerator**3 / denominator**3 
+                TSEI += v_rc
 
-    return v_rc
+    return TSEI
 def main(smilesList , saveDir , period , addHs):
     maxTopology = []
     minTopology = []
     for smiles in smilesList:
-        CC , molec = initAlkene(smilesList , addHs)
+        CC , molec = initAlkene(smiles , addHs)
         c1Hash = breadthFirstSearch(molec, period , {0 : [CC[0]]} , [CC[1]])
-
-
+        c1TSEL = calcTopology(c1Hash, molec)
         c2Hash = breadthFirstSearch(molec, period , {0 : [CC[1]]} , [CC[0]])
+        c2TSEL = calcTopology(c2Hash , molec)
+        tsel = [c1TSEL , c2TSEL]
+        maxTopology.append(max(tsel))
+        minTopology.append(min(tsel))
+
 
 
 if __name__ == "__main__":
