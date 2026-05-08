@@ -5,8 +5,6 @@ import argparse
 import pandas as pd 
 import sys 
 from pathlib import Path
-from rdkit import Chem
-from rdkit.Chem import rdmolops
 parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
 from breadthFirstSearch.alkeneBreadthFirstSearchMAST import initAlkene , breadthFirstSearch
@@ -23,12 +21,15 @@ radii = {
     "Cl": [99,  95,  93],
     "Br": [114, 109, 110],
     "I":  [133, 129, 125],
-    "Sn": [140, 130, 132]
+    "Sn": [140, 130, 132],
+    "Se" : [116 , 107 , 107]
 }
 def calcTopology(atomHash , molec):
+    print(atomHash)
     TSEI = 0
     for period , nestedPaths in atomHash.items():
         for path in nestedPaths:
+            print(path)
             if len(path) > 1:
                 lastIdx = path[-1]
                 denominator = 0
@@ -36,7 +37,8 @@ def calcTopology(atomHash , molec):
                     startIdx = path[i]
                     endIdx = path[i+1]
                     bond = molec.GetBondBetweenAtoms(startIdx, endIdx)
-                    bondType = bond.GetBondType()
+                    bondType = str(bond.GetBondType())
+                    print(bondType)
                     if bondType == "SINGLE":
                         bondIdx = 0
                     elif bondType == "AROMATIC" or bondType == "DOUBLE":
@@ -62,16 +64,22 @@ def main(smilesList , saveDir , period , addHs):
     minTopology = []
     for smiles in smilesList:
         CC , molec = initAlkene(smiles , addHs)
-        c1Hash = breadthFirstSearch(molec, period , {0 : [CC[0]]} , [CC[1]])
+        c1Hash = breadthFirstSearch(molec, period , {0 : [[CC[0]]]} , [CC[1]])
         c1TSEL = calcTopology(c1Hash, molec)
-        c2Hash = breadthFirstSearch(molec, period , {0 : [CC[1]]} , [CC[0]])
+        c2Hash = breadthFirstSearch(molec, period , {0 : [[CC[1]]]} , [CC[0]])
         c2TSEL = calcTopology(c2Hash , molec)
         tsel = [c1TSEL , c2TSEL]
         maxTopology.append(max(tsel))
         minTopology.append(min(tsel))
-
-
-
+    deltaTopology = np.abs(np.array(maxTopology) - np.array(minTopology))
+    meanTopology = (np.array(maxTopology) + np.array(minTopology))/2
+    topologyDF = pd.DataFrame()
+    topologyDF["SMILES"] = smilesList
+    topologyDF[f"maxTopology_{period}"] = maxTopology
+    topologyDF[f"minTopology_{period}"] = minTopology
+    topologyDF[f"deltaTopology_{period}"] = deltaTopology
+    topologyDF[f"meanTopology_{period}"] = meanTopology
+    topologyDF.to_csv(saveDir / f"topology_atPeriod_{period}.csv" )
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="alkene Topology Calculator")
@@ -91,9 +99,11 @@ if __name__ == "__main__":
     parser.add_argument("--addHs", action="store_true",
                         help="Include hydrogens if flag is present")
     args = parser.parse_args()
-    smilesList = pd.read_csv(args.smiles_col)
+    dfMAST = pd.read_csv(args.smiles_csv)
+    smilesList = dfMAST[args.smiles_col]
     savePath = Path(args.save_dir)
     savePath.mkdir(parents=True, exist_ok=True)
-    main(smilesList , savePath ,args.period, args.addHs )
     print(args)
+    main(smilesList , savePath ,args.period, args.addHs )
+
 
