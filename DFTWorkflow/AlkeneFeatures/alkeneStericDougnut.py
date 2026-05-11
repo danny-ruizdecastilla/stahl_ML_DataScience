@@ -255,6 +255,18 @@ class alkeneSemiCylinders:
         c2Vec2 = c2Contacts[1] - C2Hash["0"]
         self.c2Vec2 = c2Vec2
 
+        # cap heights 
+        alkeneUnit = alkeneVec / self.height
+        c1Proj1 = np.dot(c1Vec1, alkeneUnit)
+        c1Proj2 = np.dot(c1Vec2, alkeneUnit)
+        c1CapHeight = max([np.linalg.norm(c1Proj1) , np.linalg.norm(c1Proj2)])
+        self.C1CapHeight = c1CapHeight
+
+        c2Proj1 = np.dot(c2Vec1, alkeneUnit)
+        c2Proj2 = np.dot(c2Vec2, alkeneUnit)
+        c2CapHeight = max([np.linalg.norm(c2Proj1) , np.linalg.norm(c2Proj2)])
+        self.C2CapHeight = c2CapHeight
+
         # plane normals
         c1Orth = np.cross(c1Vec1, c1Vec2)
         c2Orth = np.cross(c2Vec1, c2Vec2)
@@ -301,7 +313,6 @@ class alkeneSemiCylinders:
         symbolList = [] 
         for _ , val in atomHash.items(): #break down the hash table into atoms their respective indices and the symbols connected to each atom 
             coords = [float(a) for a in val[2:5]]
-
             idxList.append(_)
             atoms.append(coords)
             symbolList.append(val[0])
@@ -311,13 +322,17 @@ class alkeneSemiCylinders:
         atoms = np.array(atoms)  
         translated = atoms - self.centerPoint
         newAtoms = (self.basisMatrixInv @ translated.T).T
-        #print(self.height)
+
+        #create caps 
+
+
         xMin = -1 * (self.height/2 + self.padding) #alkene bond range 
-        xMax = self.height/2 + self.padding #a "padded 0.3 Angstroms is added to resolve edge cases sitting on the bond"
+        xMax = self.height/2 + self.padding #a "padded 0.15 Angstroms is added to resolve edge cases sitting on the bond"
 
         newXList = newAtoms[:,0]
         newYList = newAtoms[:,1]
-        r = np.sqrt(newXList**2 + newYList**2)
+        newZList = newAtoms[:,2]
+        r = np.sqrt(newYList**2 + newZList**2)
         #print(newXList)
         print(self.radius)
         print(r)
@@ -325,10 +340,12 @@ class alkeneSemiCylinders:
         acceptedAtoms = []
         acceptedIdx = []
         acceptedSymbols = []
+        c1c2Idx = [self.C1Idx , self.C2Idx]
         for i in range (len(inside_mask)):
-            if inside_mask[i]:
-                acceptedAtoms.append(atoms[i])
-                acceptedIdx.append(idxList[i])
+            idx = idxList[i]
+            if inside_mask[i] and idx not in c1c2Idx:
+                acceptedAtoms.append(newAtoms[i])
+                acceptedIdx.append(idx)
                 acceptedSymbols.append(symbolList[i])
         self.acceptedAtoms = acceptedAtoms
         self.acceptedIdx = acceptedIdx
@@ -339,16 +356,16 @@ class alkeneSemiCylinders:
             for symbol in symbolList:
                 atomRadii = pt.GetRvdw(pt.GetAtomicNumber(symbol))
                 radiiList.append(atomRadii)
-            figHash = {"atomCoords" : atoms , "atomSymbol" : symbolList , "radii" : radiiList}
+            figHash = {"atomCoords" : newAtoms , "atomSymbol" : symbolList , "radii" : radiiList}
             stericFigure = stericDrawer(figHash , 30 , highlighted = acceptedIdx)
-            for i in range(len(atoms)):
+            for i in range(len(newAtoms)):
                 stericFigure.drawAtom(i)
             for _ , bdTable in bondHash.items():
                 bdAtoms =  bdTable["idxList"]
                 bondType = str(bdTable["bondType"])
                 stericFigure.drawBond( bdAtoms[0], bdAtoms[1], bondType)
             self.Fig = stericFigure
-    def getBurriedVolume(self, semiSpheres , saveFig):
+    def getBurriedVolume(self, semiCylinders , saveFig):
         if not hasattr(self, "acceptedAtoms"):
             raise RuntimeError("getAtoms() must be called before getBurriedVolume()")
         from rdkit import Chem
@@ -361,7 +378,7 @@ class alkeneSemiCylinders:
                 atomVol += vol
             return atomVol
         volCylinder = np.pi * self.radius**2 * self.height
-        if semiSpheres:
+        if semiCylinders:
             tol = 1e-8
             atoms = np.asarray(self.acceptedSymbols)
             atomCoords = np.asarray(self.acceptedAtoms)
