@@ -425,12 +425,10 @@ class alkeneSemiCylinders:
                                     "orthogonal" : newXVec , "color" : "green"}
                 c2SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newYVec , 
                                     "orthogonal" :  -1 * np.array(newXVec)  , "color" : "red"}
-                negPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "radius" : self.radius , 
-                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : newYVec , "color" : "red",
-                                    "orthogonal" : -1 * np.array(newXVec) ,"alkeneVec" : -1 * np.array(newXVec)  } 
-                posPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "radius" : self.radius , 
-                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : newYVec, "color" : "green",
-                                    "orthogonal" :  np.array(newXVec) ,"alkeneVec" : np.array(newXVec)  } 
+                negPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "vector" : newYVec , "color" : "red",
+                                      "orthogonal" : -1 * np.array(newXVec) , "start" : self.paramC1 , "end" : self.paramC2 } 
+                posPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "vector" : newYVec, "color" : "green",
+                                    "orthogonal" :  np.array(newXVec) , "start" : self.paramC2 , "end" : self.paramC1 } 
                 
                 c1SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" :newZVec , 
                                     "orthogonal" : newXVec , "color" : "green"}
@@ -440,12 +438,10 @@ class alkeneSemiCylinders:
                                     "orthogonal" : newXVec  , "color" : "green"}
                 c2SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newZVec , 
                                     "orthogonal" :  -1 * np.array(newXVec)  , "color" : "red"} 
-                negOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "radius" : self.radius , 
-                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : newZVec  , "color" : "red",
-                                    "orthogonal" : -1 * np.array(newXVec) ,"alkeneVec" : -1 * np.array(newXVec)  } 
-                posOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0] , "radius" : self.radius , 
-                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : newZVec  , "color" : "green",
-                                    "orthogonal" :  np.array(newXVec) ,"alkeneVec" : np.array(newXVec)  }    
+                negOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "vector" : newZVec  , "color" : "red",
+                                    "orthogonal" : -1 * np.array(newXVec) ,"alkeneVec" : -1 * np.array(newXVec) , "start" : self.paramC1, "end" : self.paramC2  } 
+                posOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0] , "vector" : newZVec  , "color" : "green",
+                                    "orthogonal" :  np.array(newXVec) ,"alkeneVec" : np.array(newXVec) , "start" : self.paramC1 , "end" : self.paramC2  }    
 
                 orthFig = self.Fig.drawShapes(orthPlaneHash)  
                 orthFig = self.Fig.drawShapes(c1SemiHash_Plus_orth , fig = orthFig)  
