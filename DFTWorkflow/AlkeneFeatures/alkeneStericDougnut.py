@@ -336,16 +336,16 @@ class alkeneSemiCylinders:
         #print(newXList)
         self.xMin = xMin
         self.xMax = xMax
-        newC1 = newAtoms[self.C1Idx]
-        newC2 = newAtoms[self.C2Idx]
-        self.paramC1 = [xMax , newC1[1] , newC1[2]]
-        self.paramC2 = [xMax , newC2[1] , newC2[2]]
+        newC1 = newAtoms[self.C1Idx - 1]
+        newC2 = newAtoms[self.C2Idx - 1]
+        self.paramC1 = [xMin , newC1[1], newC1[2]]
+        self.paramC2 = [xMax , newC2[1], newC2[2]]
 
         inside_mask = (newXList >= xMin) & (newXList <= xMax) & (r <= self.radius)
         acceptedAtoms = []
         acceptedIdx = []
         acceptedSymbols = []
-        c1c2Idx = [self.C1Idx , self.C2Idx]
+        c1c2Idx = [self.C1Idx -1 , self.C2Idx -1 ]
         for i in range (len(inside_mask)):
             idx = idxList[i]
             if inside_mask[i] and idx not in c1c2Idx:
@@ -409,40 +409,42 @@ class alkeneSemiCylinders:
             posBuried_Orth = (posVol_Orth / (volCylinder / 2)) * 100
             negBuried_Orth = (negVol_Orth / (volCylinder / 2)) * 100
             newXVec = np.array(self.paramC1) - np.array(self.paramC2)
+            newYVec = np.array([0,1,0])*radius
+            newZVec = np.array([0,0,1])*radius
             if saveFig:
                 piPlaneHash = {"shapeType" : "plane" , "C1" : self.paramC1 , "C2" : self.paramC2,
-                                "vector" : self.yVec*radius, "reflect" : True , "color" : "blue" }
+                                "vector" : newYVec, "reflect" : True , "color" : "blue" }
                 orthPlaneHash = {"shapeType" : "plane" , "C1" : self.paramC1 , "C2" : self.paramC2 , 
-                                 "vector" : self.zVec*radius, "reflect" : True , "color" : "yellow" }
+                                 "vector" : newZVec, "reflect" : True , "color" : "yellow" }
                 
-                c1SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" : self.yVec*radius , 
+                c1SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" : newYVec , 
                                     "orthogonal" : newXVec  , "color" : "green"}
-                c1SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : self.yVec*radius, 
+                c1SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" : newYVec, 
                                     "orthogonal" : -1 * np.array(newXVec)  , "color" : "red"}
-                c2SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : self.yVec*radius , 
+                c2SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newYVec, 
                                     "orthogonal" : newXVec , "color" : "green"}
-                c2SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : self.yVec*radius , 
+                c2SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newYVec , 
                                     "orthogonal" :  -1 * np.array(newXVec)  , "color" : "red"}
                 negPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "radius" : self.radius , 
-                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : self.yVec*radius , "color" : "red",
+                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : newYVec , "color" : "red",
                                     "orthogonal" : -1 * np.array(newXVec) ,"alkeneVec" : -1 * np.array(newXVec)  } 
                 posPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "radius" : self.radius , 
-                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : self.yVec*radius, "color" : "green",
+                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : newYVec, "color" : "green",
                                     "orthogonal" :  np.array(newXVec) ,"alkeneVec" : np.array(newXVec)  } 
                 
-                c1SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" : self.zVec*radius, 
+                c1SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" :newZVec , 
                                     "orthogonal" : newXVec , "color" : "green"}
-                c1SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" : self.zVec*radius, 
+                c1SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" :newZVec , 
                                     "orthogonal" : -1 * np.array(newXVec)  , "color" : "red"}
-                c2SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : self.zVec*radius , 
+                c2SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newZVec , 
                                     "orthogonal" : newXVec  , "color" : "green"}
-                c2SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : self.zVec*radius, 
+                c2SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newZVec , 
                                     "orthogonal" :  -1 * np.array(newXVec)  , "color" : "red"} 
                 negOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "radius" : self.radius , 
-                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : self.zVec*radius , "color" : "red",
+                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : newZVec  , "color" : "red",
                                     "orthogonal" : -1 * np.array(newXVec) ,"alkeneVec" : -1 * np.array(newXVec)  } 
                 posOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0] , "radius" : self.radius , 
-                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : self.zVec*radius , "color" : "green",
+                                    "length" : float(np.linalg.norm(newXVec)) , "vector" : newZVec  , "color" : "green",
                                     "orthogonal" :  np.array(newXVec) ,"alkeneVec" : np.array(newXVec)  }    
 
                 orthFig = self.Fig.drawShapes(orthPlaneHash)  
@@ -531,7 +533,7 @@ def main(logFile , smilesStr, radius , linkIdx):
             CmaxContacts.append(crds) 
     C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
     C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
-    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.1)
+    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.25)
     mainCylinder.getAtoms(coordHash ,bondHash, True)
     maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True , True)
 
