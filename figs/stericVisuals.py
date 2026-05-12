@@ -62,7 +62,7 @@ class stericDrawer:
       atomStr = self.atomSymbols[idx]
       if hasattr(self , "highlighted") and idx in self.highlighted:
         atomColor = "rgba(100,31.8,0,0.8)"
-        print("highlighted")
+        #print("highlighted")
       else:
          atomColor = atomColorHashRGB[atomStr]
       radius = float(0.5* self.atomRadii[idx])
@@ -225,12 +225,12 @@ class stericDrawer:
       elif typeStr == "semiArc":
         newFig = go.Figure(fig.to_dict())
         resolution = self.resolution 
-        origin = shapeHash["origin"]
-        origin = np.asarray(origin, dtype=float)
-        vector = shapeHash["vector"]
-        orthogonal = shapeHash["orthogonal"]
+        origin = np.asarray(shapeHash["origin"], dtype=float)
+        vector = shapeHash["vector"] #vector where the arcs span
         colorStr = shapeHash["color"]
-        alkeneVec = shapeHash["alkeneVec"]
+        point1 = np.array(shapeHash["start"]) #coordinates of the lower bound of the arcs 
+        point2 = np.array(shapeHash["end"]) #coordiantes of the upper bound of the arcs
+        orthogonal = shapeHash["orthogonal"]
         rgb = (*str_to_rgb(colorStr) , 0.35)
         r,g,b,a = rgb
         rgba_str = f'rgba({r},{g},{b},{a})'
@@ -241,19 +241,28 @@ class stericDrawer:
         v_hat = np.cross(u_hat , orthogonal)
         v_hat /= np.linalg.norm(v_hat)
 
-        theta = np.linspace(0,np.pi,resolution)
-        s = np.linspace(-1 * np.linalg.norm(alkeneVec) / 2 ,np.linalg.norm(alkeneVec) / 2 , resolution)
+        theta = np.linspace(0, np.pi, resolution)
 
         x_local = R * np.cos(theta)
         y_local = R * np.sin(theta)
-        points = (origin[None, :]
-        + x_local[:, None] * u_hat[None, :]
-        + y_local[:, None] * v_hat[None, :])
 
-        arc_grid = points[:, None, :]               # (Nθ, 1, 3)
-        s_grid   = s[None, :, None]               # (1, Ns, 1)
+        points = (
+            point1[None, :]
+            + x_local[:, None] * u_hat[None, :]
+            + y_local[:, None] * v_hat[None, :]
+        )
 
-        surface = arc_grid + s_grid * alkeneVec[None, None, :]
+        arc_grid = points[:, None, :]
+
+        extrude_vec = np.array(point2) - np.array(point1)
+        L = np.linalg.norm(extrude_vec)
+
+        extrude_hat = extrude_vec / L
+
+        s = np.linspace(0, L, resolution)
+        s_grid = s[None, :, None]
+
+        surface = arc_grid + s_grid * extrude_hat[None, None, :]
 
         X = surface[:, :, 0]
         Y = surface[:, :, 1]
