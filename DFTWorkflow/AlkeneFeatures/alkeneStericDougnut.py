@@ -81,7 +81,7 @@ def check_atoms_in_cylinder(atomHash, inner_radius, outer_radius, height, center
     r = np.sqrt(xList**2 + yList**2)
 
     inside_mask = (r >= inner_radius) & (r <= outer_radius) & (zList >= 0) & (zList <= height)
-    print("mask" , inside_mask)
+    #print("mask" , inside_mask)
     insideID = []
     inside_indices = np.where(inside_mask)[0]
     
@@ -99,10 +99,10 @@ def get_atoms_summary(inside_atoms_dict, atoms):
     inside = len(inside_atoms_dict)
     outside = total - inside
     
-    print(f"Total atoms: {total}")
-    print(f"Atoms inside cylinder: {inside}")
-    print(f"Atoms outside cylinder: {outside}")
-    print(f"Percentage inside: {100*inside/total:.1f}%")
+    #print(f"Total atoms: {total}")
+    #print(f"Atoms inside cylinder: {inside}")
+    #print(f"Atoms outside cylinder: {outside}")
+    #print(f"Percentage inside: {100*inside/total:.1f}%")
     
     return inside, outside
 
@@ -213,9 +213,9 @@ def plot_cylinder_with_atoms(atoms, inside_atoms_dict, inner_radius, outer_radiu
 def getBurriedDougnut(atomHash, innerR, outerR, h, center ):
     cylinderHash = create_hollow_cylinder(innerR, outerR, h, resolution=50)
     insideList = check_atoms_in_cylinder(atomHash, innerR, outerR, h, center)
-    print("insiderList" , insideList)
+    #print("insiderList" , insideList)
     volDoughnut = np.pi*outerR**2*h - np.pi*innerR**2*h
-    print("volDoughnut" , volDoughnut)
+    #print("volDoughnut" , volDoughnut)
     atomVol = 0
     for _ , atoms in atomHash.items():
         atomID = str(atoms[0])
@@ -261,13 +261,13 @@ class alkeneSemiCylinders:
         c1Proj2 = np.dot(c1Vec2, alkeneUnit)
         c1CapHeight = max([np.linalg.norm(c1Proj1) , np.linalg.norm(c1Proj2)])
         self.C1CapHeight = c1CapHeight
-        print(self.C1CapHeight)
+        #print(self.C1CapHeight)
 
         c2Proj1 = np.dot(c2Vec1, alkeneUnit)
         c2Proj2 = np.dot(c2Vec2, alkeneUnit)
         c2CapHeight = max([np.linalg.norm(c2Proj1) , np.linalg.norm(c2Proj2)])
         self.C2CapHeight = c2CapHeight
-        print(self.C2CapHeight)
+        #print(self.C2CapHeight)
 
         # plane normals
         c1Orth = np.cross(c1Vec1, c1Vec2)
@@ -362,33 +362,27 @@ class alkeneSemiCylinders:
         c1End = [c1Cap , newC1[1] , newC1[2] ]
         c2End = [c2Cap , newC2[1] , newC2[2] ]
         c1Int = [xMax , self.radius , newC1[2]]
-        c2Int = [xMax , self.radius , newC2[2]]
+        c2Int = [xMin , self.radius , newC2[2]]
 
-        def createCaps(atomList , idxList , symbolList ,localMin, xInt1 ):
+        def createCaps(atomList , idxList , symbolList ,localMin, xInt1 , lowerBound , upperBound ):
             a = (xInt1[0] -  localMin[0]) / (xInt1[1] - localMin[1])**2 
-            print("a" , a)
-            xAtoms = np.array(atomList[:,1])
-            expRadii = np.abs(np.sqrt((xAtoms - localMin[0] )/a)) + localMin[1] 
-            print("h" ,localMin[1] )
-            print("k" , localMin[0])
+            xAtoms = np.array(atomList[:,0])
+            expRadii = np.sqrt((xAtoms - localMin[0] )/a) + localMin[1] 
+            #print("k" , localMin[0])
             maskedList = []
             maskedIdx = []
             maskedSymbol = []
             xVol = np.linspace(xInt1[0] , localMin[0] , 10000)
-            yVol = a * (xVol + localMin[1])**2 + localMin[0]
+            yVol = a * (xVol - localMin[1])**2 + localMin[0]
             vol = np.pi * np.trapz(yVol , xVol)
             for i in range(len(expRadii)):
                 radii = expRadii[i]
                 atom = atomList[i]
-                #print("newAtom" , idxList[i])
-                #print("expRadii" , radii)
                 x = atom[0]
                 y = atom[1]
                 z = atom[2]
-                actRad = y**2 + z**2
-                #print("actRadii" , actRad)
-                #print("x" , x  , "y" , y , "z" , z)
-                if x >= xInt1[0] and x <= localMin[0] and actRad <= radii:
+                actRad = np.sqrt(y**2 + z**2)
+                if x >= lowerBound and x <= upperBound and actRad <= radii:
                     maskedList.append(atom)
                     maskedIdx.append(idxList[i])
                     maskedSymbol.append(symbolList[i])
@@ -396,16 +390,21 @@ class alkeneSemiCylinders:
         #print("c1Analysis")
         #print(c1End)
         #print(c1Int)
-        c1CapAtoms , c1CapIdx , c1CapSymbols , c1Vol = createCaps(newAtoms , idxList , symbolList , c1End, c1Int)
+        c1CapAtoms , c1CapIdx , c1CapSymbols , c1Vol = createCaps(newAtoms , idxList , symbolList , c1End, c1Int ,c1Int[0] , c1End[0] )
         #print("c2Analysis")
         #print(c2End)
         #print(c2Int)
-        c2CapAtoms , c2CapIdx , c2CapSymbols , c2Vol = createCaps(newAtoms , idxList , symbolList , c2End, c2Int)
-        print("c1" ,c1CapIdx)
-        print("c2" , c2CapIdx)
+        c2CapAtoms , c2CapIdx , c2CapSymbols , c2Vol = createCaps(newAtoms , idxList , symbolList , c2End, c2Int , c2End[0] , c2Int[0])
+        #print("c1" ,c1CapIdx, c1Vol)
+        #print("c2" , c2CapIdx , c2Vol)
         acceptedIdx.extend(c1CapIdx)
         acceptedIdx.extend(c2CapIdx)
-
+        self.c1CapAtoms = c1CapAtoms 
+        self.c2CapAtoms = c2CapAtoms
+        self.c1CapSymbols = c1CapSymbols 
+        self.c2CapSymbols = c2CapSymbols
+        self.c1CapVol = c1Vol 
+        self.c2CapVol = c2Vol
         if makeFig:
             pt = Chem.GetPeriodicTable()
             radiiList = []
@@ -435,7 +434,6 @@ class alkeneSemiCylinders:
             return atomVol
         volCylinder = np.pi * self.radius**2 * self.height
         if semiCylinders:
-            tol = 1e-8
             atoms = np.asarray(self.acceptedSymbols)
             atomCoords = np.asarray(self.acceptedAtoms)
 
@@ -462,6 +460,14 @@ class alkeneSemiCylinders:
             newXVec = np.array(self.paramC1) - np.array(self.paramC2)
             newYVec = np.array([0,1,0])*radius
             newZVec = np.array([0,0,1])*radius
+
+            c1Atoms = np.asarray(self.c1CapSymbols)
+            c2Atoms = np.asarray(self.c2CapSymbols)
+            c1CapVol = getAtomsVol(c1Atoms)
+            c2CapVol = getAtomsVol(c2Atoms)
+            c1CapBurr = (c1CapVol / self.c1CapVol)*100  
+            c2CapBurr = (c2CapVol / self.c2CapVol)*100
+            capBurr = [c1CapBurr , c2CapBurr]           
             if saveFig:
                 piPlaneHash = {"shapeType" : "plane" , "C1" : self.paramC1 , "C2" : self.paramC2,
                                 "vector" : newYVec, "reflect" : True , "color" : "blue" }
@@ -531,11 +537,16 @@ class alkeneSemiCylinders:
                 gifOrth.create_gif()
                 '''
             return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
-                    max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth)]    
+                    max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth),
+                    max(capBurr) , min(capBurr)]    
         else:
+            c1Atoms = np.asarray(self.c1CapSymbols)
+            c2Atoms = np.asarray(self.c2CapSymbols)
+            c1CapVol = getAtomsVol(c1Atoms)
+            c2CapVol = getAtomsVol(c2Atoms)
             atoms = list(self.acceptedSymbols)
             atomVol = getAtomsVol(atoms)
-            percentBurriedVol = (atomVol/volCylinder) * 100 
+            percentBurriedVol = ((atomVol + c1CapVol + c2CapVol)/(volCylinder + self.c1CapVol + self.c2CapVol)) * 100 
             self.BuriedCylinder = percentBurriedVol
             return [percentBurriedVol]
 def main(logFile , smilesStr, radius , linkIdx):
@@ -582,7 +593,8 @@ def main(logFile , smilesStr, radius , linkIdx):
     C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.2)
     mainCylinder.getAtoms(coordHash ,bondHash, True)
-    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True , True)
+    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap= mainCylinder.getBurriedVolume(True , True)
+    print(maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap)
 
 if __name__ == "__main__":
 
