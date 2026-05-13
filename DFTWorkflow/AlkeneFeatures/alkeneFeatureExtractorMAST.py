@@ -20,6 +20,7 @@ from DFTWorkflow.AlkeneFeatures.alkeneStericDougnut import alkeneSemiCylinders
 from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
 from DFTWorkflow.dftFeatureExtractorMAST import compartmentalization , time_to_seconds , extractNBOOccupancies , getBoltzmannWeightsGauss , getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks
 from breadthFirstSearch.radialBasedCorrelation import getCC
+from topologicalStericEffects.alkeneTopologyCalc import calcSingle
 
 def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboStr , charge, logEnergyStr):
     weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
@@ -116,7 +117,7 @@ def hCount(molec, wildCards):
 def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
-        print(id,smilesStr)
+        #print(id,smilesStr)
         hashList = []
         cc , molec = getCC(smilesStr)
         conformerFiles = substratesHash[id]
@@ -274,7 +275,9 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             maxSemiHash = {r: [] for r in radList}
             minSemiHash = {r: [] for r in radList}
             maxSemiHashOrth = {r: [] for r in radList}
-            minSemiHashOrth = {r: [] for r in radList}         
+            minSemiHashOrth = {r: [] for r in radList}  
+            maxCap = {r: [] for r in radList}
+            minCap = {r: [] for r in radList}         
             CburrHash = {r: [] for r in radList}
             g = Graph()
             for bond in molec.GetBonds():
@@ -315,13 +318,15 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 for rad in radList:
                     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad , 0.15)
                     mainCylinder.getAtoms(coordHash ,{"Nan" : "Nan"} , False)
-                    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True , False)
+                    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxBurCap , minBurCap = mainCylinder.getBurriedVolume(True , False)
                     #Cburr = mainCylinder.getBurriedVolume(False , False)
                     #CburrHash[rad].append(Cburr[0])
                     maxSemiHash[rad].append(maxSemi_Pi)
                     minSemiHash[rad].append(minSemi_Pi)
                     maxSemiHashOrth[rad].append(maxSemi_Orth)
                     minSemiHashOrth[rad].append(minSemi_Orth)
+                    maxCap[rad].append(maxBurCap)
+                    minCap[rad].append(minBurCap)
                     
 
             weights = boltzmannDF["boltzWeights"]
@@ -332,11 +337,15 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             Vbur_MinSemi = { r: (minSemiHash[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MaxSemi_Orth = { r: (maxSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MinSemi_Orth = { r: (minSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
+            Vbur_MaxCap = { r: (maxCap[r] * weights).sum() / weight_sum for r in radList}
+            Vbur_MinCap = { r: (minCap[r] * weights).sum() / weight_sum for r in radList}
 
             Vbur_MaxSemi_lowE = {r : maxSemiHash[r][SemiCylinder_lowEIdx] for r in radList}
             Vbur_MinSemi_lowE = {r : minSemiHash[r][SemiCylinder_lowEIdx] for r in radList}
             Vbur_MaxSemi_Orth_lowE = {r : maxSemiHashOrth[r][SemiCylinder_lowEIdx] for r in radList}
             Vbur_MinSemi_Orth_lowE = {r : minSemiHashOrth[r][SemiCylinder_lowEIdx] for r in radList}
+            Vbur_MaxCap_lowE = {r : maxCap[r][SemiCylinder_lowEIdx] for r in radList}
+            Vbur_MinCap_lowE = {r : minCap[r][SemiCylinder_lowEIdx] for r in radList}
             #Vburr_Cylinder = { r: (CburrHash[r] * weights).sum() / weight_sum  for r in radList } 
             Vburr_SemiCylinders ={}
             for rad in radList:
@@ -349,6 +358,11 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 Vburr_SemiCylinders[f"Vbur_MinSemi_Pi_{rad}_lowE"] = Vbur_MinSemi_lowE[rad]
                 Vburr_SemiCylinders[f"Vbur_MaxSemi_Orth_{rad}_lowE"] = Vbur_MaxSemi_Orth_lowE[rad]
                 Vburr_SemiCylinders[f"Vbur_MinSemi_Orth_{rad}_lowE"] = Vbur_MinSemi_Orth_lowE[rad]
+
+                Vburr_SemiCylinders[f"Vbur_MaxCap_{rad}_lowE"] = Vbur_MaxCap_lowE[rad]
+                Vburr_SemiCylinders[f"Vbur_MinCap_{rad}_lowE"] = Vbur_MinCap_lowE[rad]
+                Vburr_SemiCylinders[f"Vbur_MaxCap_{rad}"] = Vbur_MaxCap[rad]
+                Vburr_SemiCylinders[f"Vbur_MinCap_{rad}"] = Vbur_MinCap[rad]
 
             hashList.append(Vburr_SemiCylinders)
 
@@ -459,6 +473,22 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 for key, values in features.items()
             }   
             hashList.append(globalRow)
+        if "TSEI" in featureList:
+            maxPeriod = featureHash["TSEI"][0]
+            if maxPeriod != 1:
+                periodRange = np.arange(1, maxPeriod)
+            else:
+                periodRange = [1]
+            for period in periodRange:
+                tselList = calcSingle(smilesStr , period , True)
+                maxTopology = max(tselList)
+                minTopology = min(tselList)
+                deltaTopology = np.abs(maxTopology - minTopology)
+                meanTopology = (maxTopology + minTopology) / 2 
+                hashList.append({f"maxTopology_{period}" : maxTopology , 
+                                 f"minTopology_{period}" : minTopology , 
+                                 f"deltaTopology_{period}" : deltaTopology , 
+                                 f"meanTopology_{period}" : meanTopology , })
 
         if "Sterimol" in featureList:
             radList = [3.0,4.0,4.5]

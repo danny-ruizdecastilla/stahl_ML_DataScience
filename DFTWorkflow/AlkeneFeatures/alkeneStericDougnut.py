@@ -372,9 +372,9 @@ class alkeneSemiCylinders:
             maskedList = []
             maskedIdx = []
             maskedSymbol = []
-            xVol = np.linspace(xInt1[0] , localMin[0] , 10000)
-            yVol = a * (xVol - localMin[1])**2 + localMin[0]
-            vol = np.pi * np.trapz(yVol , xVol)
+            ySpace = np.linspace(localMin[1] , xInt1[0] , 10000)
+            xSpace = (ySpace - localMin[0]) / a
+            vol = np.pi * np.trapz(xSpace , ySpace)
             for i in range(len(expRadii)):
                 radii = expRadii[i]
                 atom = atomList[i]
@@ -386,17 +386,10 @@ class alkeneSemiCylinders:
                     maskedList.append(atom)
                     maskedIdx.append(idxList[i])
                     maskedSymbol.append(symbolList[i])
-            return maskedList , maskedIdx, maskedSymbol , vol
-        #print("c1Analysis")
-        #print(c1End)
-        #print(c1Int)
+            return maskedList , maskedIdx, maskedSymbol , np.abs(vol)
         c1CapAtoms , c1CapIdx , c1CapSymbols , c1Vol = createCaps(newAtoms , idxList , symbolList , c1End, c1Int ,c1Int[0] , c1End[0] )
-        #print("c2Analysis")
-        #print(c2End)
-        #print(c2Int)
+
         c2CapAtoms , c2CapIdx , c2CapSymbols , c2Vol = createCaps(newAtoms , idxList , symbolList , c2End, c2Int , c2End[0] , c2Int[0])
-        #print("c1" ,c1CapIdx, c1Vol)
-        #print("c2" , c2CapIdx , c2Vol)
         acceptedIdx.extend(c1CapIdx)
         acceptedIdx.extend(c2CapIdx)
         self.c1CapAtoms = c1CapAtoms 

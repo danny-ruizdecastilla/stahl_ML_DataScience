@@ -59,16 +59,19 @@ def calcTopology(atomHash , molec):
                 TSEI += v_rc
 
     return TSEI
+def calcSingle(smiles , period , addHs):
+    CC , molec = initAlkene(smiles , addHs)
+    c1Hash = breadthFirstSearch(molec, period , {0 : [[CC[0]]]} , [CC[1]])
+    c1TSEL = calcTopology(c1Hash, molec)
+    c2Hash = breadthFirstSearch(molec, period , {0 : [[CC[1]]]} , [CC[0]])
+    c2TSEL = calcTopology(c2Hash , molec)
+    tsel = [c1TSEL , c2TSEL]
+    return tsel
 def main(smilesList , saveDir , period , addHs):
     maxTopology = []
     minTopology = []
     for smiles in smilesList:
-        CC , molec = initAlkene(smiles , addHs)
-        c1Hash = breadthFirstSearch(molec, period , {0 : [[CC[0]]]} , [CC[1]])
-        c1TSEL = calcTopology(c1Hash, molec)
-        c2Hash = breadthFirstSearch(molec, period , {0 : [[CC[1]]]} , [CC[0]])
-        c2TSEL = calcTopology(c2Hash , molec)
-        tsel = [c1TSEL , c2TSEL]
+        tsel = calcSingle(smiles,period, addHs)
         maxTopology.append(max(tsel))
         minTopology.append(min(tsel))
     deltaTopology = np.abs(np.array(maxTopology) - np.array(minTopology))
