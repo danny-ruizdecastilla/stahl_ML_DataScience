@@ -261,11 +261,13 @@ class alkeneSemiCylinders:
         c1Proj2 = np.dot(c1Vec2, alkeneUnit)
         c1CapHeight = max([np.linalg.norm(c1Proj1) , np.linalg.norm(c1Proj2)])
         self.C1CapHeight = c1CapHeight
+        print(self.C1CapHeight)
 
         c2Proj1 = np.dot(c2Vec1, alkeneUnit)
         c2Proj2 = np.dot(c2Vec2, alkeneUnit)
         c2CapHeight = max([np.linalg.norm(c2Proj1) , np.linalg.norm(c2Proj2)])
         self.C2CapHeight = c2CapHeight
+        print(self.C2CapHeight)
 
         # plane normals
         c1Orth = np.cross(c1Vec1, c1Vec2)
@@ -323,9 +325,6 @@ class alkeneSemiCylinders:
         translated = atoms - self.centerPoint
         newAtoms = (self.basisMatrixInv @ translated.T).T
 
-        #create caps 
-
-
         xMin = -1 * (self.height/2 + self.padding) #alkene bond range 
         xMax = self.height/2 + self.padding #a "padded 0.15 Angstroms is added to resolve edge cases sitting on the bond"
 
@@ -346,6 +345,7 @@ class alkeneSemiCylinders:
         acceptedIdx = []
         acceptedSymbols = []
         c1c2Idx = [self.C1Idx -1 , self.C2Idx -1 ]
+
         for i in range (len(inside_mask)):
             idx = idxList[i]
             if inside_mask[i] and idx not in c1c2Idx:
@@ -355,6 +355,50 @@ class alkeneSemiCylinders:
         self.acceptedAtoms = acceptedAtoms
         self.acceptedIdx = acceptedIdx
         self.acceptedSymbols = acceptedSymbols 
+
+        #create caps 
+        c1Cap = float(self.C1CapHeight + xMax)
+        c2Cap = float(-1* self.C2CapHeight + xMin)
+        c1End = [c1Cap , newC1[1] , newC1[2] ]
+        c2End = [c2Cap , newC2[1] , newC2[2] ]
+        c1Int = [xMax , self.radius , newC1[2]]
+        c2Int = [xMax , self.radius , newC2[2]]
+
+        def createCaps(atomList , idxList , symbolList ,localMin, xInt1 ):
+            a = (xInt1[0] -  localMin[0]) / (xInt1[1] + localMin[1])**2 
+            xAtoms = np.array(atomList[:,0])
+            expRadii = np.abs(a * (xAtoms + localMin[1])**2 + localMin[0]) 
+            maskedList = []
+            maskedIdx = []
+            maskedSymbol = []
+            xVol = np.linspace(xInt1[0] , localMin[0] , 10000)
+            yVol = a * (xVol + localMin[1])**2 + localMin[0]
+            vol = np.pi * np.trapz(yVol , xVol)
+            for i in range(len(expRadii)):
+                radii = expRadii[i]
+                atom = atomList[i]
+                print("newAtom" , idxList[i])
+                print("expRadii" , radii)
+                x = atom[0]
+                y = atom[1]
+                z = atom[2]
+                actRad = y**2 + z**2
+                print("actRadii" , actRad)
+                print("x" , x  , "y" , y , "z" , z)
+                if x >= xInt1[0] and x <= localMin[0] and actRad <= radii:
+                    maskedList.append(atom)
+                    maskedIdx.append(idxList[i])
+                    maskedSymbol.append(symbolList[i])
+            return maskedList , maskedIdx, maskedSymbol , vol
+        print("c1Analysis")
+        c1CapAtoms , c1CapIdx , c1CapSymbols , c1Vol = createCaps(newAtoms , idxList , symbolList , c1End, c1Int)
+        print("c2Analysis")
+        c2CapAtoms , c2CapIdx , c2CapSymbols , c2Vol = createCaps(newAtoms , idxList , symbolList , c2End, c2Int)
+        print("c1" ,c1CapIdx)
+        print("c2" , c2CapIdx)
+        acceptedIdx.extend(c1CapIdx)
+        acceptedIdx.extend(c2CapIdx)
+
         if makeFig:
             pt = Chem.GetPeriodicTable()
             radiiList = []
@@ -461,9 +505,9 @@ class alkeneSemiCylinders:
                 piFig = self.Fig.drawShapes(posPiSemiHash , fig = piFig)       
                 piFig.write_html("piFig.html")
                 
-                c1Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.C1 , "color" : "green"}
+                c1Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.paramC1 , "color" : "green"}
                 vBurrFig = self.Fig.drawShapes(c1Burr) 
-                c2Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.C2 , "color" : "red"}
+                c2Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.paramC2 , "color" : "red"}
                 vBurrFig = self.Fig.drawShapes(c2Burr , fig = vBurrFig) 
                 vBurrFig.write_html("vBurrFig.html")
                 '''
@@ -529,7 +573,7 @@ def main(logFile , smilesStr, radius , linkIdx):
             CmaxContacts.append(crds) 
     C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
     C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
-    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.25)
+    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.2)
     mainCylinder.getAtoms(coordHash ,bondHash, True)
     maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth = mainCylinder.getBurriedVolume(True , True)
 
