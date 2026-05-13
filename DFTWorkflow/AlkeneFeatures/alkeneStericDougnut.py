@@ -366,8 +366,11 @@ class alkeneSemiCylinders:
 
         def createCaps(atomList , idxList , symbolList ,localMin, xInt1 ):
             a = (xInt1[0] -  localMin[0]) / (xInt1[1] - localMin[1])**2 
-            xAtoms = np.array(atomList[:,0])
-            expRadii = np.abs(a * (xAtoms - localMin[1])**2 + localMin[0]) 
+            print("a" , a)
+            xAtoms = np.array(atomList[:,1])
+            expRadii = np.abs(np.sqrt((xAtoms - localMin[0] )/a)) + localMin[1] 
+            print("h" ,localMin[1] )
+            print("k" , localMin[0])
             maskedList = []
             maskedIdx = []
             maskedSymbol = []
@@ -377,26 +380,26 @@ class alkeneSemiCylinders:
             for i in range(len(expRadii)):
                 radii = expRadii[i]
                 atom = atomList[i]
-                print("newAtom" , idxList[i])
-                print("expRadii" , radii)
+                #print("newAtom" , idxList[i])
+                #print("expRadii" , radii)
                 x = atom[0]
                 y = atom[1]
                 z = atom[2]
                 actRad = y**2 + z**2
-                print("actRadii" , actRad)
+                #print("actRadii" , actRad)
                 #print("x" , x  , "y" , y , "z" , z)
                 if x >= xInt1[0] and x <= localMin[0] and actRad <= radii:
                     maskedList.append(atom)
                     maskedIdx.append(idxList[i])
                     maskedSymbol.append(symbolList[i])
             return maskedList , maskedIdx, maskedSymbol , vol
-        print("c1Analysis")
-        print(c1End)
-        print(c1Int)
+        #print("c1Analysis")
+        #print(c1End)
+        #print(c1Int)
         c1CapAtoms , c1CapIdx , c1CapSymbols , c1Vol = createCaps(newAtoms , idxList , symbolList , c1End, c1Int)
-        print("c2Analysis")
-        print(c2End)
-        print(c2Int)
+        #print("c2Analysis")
+        #print(c2End)
+        #print(c2Int)
         c2CapAtoms , c2CapIdx , c2CapSymbols , c2Vol = createCaps(newAtoms , idxList , symbolList , c2End, c2Int)
         print("c1" ,c1CapIdx)
         print("c2" , c2CapIdx)
