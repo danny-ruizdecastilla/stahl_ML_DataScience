@@ -429,109 +429,110 @@ class alkeneSemiCylinders:
         if semiCylinders:
             atoms = np.asarray(self.acceptedSymbols)
             atomCoords = np.asarray(self.acceptedAtoms)
-
-            #pi is the z axis and orth is the y axis
-            posIdx_Pi= np.where(atomCoords[:,2] > 0)[0]
-            negIdx_Pi = np.where(atomCoords[:,2] < 0)[0]
-            posIdx_Orth= np.where(atomCoords[:,1] > 0)[0]
-            negIdx_Orth = np.where(atomCoords[:,1] < 0)[0]
-
-            posAtoms_Pi = atoms[posIdx_Pi]
-            negAtoms_Pi = atoms[negIdx_Pi]
-            posAtoms_Orth = atoms[posIdx_Orth]
-            negAtoms_Orth = atoms[negIdx_Orth]
-
-            posVol_Pi = getAtomsVol(posAtoms_Pi)
-            negVol_Pi = getAtomsVol(negAtoms_Pi)
-            posVol_Orth = getAtomsVol(posAtoms_Orth)
-            negVol_Orth = getAtomsVol(negAtoms_Orth)
-
-            posBuried_Pi = (posVol_Pi / (volCylinder / 2)) * 100
-            negBuried_Pi = (negVol_Pi / (volCylinder / 2)) * 100
-            posBuried_Orth = (posVol_Orth / (volCylinder / 2)) * 100
-            negBuried_Orth = (negVol_Orth / (volCylinder / 2)) * 100
-            newXVec = np.array(self.paramC1) - np.array(self.paramC2)
-            newYVec = np.array([0,1,0])*radius
-            newZVec = np.array([0,0,1])*radius
-
             c1Atoms = np.asarray(self.c1CapSymbols)
             c2Atoms = np.asarray(self.c2CapSymbols)
             c1CapVol = getAtomsVol(c1Atoms)
             c2CapVol = getAtomsVol(c2Atoms)
             c1CapBurr = (c1CapVol / self.c1CapVol)*100  
             c2CapBurr = (c2CapVol / self.c2CapVol)*100
-            capBurr = [c1CapBurr , c2CapBurr]           
-            if saveFig:
-                piPlaneHash = {"shapeType" : "plane" , "C1" : self.paramC1 , "C2" : self.paramC2,
-                                "vector" : newYVec, "reflect" : True , "color" : "blue" }
-                orthPlaneHash = {"shapeType" : "plane" , "C1" : self.paramC1 , "C2" : self.paramC2 , 
-                                 "vector" : newZVec, "reflect" : True , "color" : "yellow" }
-                
-                c1SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" : newYVec , 
-                                    "orthogonal" : newXVec  , "color" : "green"}
-                c1SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" : newYVec, 
-                                    "orthogonal" : -1 * np.array(newXVec)  , "color" : "red"}
-                c2SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newYVec, 
-                                    "orthogonal" : newXVec , "color" : "green"}
-                c2SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newYVec , 
-                                    "orthogonal" :  -1 * np.array(newXVec)  , "color" : "red"}
-                negPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "vector" : newYVec , "color" : "red",
-                                      "orthogonal" : -1 * np.array(newXVec) , "start" : self.paramC1 , "end" : self.paramC2 } 
-                posPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "vector" : newYVec, "color" : "green",
-                                    "orthogonal" :  np.array(newXVec) , "start" : self.paramC2 , "end" : self.paramC1 } 
-                
-                c1SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" :newZVec , 
-                                    "orthogonal" : newXVec , "color" : "green"}
-                c1SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" :newZVec , 
-                                    "orthogonal" : -1 * np.array(newXVec)  , "color" : "red"}
-                c2SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newZVec , 
-                                    "orthogonal" : newXVec  , "color" : "green"}
-                c2SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newZVec , 
-                                    "orthogonal" :  -1 * np.array(newXVec)  , "color" : "red"} 
-                negOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "vector" : newZVec  , "color" : "red",
-                                    "orthogonal" : -1 * np.array(newXVec) ,"alkeneVec" : -1 * np.array(newXVec) , "start" : self.paramC1, "end" : self.paramC2  } 
-                posOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0] , "vector" : newZVec  , "color" : "green",
-                                    "orthogonal" :  np.array(newXVec) ,"alkeneVec" : np.array(newXVec) , "start" : self.paramC1 , "end" : self.paramC2  }    
+            capBurr = [c1CapBurr , c2CapBurr]     
+            if len(atoms) == 0:
+                return [0 ,0 , 0, 0 , max(capBurr) , min(capBurr)]
+            else:
+                #pi is the z axis and orth is the y axis
+                posIdx_Pi= np.where(atomCoords[:,2] > 0)[0]
+                negIdx_Pi = np.where(atomCoords[:,2] < 0)[0]
+                posIdx_Orth= np.where(atomCoords[:,1] > 0)[0]
+                negIdx_Orth = np.where(atomCoords[:,1] < 0)[0]
 
-                orthFig = self.Fig.drawShapes(orthPlaneHash)  
-                orthFig = self.Fig.drawShapes(c1SemiHash_Plus_orth , fig = orthFig)  
-                orthFig = self.Fig.drawShapes(c1SemiHash_Neg_orth , fig = orthFig)  
-                orthFig = self.Fig.drawShapes(c2SemiHash_Plus_orth ,fig =  orthFig)  
-                orthFig = self.Fig.drawShapes(c2SemiHash_Neg_orth , fig = orthFig) 
-                orthFig = self.Fig.drawShapes(negOrthSemiHash , fig = orthFig) 
-                orthFig = self.Fig.drawShapes(posOrthSemiHash , fig = orthFig) 
-                orthFig.write_html("orthFig.html")
+                posAtoms_Pi = atoms[posIdx_Pi]
+                negAtoms_Pi = atoms[negIdx_Pi]
+                posAtoms_Orth = atoms[posIdx_Orth]
+                negAtoms_Orth = atoms[negIdx_Orth]
 
-                piFig = self.Fig.drawShapes(piPlaneHash)  
-                piFig = self.Fig.drawShapes(c1SemiHash_Plus , fig = piFig)  
-                piFig = self.Fig.drawShapes(c1SemiHash_Neg ,fig =  piFig)  
-                piFig = self.Fig.drawShapes(c2SemiHash_Plus , fig = piFig)  
-                piFig = self.Fig.drawShapes(c2SemiHash_Neg ,fig =  piFig) 
-                piFig = self.Fig.drawShapes(negPiSemiHash , fig = piFig) 
-                piFig = self.Fig.drawShapes(posPiSemiHash , fig = piFig)       
-                piFig.write_html("piFig.html")
-                
-                c1Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.paramC1 , "color" : "green"}
-                vBurrFig = self.Fig.drawShapes(c1Burr) 
-                c2Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.paramC2 , "color" : "red"}
-                vBurrFig = self.Fig.drawShapes(c2Burr , fig = vBurrFig) 
-                vBurrFig.write_html("vBurrFig.html")
-                '''
-                from plotly_gif import GIF, three_d_scatter_rotate
-                gifVburr = GIF()
-                three_d_scatter_rotate(gifVburr, vBurrFig)
-                gifOrth = GIF()
-                three_d_scatter_rotate(gifOrth, orthFig)
-                gifPi = GIF()
-                three_d_scatter_rotate(gifPi, piFig)
-                
-                gifPi.create_gif()
-                gifVburr.create_gif()
-                gifOrth.create_gif()
-                '''
-            return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
-                    max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth),
-                    max(capBurr) , min(capBurr)]    
+                posVol_Pi = getAtomsVol(posAtoms_Pi)
+                negVol_Pi = getAtomsVol(negAtoms_Pi)
+                posVol_Orth = getAtomsVol(posAtoms_Orth)
+                negVol_Orth = getAtomsVol(negAtoms_Orth)
+
+                posBuried_Pi = (posVol_Pi / (volCylinder / 2)) * 100
+                negBuried_Pi = (negVol_Pi / (volCylinder / 2)) * 100
+                posBuried_Orth = (posVol_Orth / (volCylinder / 2)) * 100
+                negBuried_Orth = (negVol_Orth / (volCylinder / 2)) * 100
+                newXVec = np.array(self.paramC1) - np.array(self.paramC2)
+                newYVec = np.array([0,1,0])*radius
+                newZVec = np.array([0,0,1])*radius      
+                if saveFig:
+                    piPlaneHash = {"shapeType" : "plane" , "C1" : self.paramC1 , "C2" : self.paramC2,
+                                    "vector" : newYVec, "reflect" : True , "color" : "blue" }
+                    orthPlaneHash = {"shapeType" : "plane" , "C1" : self.paramC1 , "C2" : self.paramC2 , 
+                                    "vector" : newZVec, "reflect" : True , "color" : "yellow" }
+                    
+                    c1SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" : newYVec , 
+                                        "orthogonal" : newXVec  , "color" : "green"}
+                    c1SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" : newYVec, 
+                                        "orthogonal" : -1 * np.array(newXVec)  , "color" : "red"}
+                    c2SemiHash_Plus = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newYVec, 
+                                        "orthogonal" : newXVec , "color" : "green"}
+                    c2SemiHash_Neg = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newYVec , 
+                                        "orthogonal" :  -1 * np.array(newXVec)  , "color" : "red"}
+                    negPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "vector" : newYVec , "color" : "red",
+                                        "orthogonal" : -1 * np.array(newXVec) , "start" : self.paramC1 , "end" : self.paramC2 } 
+                    posPiSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "vector" : newYVec, "color" : "green",
+                                        "orthogonal" :  np.array(newXVec) , "start" : self.paramC2 , "end" : self.paramC1 } 
+                    
+                    c1SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" :newZVec , 
+                                        "orthogonal" : newXVec , "color" : "green"}
+                    c1SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC1 , "vector" :newZVec , 
+                                        "orthogonal" : -1 * np.array(newXVec)  , "color" : "red"}
+                    c2SemiHash_Plus_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newZVec , 
+                                        "orthogonal" : newXVec  , "color" : "green"}
+                    c2SemiHash_Neg_orth = {"shapeType" :  "semiCircle" , "origin" : self.paramC2 , "vector" : newZVec , 
+                                        "orthogonal" :  -1 * np.array(newXVec)  , "color" : "red"} 
+                    negOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0], "vector" : newZVec  , "color" : "red",
+                                        "orthogonal" : -1 * np.array(newXVec) ,"alkeneVec" : -1 * np.array(newXVec) , "start" : self.paramC1, "end" : self.paramC2  } 
+                    posOrthSemiHash = {"shapeType" :  "semiArc" , "origin" : [0,0,0] , "vector" : newZVec  , "color" : "green",
+                                        "orthogonal" :  np.array(newXVec) ,"alkeneVec" : np.array(newXVec) , "start" : self.paramC1 , "end" : self.paramC2  }    
+
+                    orthFig = self.Fig.drawShapes(orthPlaneHash)  
+                    orthFig = self.Fig.drawShapes(c1SemiHash_Plus_orth , fig = orthFig)  
+                    orthFig = self.Fig.drawShapes(c1SemiHash_Neg_orth , fig = orthFig)  
+                    orthFig = self.Fig.drawShapes(c2SemiHash_Plus_orth ,fig =  orthFig)  
+                    orthFig = self.Fig.drawShapes(c2SemiHash_Neg_orth , fig = orthFig) 
+                    orthFig = self.Fig.drawShapes(negOrthSemiHash , fig = orthFig) 
+                    orthFig = self.Fig.drawShapes(posOrthSemiHash , fig = orthFig) 
+                    orthFig.write_html("orthFig.html")
+
+                    piFig = self.Fig.drawShapes(piPlaneHash)  
+                    piFig = self.Fig.drawShapes(c1SemiHash_Plus , fig = piFig)  
+                    piFig = self.Fig.drawShapes(c1SemiHash_Neg ,fig =  piFig)  
+                    piFig = self.Fig.drawShapes(c2SemiHash_Plus , fig = piFig)  
+                    piFig = self.Fig.drawShapes(c2SemiHash_Neg ,fig =  piFig) 
+                    piFig = self.Fig.drawShapes(negPiSemiHash , fig = piFig) 
+                    piFig = self.Fig.drawShapes(posPiSemiHash , fig = piFig)       
+                    piFig.write_html("piFig.html")
+                    
+                    c1Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.paramC1 , "color" : "green"}
+                    vBurrFig = self.Fig.drawShapes(c1Burr) 
+                    c2Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.paramC2 , "color" : "red"}
+                    vBurrFig = self.Fig.drawShapes(c2Burr , fig = vBurrFig) 
+                    vBurrFig.write_html("vBurrFig.html")
+                    '''
+                    from plotly_gif import GIF, three_d_scatter_rotate
+                    gifVburr = GIF()
+                    three_d_scatter_rotate(gifVburr, vBurrFig)
+                    gifOrth = GIF()
+                    three_d_scatter_rotate(gifOrth, orthFig)
+                    gifPi = GIF()
+                    three_d_scatter_rotate(gifPi, piFig)
+                    
+                    gifPi.create_gif()
+                    gifVburr.create_gif()
+                    gifOrth.create_gif()
+                    '''
+                return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
+                        max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth),
+                        max(capBurr) , min(capBurr)]    
         else:
             c1Atoms = np.asarray(self.c1CapSymbols)
             c2Atoms = np.asarray(self.c2CapSymbols)
@@ -584,7 +585,8 @@ def main(logFile , smilesStr, radius , linkIdx):
             CmaxContacts.append(crds) 
     C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
     C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
-    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.2)
+    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.15)
+    print(C1Hash , C2Hash)
     mainCylinder.getAtoms(coordHash ,bondHash, True)
     maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap= mainCylinder.getBurriedVolume(True , True)
     print(maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap)
