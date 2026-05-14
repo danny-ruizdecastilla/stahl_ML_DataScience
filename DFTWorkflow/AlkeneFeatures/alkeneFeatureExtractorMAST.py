@@ -117,7 +117,7 @@ def hCount(molec, wildCards):
 def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
     featuresMASTDF = pd.DataFrame()
     for id , smilesStr in smilesHash.items():
-        #print(id,smilesStr)
+        print(id,smilesStr)
         hashList = []
         cc , molec = getCC(smilesStr)
         conformerFiles = substratesHash[id]
@@ -166,7 +166,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
 
         if "NBO7" in featureList:
             nboNeutralStr = featureHash["NBO7"][0]
-            print(C1,C2)
+            #print(C1,C2)
             neutralHash = getAlkeneNBOInfo(conformerFiles , C1 , C2, "electronic", id , smilesStr , nboNeutralStr , 0 , logEnergyStr)
             hashList.append(neutralHash)
         if "fukuiParameters" in featureList:
@@ -314,7 +314,6 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                         CmaxContacts.append(crds) 
                 C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
                 C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
-                
                 for rad in radList:
                     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad , 0.15)
                     mainCylinder.getAtoms(coordHash ,{"Nan" : "Nan"} , False)
