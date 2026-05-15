@@ -270,7 +270,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             hashList.append(BurVolHash)
 
         if "%VburSemiCylinders" in featureList:
-            radList = [1.5,2.0,2.5,3.0,3.5,4.0]
+            radList = [2.5,3.0,3.5,4.0, 4.5]
 
             maxSemiHash = {r: [] for r in radList}
             minSemiHash = {r: [] for r in radList}
@@ -363,6 +363,9 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 Vburr_SemiCylinders[f"Vbur_MaxCap_{rad}"] = Vbur_MaxCap[rad]
                 Vburr_SemiCylinders[f"Vbur_MinCap_{rad}"] = Vbur_MinCap[rad]
 
+                Vburr_SemiCylinders[f"Vbur_deltaPi_{rad}"] = np.abs(Vbur_MaxSemi_lowE[rad] - Vbur_MinSemi_lowE[rad])
+                Vburr_SemiCylinders[f"Vbur_deltaOrth_{rad}"] = np.abs(Vbur_MaxSemi_Orth_lowE[rad] - Vbur_MinSemi_Orth_lowE[rad])
+                Vburr_SemiCylinders[f"Vbur_deltaCap_{rad}"] = np.abs(Vbur_MaxCap[rad] - Vbur_MinCap[rad])
             hashList.append(Vburr_SemiCylinders)
 
         if "EvsZ" in featureList:

@@ -427,8 +427,23 @@ class alkeneSemiCylinders:
             return atomVol
         volCylinder = np.pi * self.radius**2 * self.height
         if semiCylinders:
-            atoms = np.asarray(self.acceptedSymbols)
-            atomCoords = np.asarray(self.acceptedAtoms)
+            atoms = self.acceptedSymbols
+            atomCoords = self.acceptedAtoms
+
+            for i in range(len(self.c1CapAtoms)):
+                coords = self.c1CapAtoms[i]
+                symbol = self.c1CapSymbols[i]
+                atoms.append(symbol)
+                atomCoords.append(coords)
+            for i in range(len(self.c2CapAtoms)):
+                coords = self.c2CapAtoms[i]
+                symbol = self.c2CapSymbols[i]
+                atoms.append(symbol)
+                atomCoords.append(coords)
+
+            atoms = np.array(atoms)
+            atomCoords = np.array(atomCoords)
+
             c1Atoms = np.asarray(self.c1CapSymbols)
             c2Atoms = np.asarray(self.c2CapSymbols)
             c1CapVol = getAtomsVol(c1Atoms)
@@ -436,6 +451,7 @@ class alkeneSemiCylinders:
             c1CapBurr = (c1CapVol / self.c1CapVol)*100  
             c2CapBurr = (c2CapVol / self.c2CapVol)*100
             capBurr = [c1CapBurr , c2CapBurr]     
+
             if len(atoms) == 0:
                 return [0 ,0 , 0, 0 , max(capBurr) , min(capBurr)]
             else:
@@ -455,13 +471,13 @@ class alkeneSemiCylinders:
                 posVol_Orth = getAtomsVol(posAtoms_Orth)
                 negVol_Orth = getAtomsVol(negAtoms_Orth)
 
-                posBuried_Pi = (posVol_Pi / (volCylinder / 2)) * 100
-                negBuried_Pi = (negVol_Pi / (volCylinder / 2)) * 100
-                posBuried_Orth = (posVol_Orth / (volCylinder / 2)) * 100
-                negBuried_Orth = (negVol_Orth / (volCylinder / 2)) * 100
+                posBuried_Pi = (posVol_Pi / ((volCylinder / 2)  + (self.c1CapVol / 2 ) + (self.c2CapVol/2))) * 100
+                negBuried_Pi = (negVol_Pi / ((volCylinder / 2)  + (self.c1CapVol / 2 ) + (self.c2CapVol/2))) * 100
+                posBuried_Orth = (posVol_Orth / ((volCylinder / 2)  + (self.c1CapVol / 2 ) + (self.c2CapVol/2))) * 100
+                negBuried_Orth = (negVol_Orth / ((volCylinder / 2)  + (self.c1CapVol / 2 ) + (self.c2CapVol/2))) * 100
                 newXVec = np.array(self.paramC1) - np.array(self.paramC2)
-                newYVec = np.array([0,1,0])*radius
-                newZVec = np.array([0,0,1])*radius      
+                newYVec = np.array([0,1,0])*self.radius
+                newZVec = np.array([0,0,1])*self.radius      
                 if saveFig:
                     piPlaneHash = {"shapeType" : "plane" , "C1" : self.paramC1 , "C2" : self.paramC2,
                                     "vector" : newYVec, "reflect" : True , "color" : "blue" }
