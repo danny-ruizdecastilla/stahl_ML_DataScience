@@ -221,7 +221,55 @@ class stericDrawer:
             showscale=False,
             hoverinfo='skip'))
         return newFig
-      
+      elif typeStr == "cap":
+        newFig = go.Figure(fig.to_dict())
+
+        resolution = self.resolution
+
+        # y-range for the cap surface
+        yMin  = shapeHash["yRange"][0]
+        yMax  = shapeHash["yRange"][1]
+
+        a = shapeHash["funcVariables"][0]
+        h = shapeHash["funcVariables"][1]
+        k = shapeHash["funcVariables"][2]
+        # sample along y
+        y_vals = np.linspace(yMin, yMax, resolution)
+
+        theta = np.linspace(0, 2*np.pi, resolution)
+
+        X = []
+        Y = []
+        Z = []
+
+        for y in y_vals:
+
+            r = np.sqrt((y - k )/a) + h
+
+
+            # rotate around x-axis
+            x_ring = np.full_like(theta, y)
+            y_ring = r * np.cos(theta)
+            z_ring = r * np.sin(theta)
+
+            X.append(x_ring)
+            Y.append(y_ring)
+            Z.append(z_ring)
+
+        X = np.array(X)
+        Y = np.array(Y)
+        Z = np.array(Z)
+
+        newFig.add_trace(go.Surface(
+            x=X,
+            y=Y,
+            z=Z,
+            opacity=0.3,
+            showscale=False,
+            name="cap"
+        ))
+        return newFig
+
       elif typeStr == "semiArc":
         newFig = go.Figure(fig.to_dict())
         resolution = self.resolution 

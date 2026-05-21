@@ -363,12 +363,16 @@ class alkeneSemiCylinders:
         c2End = [c2Cap , newC2[1] , newC2[2] ]
         c1Int = [xMax , self.radius , newC1[2]]
         c2Int = [xMin , self.radius , newC2[2]]
+        self.C1Range = [xMax , c1Cap]
+        self.C2Range = [xMin , c2Cap]
 
         def createCaps(atomList , idxList , symbolList ,localMin, xInt1 , lowerBound , upperBound ):
+            print(xInt1[1])
             a = (xInt1[0] -  localMin[0]) / (xInt1[1] - localMin[1])**2 
             xAtoms = np.array(atomList[:,0])
             expRadii = np.sqrt((xAtoms - localMin[0] )/a) + localMin[1] 
             #print("k" , localMin[0])
+            funcList = [a , localMin[1] , localMin[0]]
             maskedList = []
             maskedIdx = []
             maskedSymbol = []
@@ -386,10 +390,11 @@ class alkeneSemiCylinders:
                     maskedList.append(atom)
                     maskedIdx.append(idxList[i])
                     maskedSymbol.append(symbolList[i])
-            return maskedList , maskedIdx, maskedSymbol , np.abs(vol)
-        c1CapAtoms , c1CapIdx , c1CapSymbols , c1Vol = createCaps(newAtoms , idxList , symbolList , c1End, c1Int ,c1Int[0] , c1End[0] )
-
-        c2CapAtoms , c2CapIdx , c2CapSymbols , c2Vol = createCaps(newAtoms , idxList , symbolList , c2End, c2Int , c2End[0] , c2Int[0])
+            return maskedList , maskedIdx, maskedSymbol , np.abs(vol) , funcList
+        c1CapAtoms , c1CapIdx , c1CapSymbols , c1Vol , c1FuncList = createCaps(newAtoms , idxList , symbolList , c1End, c1Int ,c1Int[0] , c1End[0] )
+        self.C1FuncList = c1FuncList
+        c2CapAtoms , c2CapIdx , c2CapSymbols , c2Vol , c2FuncList = createCaps(newAtoms , idxList , symbolList , c2End, c2Int , c2End[0] , c2Int[0])
+        self.C2FuncList = c2FuncList
         acceptedIdx.extend(c1CapIdx)
         acceptedIdx.extend(c2CapIdx)
         self.c1CapAtoms = c1CapAtoms 
@@ -516,7 +521,9 @@ class alkeneSemiCylinders:
                     orthFig = self.Fig.drawShapes(c2SemiHash_Plus_orth ,fig =  orthFig)  
                     orthFig = self.Fig.drawShapes(c2SemiHash_Neg_orth , fig = orthFig) 
                     orthFig = self.Fig.drawShapes(negOrthSemiHash , fig = orthFig) 
-                    orthFig = self.Fig.drawShapes(posOrthSemiHash , fig = orthFig) 
+                    orthFig = self.Fig.drawShapes(posOrthSemiHash , fig = orthFig)
+                    orthFig = self.Fig.drawShapes({ "shapeType" : "cap", "yRange" : self.C1Range , "funcVariables" : self.C1FuncList} , fig = orthFig) 
+                    orthFig = self.Fig.drawShapes({"shapeType" : "cap","yRange" : self.C2Range , "funcVariables" : self.C2FuncList} , fig = orthFig) 
                     orthFig.write_html("orthFig.html")
 
                     piFig = self.Fig.drawShapes(piPlaneHash)  
@@ -525,7 +532,9 @@ class alkeneSemiCylinders:
                     piFig = self.Fig.drawShapes(c2SemiHash_Plus , fig = piFig)  
                     piFig = self.Fig.drawShapes(c2SemiHash_Neg ,fig =  piFig) 
                     piFig = self.Fig.drawShapes(negPiSemiHash , fig = piFig) 
-                    piFig = self.Fig.drawShapes(posPiSemiHash , fig = piFig)       
+                    piFig = self.Fig.drawShapes(posPiSemiHash , fig = piFig)     
+                    piFig = self.Fig.drawShapes({"shapeType" : "cap","yRange" : self.C1Range , "funcVariables" : self.C1FuncList} , fig = piFig) 
+                    piFig = self.Fig.drawShapes({"shapeType" : "cap","yRange" : self.C2Range , "funcVariables" : self.C2FuncList} , fig = piFig)   
                     piFig.write_html("piFig.html")
                     
                     c1Burr = {"shapeType" :"Sphere" , "radius" : self.radius , "coordinates" : self.paramC1 , "color" : "green"}
