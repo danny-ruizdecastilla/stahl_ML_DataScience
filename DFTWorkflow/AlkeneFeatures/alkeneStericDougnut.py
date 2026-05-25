@@ -319,9 +319,6 @@ class alkeneSemiCylinders:
             atoms.append(coords)
             symbolList.append(val[0])
         atoms = np.array(atoms)
-        #print("coordinates" , atoms)
-        #print("center" , self.centerPoint)
-        atoms = np.array(atoms)  
         translated = atoms - self.centerPoint
         newAtoms = (self.basisMatrixInv @ translated.T).T
 
