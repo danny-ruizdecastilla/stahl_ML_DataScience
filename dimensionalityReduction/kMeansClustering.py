@@ -52,7 +52,7 @@ def htmlGeneratorCluster(masterDF, outputDir, pngDir, xCol, yCol, clusterStr):
 
             let selectedIndices = new Set();
             let currentClusteredData = [];
-            const jsonData = {jsonMAST};
+            let jsonData = {jsonMAST};
             function structureFiltering(smartStr){{
                 const noMatchLength = 2;
                 const subMolec = window.RDKit.get_qmol(smartStr)
