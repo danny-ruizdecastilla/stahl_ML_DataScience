@@ -194,7 +194,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
 
-            radList = [1.5,2.0,2.5,3.0,]
+            radList = [2.0,2.5,3.0,3.5,4.0]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             minWeightIdx = min(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
@@ -268,9 +268,71 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 BurVolHash[f"{rad}_Ang_Vburr_delta"] = Vburr_delta
 
             hashList.append(BurVolHash)
+        '''
+        if "orangeSlices" in featureList:
+            radList = [2.5,3.0,3.5,4.0,4.5,5.0]
 
+            c1Quad1 = {r: [] for r in radList}
+            c1Quad2 = {r: [] for r in radList}
+            c1Quad3 = {r: [] for r in radList}
+            c1Quad4 = {r: [] for r in radList}  
+
+            c2Quad1 = {r: [] for r in radList}
+            c2Quad2 = {r: [] for r in radList}         
+            c2Quad3 = {r: [] for r in radList}
+            c2Quad4 = {r: [] for r in radList}
+            g = Graph()
+            for bond in molec.GetBonds():
+                start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+                g.add_edge(start, end)
+            CminNeighbors = list(g.neighbors(int(C1-1)))
+            CminNeighbors.remove(int(C2-1))
+            CmaxNeighbors = list(g.neighbors(int(C2-1)))
+            CmaxNeighbors.remove(int(C1-1))
+            #print(CmaxNeighbors)
+            #print(CminNeighbors)
+            #C1Hash = {"0" : [x,y,z] , "1" : [[x,y,z] , [x,y,z]]  , "idx" : idx}
+            for name in list(boltzmannDF["logID"]):
+                CmaxContacts = []
+                CminContacts = []
+                fileStr = f"{name}.log"
+                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+
+                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5  , 1)
+
+                idx = 0
+                for _ , coords in coordHash.items():
+                    idx +=1
+                    if idx == C1:
+                        c1_coords = np.array(coords[2:5])
+                        c1Idx = idx
+                    elif idx == C2:
+                        c2_coords = coords[2:5]
+                        c2Idx = idx 
+                    if (idx-1) in CminNeighbors:
+                        crds = np.array(coords[2:5])
+                        CminContacts.append(crds) 
+                    if (idx-1) in CmaxNeighbors:
+                        crds = np.array(coords[2:5])
+                        CmaxContacts.append(crds) 
+                C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
+                C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
+                for rad in radList:
+                    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad , 0.15)
+                    mainCylinder.getAtoms(coordHash ,{"Nan" : "Nan"} , False)
+                    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxBurCap , minBurCap , totSemiCylinder = mainCylinder.getBurriedVolume(True , False)
+                    #Cburr = mainCylinder.getBurriedVolume(False , False)
+                    #CburrHash[rad].append(Cburr[0])
+                    maxSemiHash[rad].append(maxSemi_Pi)
+                    minSemiHash[rad].append(minSemi_Pi)
+                    maxSemiHashOrth[rad].append(maxSemi_Orth)
+                    minSemiHashOrth[rad].append(minSemi_Orth)
+                    maxCap[rad].append(maxBurCap)
+                    minCap[rad].append(minBurCap)
+                    CburrHash[rad].append(totSemiCylinder)
+        '''
         if "%VburSemiCylinders" in featureList:
-            radList = [2.5,3.0,3.5,4.0, 4.5]
+            radList = [2.5,3.0,3.5,4.0,4.5,5.0]
 
             maxSemiHash = {r: [] for r in radList}
             minSemiHash = {r: [] for r in radList}
@@ -317,7 +379,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 for rad in radList:
                     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad , 0.15)
                     mainCylinder.getAtoms(coordHash ,{"Nan" : "Nan"} , False)
-                    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxBurCap , minBurCap = mainCylinder.getBurriedVolume(True , False)
+                    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxBurCap , minBurCap , totSemiCylinder = mainCylinder.getBurriedVolume(True , False)
                     #Cburr = mainCylinder.getBurriedVolume(False , False)
                     #CburrHash[rad].append(Cburr[0])
                     maxSemiHash[rad].append(maxSemi_Pi)
@@ -326,6 +388,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     minSemiHashOrth[rad].append(minSemi_Orth)
                     maxCap[rad].append(maxBurCap)
                     minCap[rad].append(minBurCap)
+                    CburrHash[rad].append(totSemiCylinder)
                     
 
             weights = boltzmannDF["boltzWeights"]
@@ -338,6 +401,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             Vbur_MinSemi_Orth = { r: (minSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MaxCap = { r: (maxCap[r] * weights).sum() / weight_sum for r in radList}
             Vbur_MinCap = { r: (minCap[r] * weights).sum() / weight_sum for r in radList}
+            Vbur_CBurr = { r: (CburrHash[r] * weights).sum() / weight_sum for r in radList}
 
             Vbur_MaxSemi_lowE = {r : maxSemiHash[r][SemiCylinder_lowEIdx] for r in radList}
             Vbur_MinSemi_lowE = {r : minSemiHash[r][SemiCylinder_lowEIdx] for r in radList}
@@ -345,7 +409,8 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             Vbur_MinSemi_Orth_lowE = {r : minSemiHashOrth[r][SemiCylinder_lowEIdx] for r in radList}
             Vbur_MaxCap_lowE = {r : maxCap[r][SemiCylinder_lowEIdx] for r in radList}
             Vbur_MinCap_lowE = {r : minCap[r][SemiCylinder_lowEIdx] for r in radList}
-            #Vburr_Cylinder = { r: (CburrHash[r] * weights).sum() / weight_sum  for r in radList } 
+            Vburr_CBurr_lowE = {r : CburrHash[r][SemiCylinder_lowEIdx] for r in radList}
+
             Vburr_SemiCylinders ={}
             for rad in radList:
                 Vburr_SemiCylinders[f"Vbur_MaxSemi_Pi_{rad}"] = Vbur_MaxSemi[rad]
@@ -366,6 +431,9 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 Vburr_SemiCylinders[f"Vbur_deltaPi_{rad}"] = np.abs(Vbur_MaxSemi_lowE[rad] - Vbur_MinSemi_lowE[rad])
                 Vburr_SemiCylinders[f"Vbur_deltaOrth_{rad}"] = np.abs(Vbur_MaxSemi_Orth_lowE[rad] - Vbur_MinSemi_Orth_lowE[rad])
                 Vburr_SemiCylinders[f"Vbur_deltaCap_{rad}"] = np.abs(Vbur_MaxCap[rad] - Vbur_MinCap[rad])
+
+                Vburr_SemiCylinders[f"Vburr_tot_{rad}_lowE"] = Vburr_CBurr_lowE[rad]
+                Vburr_SemiCylinders[f"Vburr_tot_{rad}"] = Vbur_CBurr[rad]
             hashList.append(Vburr_SemiCylinders)
 
         if "EvsZ" in featureList:

@@ -455,7 +455,7 @@ class alkeneSemiCylinders:
             capBurr = [c1CapBurr , c2CapBurr]     
 
             if len(atoms) == 0:
-                return [0 ,0 , 0, 0 , max(capBurr) , min(capBurr)]
+                return [0 ,0 , 0, 0 , max(capBurr) , min(capBurr) , (c1CapVol + c2CapVol) / (self.c1CapVol / self.c2CapVol)*100]
             else:
                 #pi is the z axis and orth is the y axis
                 posIdx_Pi= np.where(atomCoords[:,2] > 0)[0]
@@ -552,9 +552,10 @@ class alkeneSemiCylinders:
                     gifVburr.create_gif()
                     gifOrth.create_gif()
                     '''
+                totBurrVol = ((posVol_Pi + negVol_Pi)/(volCylinder + self.c1CapVol + self.c2CapVol)) * 100 
                 return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
                         max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth),
-                        max(capBurr) , min(capBurr)]    
+                        max(capBurr) , min(capBurr) , totBurrVol]    
         else:
             c1Atoms = np.asarray(self.c1CapSymbols)
             c2Atoms = np.asarray(self.c2CapSymbols)

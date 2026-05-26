@@ -172,4 +172,4 @@ class alkeneSlicedOranges:
                 atomVol = getAtomsVol(atoms)
                 returnHash[f"C2_oct_{octNum}" : float(atomVol / (sphereVol/8)) ]
                 octNum += 1
-        return returnHash 
+        return list(returnHash.values())
