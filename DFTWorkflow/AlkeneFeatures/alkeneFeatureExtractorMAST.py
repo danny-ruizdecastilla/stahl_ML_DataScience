@@ -194,7 +194,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
 
-            radList = [2.0,2.5,3.0,3.5,4.0]
+            radList = [2.0,2.5,3.0,3.5]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             minWeightIdx = min(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
@@ -332,7 +332,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     CburrHash[rad].append(totSemiCylinder)
         '''
         if "%VburSemiCylinders" in featureList:
-            radList = [2.5,3.0,3.5,4.0,4.5,5.0]
+            radList = [2.5,3.0,3.5]
 
             maxSemiHash = {r: [] for r in radList}
             minSemiHash = {r: [] for r in radList}
