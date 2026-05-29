@@ -260,13 +260,13 @@ class alkeneSemiCylinders:
         c1Proj1 = np.dot(c1Vec1, alkeneUnit)
         c1Proj2 = np.dot(c1Vec2, alkeneUnit)
         c1CapHeight = max([np.linalg.norm(c1Proj1) , np.linalg.norm(c1Proj2)])
-        self.C1CapHeight = c1CapHeight
+        self.C1CapHeight = c1CapHeight + 0.45
         #print(self.C1CapHeight)
 
         c2Proj1 = np.dot(c2Vec1, alkeneUnit)
         c2Proj2 = np.dot(c2Vec2, alkeneUnit)
         c2CapHeight = max([np.linalg.norm(c2Proj1) , np.linalg.norm(c2Proj2)])
-        self.C2CapHeight = c2CapHeight
+        self.C2CapHeight = c2CapHeight + 0.45
         #print(self.C2CapHeight)
 
         # plane normals
@@ -611,8 +611,8 @@ def main(logFile , smilesStr, radius , linkIdx):
     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.15)
     print(C1Hash , C2Hash)
     mainCylinder.getAtoms(coordHash ,bondHash, True)
-    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap= mainCylinder.getBurriedVolume(True , True)
-    print(maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap)
+    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap ,totalCap = mainCylinder.getBurriedVolume(True , True)
+    print(maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap , totalCap)
 
 if __name__ == "__main__":
 
