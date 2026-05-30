@@ -54,37 +54,36 @@ def main(df, saveDir, filterings : False):
             for i, var in enumerate(explainedVar, start=1):
                 f.write(f"explained variance ratio: PC {i} {var:.6f}\n")
 
-    top2 = np.argsort(explainedVar)[-2:][::-1]
-    top2PCA = pca.components_[top2]
+    top3 = np.argsort(explainedVar)[-3:][::-1]
+    top3PCA = pca.components_[top3]
 
-    xPCA_ = scaledX @ top2PCA.T + 11
+    xPCA_ = scaledX @ top3PCA.T
 
     loadings = pd.DataFrame(pca.components_.T * np.sqrt(pca.explained_variance_),columns=[f"PC{i+1}" for i in range(pca.n_components_)],index=featureLabels)
 
     top_features_pc1 = loadings["PC1"].abs().sort_values(ascending=False)
     top_features_pc2 = loadings["PC2"].abs().sort_values(ascending=False)
 
-    topFeatures = pd.DataFrame({
-        "Feature": top_features_pc1.index,
-        "PC1_Contribution": top_features_pc1.values,
-        "PC2_Contribution": top_features_pc2.loc[top_features_pc1.index].values
-    })
-
+    topFeatures = pd.DataFrame()
+    topFeatures["Feature"] = top_features_pc1.index
+    topFeatures["PC1_Contribution"] = top_features_pc1.values
+    topFeatures["PC2_Contribution"] = top_features_pc2.loc[top_features_pc1.index].values
     topFeaturesFile = saveDir / "topFeatures.csv"
     if not topFeaturesFile.exists():
-        topFeatures.to_csv(topFeaturesFile, sep="\t", index=False)
+        topFeatures.to_csv(topFeaturesFile, index=False)
     if isinstance(xPCA_, pd.DataFrame):
         pc1 = xPCA_.iloc[:, 0]
         pc2 = xPCA_.iloc[:, 1]
+        pc3 = xPCA_.iloc[:, 2]
     else:
         pc1 = xPCA_[:, 0]
         pc2 = xPCA_[:, 1]
+        pc3 = xPCA_[:, 2]
 
     dfMAST["pc1"] = pc1
     dfMAST["pc2"] = pc2
+    dfMAST["pc3"] = pc3
 
-    for col, info in colsHash.items():
-        dfMAST[col] = info
 
     dfMAST.to_csv(saveDir / "pcaDataframe.csv", index=False)
 
