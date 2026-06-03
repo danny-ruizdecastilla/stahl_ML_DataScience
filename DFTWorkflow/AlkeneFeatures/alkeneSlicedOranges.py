@@ -4,6 +4,8 @@
 import numpy as np
 import sys
 from pathlib import Path
+from networkx import Graph
+from rdkit import Chem
 parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
 from breadthFirstSearch.radialBasedCorrelation import getCC
@@ -76,7 +78,7 @@ class alkeneSlicedOranges:
 
         assert np.allclose(self.basisMatrixInvC1 @ self.basisMatrixC1, np.eye(3), rtol=1e-5)  # should be identity
         assert np.allclose(self.basisMatrixInvC2 @ self.basisMatrixC2, np.eye(3), rtol=1e-5)
-    def getAtoms(self, atomList , idxList , symbolList ):
+    def getAtoms(self, atomList , idxList , symbolList , bondHash, makeFig ):
         #x1Atoms 
         atomsC1 = np.array(atomList)
         translatedC1 = atomsC1 - self.C1Coords
@@ -113,9 +115,28 @@ class alkeneSlicedOranges:
         self.atomCoordsC2 = np.array(acceptedAtomsC2)
         self.atomIndexC2 = acceptedIdxC2 
         self.atomSymbolsC2 = acceptedSymbolsC2
-    def slicedOranges(self, quad , oct ):
+        print(acceptedIdxC1)
+        print(acceptedIdxC2)
+        acceptedIdx = list(set(acceptedIdxC2 + acceptedIdxC1))
+        print(acceptedIdx)
+        if makeFig:
+            pt = Chem.GetPeriodicTable()
+            radiiList = []
+            for symbol in symbolList:
+                atomRadii = pt.GetRvdw(pt.GetAtomicNumber(symbol))
+                radiiList.append(atomRadii)
+            figHash = {"atomCoords" : atomList , "atomSymbol" : symbolList , "radii" : radiiList}
+            stericFigure = stericDrawer(figHash , 30 , highlighted = acceptedIdx)
+            for i in range(len(atomList)):
+                stericFigure.drawAtom(i)
+            for _ , bdTable in bondHash.items():
+                bdAtoms =  bdTable["idxList"]
+                bondType = str(bdTable["bondType"])
+                stericFigure.drawBond( bdAtoms[0], bdAtoms[1], bondType)
+            self.Fig = stericFigure
+    def slicedOranges(self, quad , oct , makeFig ):
         sphereVol = (4/3)*np.pi*self.radius**3
-        if not hasattr(self, "acceptedAtomsC1"):
+        if not hasattr(self, "atomCoordsC1"):
             raise RuntimeError("getAtoms() must be called before getBurriedVolume()")
         from rdkit import Chem
         def getAtomsVol(symbolList):
@@ -132,20 +153,26 @@ class alkeneSlicedOranges:
             quadLabelsC1 = (self.atomCoordsC1[:, 0] > 0).astype(int) + 2 * (self.atomCoordsC1[:, 2] > 0).astype(int)
             c1Idx = [np.where(quadLabelsC1 == i)[0] for i in range(4)]
             quadNum = 0
-            for quad in c1Idx:
-                atoms = [self.atomSymbolsC1[i] for i in quad]
+            for q in c1Idx:
+                atoms = [self.atomSymbolsC1[i] for i in q]
                 atomVol = getAtomsVol(atoms)
-                returnHash[f"C1_quad_{quadNum}" : float(atomVol / (sphereVol/4)) ]
+                returnHash[f"C1_quad_{quadNum}"] = float(atomVol / (sphereVol/4)) 
                 quadNum += 1
             #C2
             quadLabelsC2 = (self.atomCoordsC2[:, 0] > 0).astype(int) + 2 * (self.atomCoordsC2[:, 2] > 0).astype(int)
             c2Idx = [np.where(quadLabelsC2 == i)[0] for i in range(4)]
             quadNum = 0
-            for quad in c2Idx:
-                atoms = [self.atomSymbolsC2[i] for i in quad]
+            for q in c2Idx:
+                atoms = [self.atomSymbolsC2[i] for i in q]
                 atomVol = getAtomsVol(atoms)
-                returnHash[f"C2_quad_{quadNum}" : float(atomVol / (sphereVol/4)) ]
+                returnHash[f"C2_quad_{quadNum}"] = float(atomVol / (sphereVol/4))
                 quadNum += 1
+            if makeFig:
+                c1Hash = {"atom" : self.C1Coords ,  "inverseCoB" : self.basisMatrixInvC1 , "radius" : self.radius , "shapeType" : "slicedOrange"}
+                c2Hash = {"atom" : self.C2Coords ,  "inverseCoB" : self.basisMatrixInvC1 ,"radius" : self.radius , "shapeType" : "slicedOrange"}
+                slicedFig = self.Fig.drawShapes(c1Hash)  
+                #slicedFig = self.Fig.drawShapes(c2Hash, fig = slicedFig)
+                slicedFig.write_html("slicedOranges.html")
         if oct:
             #C1
             octLabelsC1 = (
@@ -155,10 +182,10 @@ class alkeneSlicedOranges:
             )
             c1Idx = [np.where(octLabelsC1 == i)[0] for i in range(4)]
             octNum = 0
-            for oct in c1Idx:
-                atoms = [self.atomSymbolsC1[i] for i in quad]
+            for o in c1Idx:
+                atoms = [self.atomSymbolsC1[i] for i in o]
                 atomVol = getAtomsVol(atoms)
-                returnHash[f"C1_oct_{octNum}" : float(atomVol / (sphereVol/8)) ]
+                returnHash[f"C1_oct_{octNum}"] = float(atomVol / (sphereVol/8))
                 octNum += 1
             #C2
             octLabelsC2 = (
@@ -168,12 +195,12 @@ class alkeneSlicedOranges:
             )
             c2Idx = [np.where(octLabelsC2 == i)[0] for i in range(4)]
             octNum = 0
-            for oct in c2Idx:
-                atoms = [self.atomSymbolsC2[i] for i in quad]
+            for o in c2Idx:
+                atoms = [self.atomSymbolsC2[i] for i in o]
                 atomVol = getAtomsVol(atoms)
-                returnHash[f"C2_oct_{octNum}" : float(atomVol / (sphereVol/8)) ]
+                returnHash[f"C2_oct_{octNum}"] = float(atomVol / (sphereVol/8))
                 octNum += 1
-        return list(returnHash.values())
+        return returnHash
 def main(logFile , smilesStr, radius , linkIdx):
     from DFTWorkflow.dftFeatureExtractorMAST import getAtomCoordsRobust
     cc , molec = getCC(smilesStr)
@@ -200,7 +227,13 @@ def main(logFile , smilesStr, radius , linkIdx):
     CminContacts = []
     coordHash = getAtomCoordsRobust(logFile , "GINC-COMPUTE" , linkIdx  , 1)
     #print(coordHash.keys())
+    atoms = []
+    idxList = []
+    symbols = []
     for atomIdx , coords in coordHash.items():
+        idxList.append(atomIdx)
+        atoms.append(coords[2:5])
+        symbols.append(coords[0])
         atomIdx +=1
         if atomIdx == C1:
             c1_coords = np.array(coords[2:5])
@@ -216,12 +249,10 @@ def main(logFile , smilesStr, radius , linkIdx):
             CmaxContacts.append(crds) 
     C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
     C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
-    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.15)
-    print(C1Hash , C2Hash)
-    mainCylinder.getAtoms(coordHash ,bondHash, True)
-    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap ,totalCap = mainCylinder.getBurriedVolume(True , True)
-    print(maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap , totalCap)
-
+    alkeneOranges = alkeneSlicedOranges(C1Hash , C2Hash , radius)
+    alkeneOranges.getAtoms(atoms , idxList , symbols , bondHash, True)
+    orangeSlices = alkeneOranges.slicedOranges(True , False , True)
+    print(orangeSlices)
 if __name__ == "__main__":
 
 
