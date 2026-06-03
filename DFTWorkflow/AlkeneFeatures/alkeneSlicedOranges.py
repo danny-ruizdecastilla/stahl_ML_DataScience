@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
+from breadthFirstSearch.radialBasedCorrelation import getCC
+from figs.stericVisuals import stericDrawer
 class alkeneSlicedOranges:
     def __init__(self, C1Hash , C2Hash, radius):
         self.C1Idx = int(C1Hash["idx"]) #Index of alkene Carbon 1
@@ -98,7 +100,6 @@ class alkeneSlicedOranges:
         atomsC2 = np.array(atomList)
         translatedC2 = atomsC2 - self.C2Coords
         newAtomsC2 = (self.basisMatrixInvC2 @ translatedC2.T).T
-
         acceptedAtomsC2 = []
         acceptedIdxC2 = []
         acceptedSymbolsC2 = []
@@ -173,3 +174,59 @@ class alkeneSlicedOranges:
                 returnHash[f"C2_oct_{octNum}" : float(atomVol / (sphereVol/8)) ]
                 octNum += 1
         return list(returnHash.values())
+def main(logFile , smilesStr, radius , linkIdx):
+    from DFTWorkflow.dftFeatureExtractorMAST import getAtomCoordsRobust
+    cc , molec = getCC(smilesStr)
+    #print(cc)
+    C1 = cc[1] + 1
+    C2 = cc[0] + 1 
+    g = Graph()
+    bondHash = {}
+    idx = 0
+    for bond in molec.GetBonds():
+
+        start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        bondStr = bond.GetBondType()
+        #print(bondStr)
+        bondHash[idx] = {"idxList" : [start , end ] , "bondType" : str(bondStr)}
+        idx +=1 
+        g.add_edge(start, end)
+    #print(bondHash)
+    CminNeighbors = list(g.neighbors(int(C1-1)))
+    CminNeighbors.remove(int(C2-1))
+    CmaxNeighbors = list(g.neighbors(int(C2-1)))
+    CmaxNeighbors.remove(int(C1-1))
+    CmaxContacts = []
+    CminContacts = []
+    coordHash = getAtomCoordsRobust(logFile , "GINC-COMPUTE" , linkIdx  , 1)
+    #print(coordHash.keys())
+    for atomIdx , coords in coordHash.items():
+        atomIdx +=1
+        if atomIdx == C1:
+            c1_coords = np.array(coords[2:5])
+            c1Idx = atomIdx
+        elif atomIdx == C2:
+            c2_coords = coords[2:5]
+            c2Idx = atomIdx
+        if (atomIdx-1) in CminNeighbors:
+            crds = np.array(coords[2:5])
+            CminContacts.append(crds) 
+        if (atomIdx-1) in CmaxNeighbors:
+            crds = np.array(coords[2:5])
+            CmaxContacts.append(crds) 
+    C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
+    C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
+    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.15)
+    print(C1Hash , C2Hash)
+    mainCylinder.getAtoms(coordHash ,bondHash, True)
+    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap ,totalCap = mainCylinder.getBurriedVolume(True , True)
+    print(maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap , totalCap)
+
+if __name__ == "__main__":
+
+
+    logFile = str(sys.argv[1])
+    smilesStr = str(sys.argv[2])
+    radius = float(sys.argv[3])
+    linkIdx = int(sys.argv[4])
+    main(logFile , smilesStr , radius , linkIdx)
