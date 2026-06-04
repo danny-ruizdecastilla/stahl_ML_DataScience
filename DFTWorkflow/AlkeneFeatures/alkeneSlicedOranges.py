@@ -12,8 +12,8 @@ from breadthFirstSearch.radialBasedCorrelation import getCC
 from figs.stericVisuals import stericDrawer
 class alkeneSlicedOranges:
     def __init__(self, C1Hash , C2Hash, radius):
-        self.C1Idx = int(C1Hash["idx"]) #Index of alkene Carbon 1
-        self.C2Idx = int(C2Hash["idx"]) #Index of alkene Carbon 2
+        self.C1Idx = int(C1Hash["idx"] -1 ) #Index of alkene Carbon 1
+        self.C2Idx = int(C2Hash["idx"] -1 ) #Index of alkene Carbon 2
 
         self.C1Coords = C1Hash["0"]
         self.C2Coords = C2Hash["0"]
@@ -71,7 +71,8 @@ class alkeneSlicedOranges:
         #change of basis 
         self.basisMatrixC1 = np.column_stack([XVec, yVecC1, zVecC1])
         self.basisMatrixC2 = np.column_stack([XVec, yVecC2, zVecC2])
-        #print(self.basisMatrix)
+        print("C1" , self.basisMatrixC1)
+        print("C2" , self.basisMatrixC2)
         self.basisMatrixInvC1 = self.basisMatrixC1.T
         self.basisMatrixInvC2 = self.basisMatrixC2.T
         #print(self.basisMatrixInv@self.basisMatrix)
@@ -90,9 +91,10 @@ class alkeneSlicedOranges:
         for i in range(len(newAtomsC1)):
             atom = newAtomsC1[i]
             rad = np.linalg.norm(atom)
-            if rad <= self.radius:
+            idxInt = idxList[i]
+            if rad <= self.radius and idxInt != self.C1Idx:
                 acceptedAtomsC1.append(atom)
-                acceptedIdxC1.append(idxList[i])
+                acceptedIdxC1.append(idxInt)
                 acceptedSymbolsC1.append(symbolList[i])
         self.atomCoordsC1 = np.array(acceptedAtomsC1)
         self.atomIndexC1 = acceptedIdxC1 
@@ -108,9 +110,10 @@ class alkeneSlicedOranges:
         for i in range(len(newAtomsC2)):
             atom = newAtomsC2[i]
             rad = np.linalg.norm(atom)
-            if rad <= self.radius:
+            idxInt = idxList[i]
+            if rad <= self.radius and idxInt != self.C2Idx:
                 acceptedAtomsC2.append(atom)
-                acceptedIdxC2.append(idxList[i])
+                acceptedIdxC2.append(idxInt)
                 acceptedSymbolsC2.append(symbolList[i])
         self.atomCoordsC2 = np.array(acceptedAtomsC2)
         self.atomIndexC2 = acceptedIdxC2 
@@ -134,7 +137,7 @@ class alkeneSlicedOranges:
                 bondType = str(bdTable["bondType"])
                 stericFigure.drawBond( bdAtoms[0], bdAtoms[1], bondType)
             self.Fig = stericFigure
-    def slicedOranges(self, quad , oct , makeFig ):
+    def slicedOranges(self, quad , oct , makeFig , AlkeneName ):
         sphereVol = (4/3)*np.pi*self.radius**3
         if not hasattr(self, "atomCoordsC1"):
             raise RuntimeError("getAtoms() must be called before getBurriedVolume()")
@@ -156,8 +159,11 @@ class alkeneSlicedOranges:
             flip = True
         else:
             flip = False
-        def sliceOrange(coordinates , symbols, hashMap , label):
-            quadLabelsC1 = (coordinates[:, 0] > 0).astype(int) + 2 * (coordinates[:, 2] > 0).astype(int)
+        def sliceOrange(coordinates , symbols, hashMap , label , flipped):
+            if flipped:
+                quadLabelsC1 = (coordinates[:, 0] < 0).astype(int) + 2 * (coordinates[:, 2] < 0).astype(int)
+            else:
+                quadLabelsC1 = (coordinates[:, 0] > 0).astype(int) + 2 * (coordinates[:, 2] > 0).astype(int)
             c1Idx = [np.where(quadLabelsC1 == i)[0] for i in range(4)]
             quadNum = 0
             for q in c1Idx:
@@ -169,23 +175,25 @@ class alkeneSlicedOranges:
         if quad: #split along z and x axis 
             #C1 is min burriedVol
             if flip:
-                returnHash = sliceOrange(self.atomCoordsC1 , self.atomSymbolsC1, returnHash , "2")
-                returnHash = sliceOrange(self.atomCoordsC2 , self.atomSymbolsC2, returnHash , "1")
+                print("had2Flip")
+                returnHash = sliceOrange(self.atomCoordsC1 , self.atomSymbolsC1, returnHash , "2" , True)
+                returnHash = sliceOrange(self.atomCoordsC2 , self.atomSymbolsC2, returnHash , "1" , True)
                 if makeFig:
-                    c1Hash = {"atom" : self.C2Coords ,  "inverseCoB" : self.basisMatrixInvC2 , "radius" : self.radius , "shapeType" : "slicedOrange"}
-                    c2Hash = {"atom" : self.C1Coords ,  "inverseCoB" : self.basisMatrixInvC1 ,"radius" : self.radius , "shapeType" : "slicedOrange"}
+                    c1Hash = {"atom" : self.C2Coords ,  "inverseCoB" : self.basisMatrixInvC2 , "radius" : self.radius , "shapeType" : "slicedOrange" , "flipped" : True}
+                    c2Hash = {"atom" : self.C1Coords ,  "inverseCoB" : self.basisMatrixInvC1 ,"radius" : self.radius , "shapeType" : "slicedOrange" , "flipped" : True}
                     slicedFig = self.Fig.drawShapes(c1Hash)  
-                    #slicedFig = self.Fig.drawShapes(c2Hash, fig = slicedFig)
-                    slicedFig.write_html("slicedOranges.html")
+                    slicedFig = self.Fig.drawShapes(c2Hash, fig = slicedFig)
+                    slicedFig.write_html(f"slicedOranges_{AlkeneName}.html")
             else:
-                returnHash = sliceOrange(self.atomCoordsC1 , self.atomSymbolsC1, returnHash , "1")
-                returnHash = sliceOrange(self.atomCoordsC2 , self.atomSymbolsC2, returnHash , "2")
+                print("noFlip")
+                returnHash = sliceOrange(self.atomCoordsC1 , self.atomSymbolsC1, returnHash , "1" , False)
+                returnHash = sliceOrange(self.atomCoordsC2 , self.atomSymbolsC2, returnHash , "2" , False)
                 if makeFig:
-                    c1Hash = {"atom" : self.C1Coords ,  "inverseCoB" : self.basisMatrixInvC1 , "radius" : self.radius , "shapeType" : "slicedOrange"}
-                    c2Hash = {"atom" : self.C2Coords ,  "inverseCoB" : self.basisMatrixInvC2 ,"radius" : self.radius , "shapeType" : "slicedOrange"}
+                    c1Hash = {"atom" : self.C1Coords ,  "inverseCoB" : self.basisMatrixInvC1 , "radius" : self.radius , "shapeType" : "slicedOrange" , "flipped" : False}
+                    c2Hash = {"atom" : self.C2Coords ,  "inverseCoB" : self.basisMatrixInvC2 ,"radius" : self.radius , "shapeType" : "slicedOrange" ,  "flipped" : False}
                     slicedFig = self.Fig.drawShapes(c1Hash)  
-                    #slicedFig = self.Fig.drawShapes(c2Hash, fig = slicedFig)
-                    slicedFig.write_html("slicedOranges.html")
+                    slicedFig = self.Fig.drawShapes(c2Hash, fig = slicedFig)
+                    slicedFig.write_html(f"slicedOranges_{AlkeneName}.html")
         if oct:
             #C1
             octLabelsC1 = (
@@ -264,7 +272,8 @@ def main(logFile , smilesStr, radius , linkIdx):
     C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
     alkeneOranges = alkeneSlicedOranges(C1Hash , C2Hash , radius)
     alkeneOranges.getAtoms(atoms , idxList , symbols , bondHash, True)
-    orangeSlices = alkeneOranges.slicedOranges(True , False , True)
+    alkeneName = logFile.split("/")[-1].split(".")[0]
+    orangeSlices = alkeneOranges.slicedOranges(True , False , True , alkeneName)
     print(orangeSlices)
 if __name__ == "__main__":
 

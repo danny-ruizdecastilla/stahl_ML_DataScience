@@ -186,15 +186,17 @@ class stericDrawer:
         rad = shapeHash["radius"]
         atomCoord = shapeHash["atom"]
         inverseMatrix = shapeHash["inverseCoB"]
-
+        flipped = shapeHash["flipped"]
         theta = np.linspace(0, 2*np.pi, self.resolution)
         phi = np.linspace(0, np.pi, self.resolution)
         theta_grid, phi_grid = np.meshgrid(theta, phi)
         x = rad * np.sin(phi_grid) * np.cos(theta_grid)
         y = rad * np.sin(phi_grid) * np.sin(theta_grid)
         z = rad * np.cos(phi_grid)
-
-        region = ((x >= 0).astype(int)+ 2 * (z >= 0).astype(int)) #gives 4 distinct assignments 
+        if flipped:
+           region = ((x <= 0).astype(int)+ 2 * (z <= 0).astype(int))
+        else:
+            region = ((x >= 0).astype(int)+ 2 * (z >= 0).astype(int)) #gives 4 distinct assignments 
 
         pts_local = np.stack(
             [
