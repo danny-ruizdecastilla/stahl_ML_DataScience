@@ -15,7 +15,8 @@ atomColorHashRGB = { "H" : "rgba(220,220,220,0.7)" , "C" : "rgba(128,128,128,0.7
                     , "O" : "rgba(197,5,12,0.7)" , "N" : "rgba(001,031,091,0.7)"
                      , "S" : "rgba(254,242,80,0.7)" , "Si" : "rgba(170,089,043,0.7)"
                       , "P" : "rgba(245,128,037,0.7)" , "F" : "rgba(138,206,0,0.7)"
-                       , "Br" :  "rgba(165,028,048,0.7)" , "Cl" :"rgba(255,206,207,0.7)"
+                       , "Br" :  "rgba(165,028,048,0.7)" , "Cl" :"rgba(255,206,207,0.7)" 
+                       , "B" : "rgba(255,192,203)"
                          }
 class stericDrawer:
     def __init__(self, atomsHash , resolution, **kwargs):
@@ -179,6 +180,74 @@ class stericDrawer:
                     'y: %{y:.2f}<br>' +
                     'z: %{z:.2f}<br>' +
                     '<extra></extra>',))
+        return newFig
+      elif typeStr == "slicedOrange":
+        newFig = go.Figure(fig.to_dict())
+        rad = shapeHash["radius"]
+        atomCoord = shapeHash["atom"]
+        inverseMatrix = shapeHash["inverseCoB"]
+
+        theta = np.linspace(0, 2*np.pi, self.resolution)
+        phi = np.linspace(0, np.pi, self.resolution)
+        theta_grid, phi_grid = np.meshgrid(theta, phi)
+        x = rad * np.sin(phi_grid) * np.cos(theta_grid)
+        y = rad * np.sin(phi_grid) * np.sin(theta_grid)
+        z = rad * np.cos(phi_grid)
+
+        region = ((x >= 0).astype(int)+ 2 * (z >= 0).astype(int)) #gives 4 distinct assignments 
+
+        pts_local = np.stack(
+            [
+                x.ravel(),
+                y.ravel(),
+                z.ravel()
+            ],
+            axis=1
+        )
+
+        pts_global = (
+            pts_local @ inverseMatrix
+            + atomCoord
+        )
+
+        xGlob = pts_global[:, 0].reshape(x.shape)
+        yGlob = pts_global[:, 1].reshape(y.shape)
+        zGlob = pts_global[:, 2].reshape(z.shape)
+
+        colorscale = [
+            [0.00, "red"],
+            [0.25, "red"],
+
+            [0.25, "blue"],
+            [0.50, "blue"],
+
+            [0.50, "green"],
+            [0.75, "green"],
+
+            [0.75, "orange"],
+            [1.00, "orange"],
+        ]
+
+        newFig.add_trace(
+            go.Surface(
+                x=xGlob,
+                y=yGlob,
+                z=zGlob,
+                surfacecolor=region,
+                cmin=0,
+                cmax=3,
+                colorscale=colorscale,
+                showscale=False,
+                opacity=0.3,
+                name=f"PartitionedSphere_{rad}",
+                hovertemplate=
+                    "<b>Region %{surfacecolor}</b><br>"
+                    "x: %{x:.2f}<br>"
+                    "y: %{y:.2f}<br>"
+                    "z: %{z:.2f}<br>"
+                    "<extra></extra>"
+            )
+        )
         return newFig
       elif typeStr == "plane":
         newFig = go.Figure(fig.to_dict())

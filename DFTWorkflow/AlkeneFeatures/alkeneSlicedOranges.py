@@ -148,31 +148,44 @@ class alkeneSlicedOranges:
                 atomVol += vol
             return atomVol
         returnHash = {}
-        if quad: #split along z and x axis 
-            #C1
-            quadLabelsC1 = (self.atomCoordsC1[:, 0] > 0).astype(int) + 2 * (self.atomCoordsC1[:, 2] > 0).astype(int)
+        c1Tot = getAtomsVol(self.atomSymbolsC1)
+        c2Tot = getAtomsVol(self.atomSymbolsC2)
+        c1Bur = (c1Tot / sphereVol) * 100
+        c2Bur = (c2Tot / sphereVol ) * 100
+        if c1Bur >= c2Bur:
+            flip = True
+        else:
+            flip = False
+        def sliceOrange(coordinates , symbols, hashMap , label):
+            quadLabelsC1 = (coordinates[:, 0] > 0).astype(int) + 2 * (coordinates[:, 2] > 0).astype(int)
             c1Idx = [np.where(quadLabelsC1 == i)[0] for i in range(4)]
             quadNum = 0
             for q in c1Idx:
-                atoms = [self.atomSymbolsC1[i] for i in q]
+                atoms = [symbols[i] for i in q]
                 atomVol = getAtomsVol(atoms)
-                returnHash[f"C1_quad_{quadNum}"] = float(atomVol / (sphereVol/4)) 
+                hashMap[f"C{label}_quad_{quadNum}"] = float(atomVol / (sphereVol/4)) 
                 quadNum += 1
-            #C2
-            quadLabelsC2 = (self.atomCoordsC2[:, 0] > 0).astype(int) + 2 * (self.atomCoordsC2[:, 2] > 0).astype(int)
-            c2Idx = [np.where(quadLabelsC2 == i)[0] for i in range(4)]
-            quadNum = 0
-            for q in c2Idx:
-                atoms = [self.atomSymbolsC2[i] for i in q]
-                atomVol = getAtomsVol(atoms)
-                returnHash[f"C2_quad_{quadNum}"] = float(atomVol / (sphereVol/4))
-                quadNum += 1
-            if makeFig:
-                c1Hash = {"atom" : self.C1Coords ,  "inverseCoB" : self.basisMatrixInvC1 , "radius" : self.radius , "shapeType" : "slicedOrange"}
-                c2Hash = {"atom" : self.C2Coords ,  "inverseCoB" : self.basisMatrixInvC1 ,"radius" : self.radius , "shapeType" : "slicedOrange"}
-                slicedFig = self.Fig.drawShapes(c1Hash)  
-                #slicedFig = self.Fig.drawShapes(c2Hash, fig = slicedFig)
-                slicedFig.write_html("slicedOranges.html")
+            return hashMap
+        if quad: #split along z and x axis 
+            #C1 is min burriedVol
+            if flip:
+                returnHash = sliceOrange(self.atomCoordsC1 , self.atomSymbolsC1, returnHash , "2")
+                returnHash = sliceOrange(self.atomCoordsC2 , self.atomSymbolsC2, returnHash , "1")
+                if makeFig:
+                    c1Hash = {"atom" : self.C2Coords ,  "inverseCoB" : self.basisMatrixInvC2 , "radius" : self.radius , "shapeType" : "slicedOrange"}
+                    c2Hash = {"atom" : self.C1Coords ,  "inverseCoB" : self.basisMatrixInvC1 ,"radius" : self.radius , "shapeType" : "slicedOrange"}
+                    slicedFig = self.Fig.drawShapes(c1Hash)  
+                    #slicedFig = self.Fig.drawShapes(c2Hash, fig = slicedFig)
+                    slicedFig.write_html("slicedOranges.html")
+            else:
+                returnHash = sliceOrange(self.atomCoordsC1 , self.atomSymbolsC1, returnHash , "1")
+                returnHash = sliceOrange(self.atomCoordsC2 , self.atomSymbolsC2, returnHash , "2")
+                if makeFig:
+                    c1Hash = {"atom" : self.C1Coords ,  "inverseCoB" : self.basisMatrixInvC1 , "radius" : self.radius , "shapeType" : "slicedOrange"}
+                    c2Hash = {"atom" : self.C2Coords ,  "inverseCoB" : self.basisMatrixInvC2 ,"radius" : self.radius , "shapeType" : "slicedOrange"}
+                    slicedFig = self.Fig.drawShapes(c1Hash)  
+                    #slicedFig = self.Fig.drawShapes(c2Hash, fig = slicedFig)
+                    slicedFig.write_html("slicedOranges.html")
         if oct:
             #C1
             octLabelsC1 = (
