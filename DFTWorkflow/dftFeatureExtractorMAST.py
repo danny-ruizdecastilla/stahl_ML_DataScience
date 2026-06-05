@@ -494,7 +494,7 @@ def compartmentalization(logDir , outputDir , substrateFile):
                 continue
     extractNum = input(f"Enter the number corresponding to which substructre you want to extract information from:\n [0] Alkenes\n [1] Sulfides\n")
     if int(extractNum) == 0:
-        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburSemiCylinders" , "globalFeatures" , "Sterimol"  , "TSEI"]
+        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburSemiCylinders" , "globalFeatures" , "Sterimol"  , "TSEI" , "orangeSlices" , "firstContactVbur"]
         localDescriptorsInput = boxGen(localStrs)
         featureList = listInputs(f"Enter the indexes corresponding to the features you would like to extract\n{localDescriptorsInput}")
         featuresMAST = {}

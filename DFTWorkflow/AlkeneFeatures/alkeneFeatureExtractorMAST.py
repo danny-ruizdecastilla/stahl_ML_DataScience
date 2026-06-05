@@ -257,7 +257,9 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
 
 
             hashList.append(BurVolHash)
-        
+        if "firstContactVbur" in featureList:
+            radList = [2.0,2.5,3.0,3.5,4.0]
+            
         if "orangeSlices" in featureList:
             radList = [2.5,3.0,3.5]
 
