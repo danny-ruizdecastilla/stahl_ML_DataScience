@@ -553,9 +553,9 @@ class alkeneSemiCylinders:
                     gifOrth.create_gif()
                     '''
                 totBurrVol = ((posVol_Pi + negVol_Pi)/(volCylinder + self.c1CapVol + self.c2CapVol)) * 100 
-                return [max(posBuried_Pi, negBuried_Pi), min(posBuried_Pi, negBuried_Pi) , 
-                        max(posBuried_Orth, negBuried_Orth), min(posBuried_Orth, negBuried_Orth),
-                        max(capBurr) , min(capBurr) , totBurrVol]    
+                return {"maxSemiPi":max(posBuried_Pi, negBuried_Pi) , "minSemiPi":min(posBuried_Pi, negBuried_Pi) , 
+                         "maxSemiOrth" : max(posBuried_Orth, negBuried_Orth), "minSemiOrth":min(posBuried_Orth, negBuried_Orth)
+                          , "maxCap":max(capBurr) , "minCap":min(capBurr) , "CburrHash": totBurrVol}   
         else:
             c1Atoms = np.asarray(self.c1CapSymbols)
             c2Atoms = np.asarray(self.c2CapSymbols)
@@ -611,8 +611,8 @@ def main(logFile , smilesStr, radius , linkIdx):
     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , radius , 0.15)
     print(C1Hash , C2Hash)
     mainCylinder.getAtoms(coordHash ,bondHash, True)
-    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap ,totalCap = mainCylinder.getBurriedVolume(True , True)
-    print(maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxCap , minCap , totalCap)
+    semiSegmentsHash = mainCylinder.getBurriedVolume(True , True)
+    print(semiSegmentsHash)
 
 if __name__ == "__main__":
 

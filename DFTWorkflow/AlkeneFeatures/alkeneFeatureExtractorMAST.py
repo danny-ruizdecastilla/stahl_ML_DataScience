@@ -17,6 +17,7 @@ parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
 from DFTWorkflow.ionComGenerator import locateinLog
 from DFTWorkflow.AlkeneFeatures.alkeneStericDougnut import alkeneSemiCylinders
+from DFTWorkflow.AlkeneFeatures.alkeneSlicedOranges import alkeneSlicedOranges
 from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
 from DFTWorkflow.dftFeatureExtractorMAST import compartmentalization , time_to_seconds , extractNBOOccupancies , getBoltzmannWeightsGauss , getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks
 from breadthFirstSearch.radialBasedCorrelation import getCC
@@ -80,7 +81,7 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
     finalHash["NBO_Mean"] =weightedAvg(NBO_mean , list(weightsDF["boltzWeights"]))
     finalHash["NBO_Delta"] =weightedAvg(NBO_delta , list(weightsDF["boltzWeights"]))
 
-    lowEidx = min(enumerate(list(weightsDF["boltzWeights"])), key=lambda x: x[1])[0]
+    lowEidx = max(enumerate(list(weightsDF["boltzWeights"])), key=lambda x: x[1])[0]
     Cmin_NBO_lowE = Cmin_NBO[lowEidx]
     Cmax_NBO_lowE = Cmax_NBO[lowEidx]
     finalHash["NBO_mxAlk_lowE"] = Cmin_NBO_lowE
@@ -88,7 +89,7 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
     finalHash["NBO_Mean_lowE"] = np.mean([Cmin_NBO_lowE, Cmax_NBO_lowE])
     finalHash["NBO_Delta_lowE"] =abs(Cmin_NBO_lowE - Cmax_NBO_lowE)
     if charge == 0 and len(piBond) != 0:
-        piBondlowEIdx = min(enumerate(piBondEnergyWeights), key=lambda x: x[1])[0]
+        piBondlowEIdx = max(enumerate(piBondEnergyWeights), key=lambda x: x[1])[0]
         finalHash["piBond"] = weightedAvg(piBond, piBondEnergyWeights)
         finalHash["piEnergy"] = weightedAvg(piEnergy, piBondEnergyWeights)
         finalHash["antiPiBond"] = weightedAvg(piAntiBond, piBondEnergyWeights)
@@ -147,7 +148,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 C13_C1.append(alkeneHash[C1][1])
                 C13_C2.append(alkeneHash[C2][1])
             weights = boltzmannDF["boltzWeights"]
-            minWeightID = min(enumerate(weights), key=lambda x: x[1])[0]
+            minWeightID = max(enumerate(weights), key=lambda x: x[1])[0]
             C13_Cmx_min = C13_C2[minWeightID]
             C13_Cmn_min = C13_C1[minWeightID]
             C13_delta_min = abs(C13_Cmx_min - C13_Cmn_min)
@@ -196,12 +197,11 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
 
             radList = [2.0,2.5,3.0,3.5]
             weights = boltzmannDF["boltzWeights"].to_numpy()
-            minWeightIdx = min(enumerate(weights), key=lambda x: x[1])[0]
+            minWeightIdx = max(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
 
             # Storage
-            Vbur_Cmin = {r: [] for r in radList}
-            Vbur_Cmax = {r: [] for r in radList}
+            vBurStorage = {C : {r : [] for r in radList} for C in ("Cmn" , "Cmx")}
 
             for name in boltzmannDF["logID"]:
                 fileStr = f"{name}.log"
@@ -225,122 +225,135 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     coordinates.append(np.array(coords[2:5]))
 
                 for rad in radList:
-                    vburC1 = BuriedVolume(
-                        elements,
-                        coordinates,
-                        int(C1 - 1),
-                        include_hs=True,
-                        radius=rad
-                    ).fraction_buried_volume
+                    vburC1 = BuriedVolume(elements,coordinates,int(C1 - 1),include_hs=True,radius=rad).fraction_buried_volume
+                    vburC2 = BuriedVolume(elements,coordinates,int(C1 - 1),include_hs=True,radius=rad).fraction_buried_volume
+                    
+                    vBurStorage["Cmn"][rad].append(vburC1)
+                    vBurStorage["Cmx"][rad].append(vburC2)
 
-                    vburC2 = BuriedVolume(
-                        elements,
-                        coordinates,
-                        int(C2 - 1),
-                        include_hs=True,
-                        radius=rad
-                    ).fraction_buried_volume
+            vBurAvg = {atom : {r : (np.asarray(vBurStorage[atom][r])*weights).sum()/weight_sum for r in radList} for atom in ("Cmn","Cmx")}
+            vBurAvg_lowE = {atom : {r : vBurStorage[atom][r][minWeightIdx] for r in radList} for atom in ("Cmn","Cmx")}
 
-                    Vbur_Cmin[rad].append(vburC1)
-                    Vbur_Cmax[rad].append(vburC2)
-
-            # Boltzmann-weighted averages
             BurVolHash = {}
             for rad in radList:
-                Vbur_Cmin_lowE = Vbur_Cmin[rad][minWeightIdx]
-                Vbur_Cmax_lowE = Vbur_Cmax[rad][minWeightIdx]
-                Vbur_delta_lowE = abs(Vbur_Cmin_lowE - Vbur_Cmax_lowE)
-                Vbur_mean_lowE = (Vbur_Cmin_lowE + Vbur_Cmax_lowE)/2
-                BurVolHash[f"{rad}_Ang_Vburr_Cmn_lowE"] = Vbur_Cmin_lowE
-                BurVolHash[f"{rad}_Ang_Vburr_Cmx_lowE"] = Vbur_Cmax_lowE 
-                BurVolHash[f"{rad}_Ang_Vburr_delta_lowE"] = Vbur_delta_lowE
-                BurVolHash[f"{rad}_Ang_Vburr_mean_lowE"] = Vbur_mean_lowE
+                vBurList = []
+                vBurlowE = []
+                for atom in ("Cmn","Cmx"):
+                    atom1 = vBurAvg[atom][rad]
+                    atom1_lowE = vBurAvg_lowE[atom][rad]
+                    vBurlowE.append(atom1_lowE)
+                    vBurList.append(atom1)
+                    BurVolHash[f"{rad}_Ang_Vburr_{atom}"] = atom1
+                    BurVolHash[f"{rad}_Ang_Vburr_{atom}_lowE"] = atom1_lowE
+                    if len(vBurList) == 2:
+                        delta = np.abs(vBurList[0] - vBurList[1])
+                        mean = np.mean(vBurList)
+                        BurVolHash[f"{rad}_Ang_Vburr_mean"] = delta
+                        BurVolHash[f"{rad}_Ang_Vburr_delta"] = mean
+                        deltaLowE = np.abs(vBurlowE[0] - vBurlowE[1])
+                        meanLowE = np.mean(vBurlowE)
+                        BurVolHash[f"{rad}_Ang_Vburr_mean_lowE"] = deltaLowE
+                        BurVolHash[f"{rad}_Ang_Vburr_delta_lowE"] = meanLowE
 
-                Vbur_Cmin_arr = np.array(Vbur_Cmin[rad])
-                Vbur_Cmax_arr = np.array(Vbur_Cmax[rad])
-                Vburr_Cmin = (Vbur_Cmin_arr * weights).sum() / weight_sum
-                Vburr_Cmax = (Vbur_Cmax_arr * weights).sum() / weight_sum
-                Vburr_mean = (Vburr_Cmin + Vburr_Cmax)/2
-                Vburr_delta = abs(Vburr_Cmin - Vburr_Cmax)
-                BurVolHash[f"{rad}_Ang_Vburr_Cmn"] = Vburr_Cmin
-                BurVolHash[f"{rad}_Ang_Vburr_Cmx"] = Vburr_Cmax
-                BurVolHash[f"{rad}_Ang_Vburr_mean"] = Vburr_mean
-                BurVolHash[f"{rad}_Ang_Vburr_delta"] = Vburr_delta
 
             hashList.append(BurVolHash)
-        '''
+        
         if "orangeSlices" in featureList:
-            radList = [2.5,3.0,3.5,4.0,4.5,5.0]
-
-            c1Quad1 = {r: [] for r in radList}
-            c1Quad2 = {r: [] for r in radList}
-            c1Quad3 = {r: [] for r in radList}
-            c1Quad4 = {r: [] for r in radList}  
-
-            c2Quad1 = {r: [] for r in radList}
-            c2Quad2 = {r: [] for r in radList}         
-            c2Quad3 = {r: [] for r in radList}
-            c2Quad4 = {r: [] for r in radList}
-            g = Graph()
-            for bond in molec.GetBonds():
-                start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-                g.add_edge(start, end)
-            CminNeighbors = list(g.neighbors(int(C1-1)))
-            CminNeighbors.remove(int(C2-1))
-            CmaxNeighbors = list(g.neighbors(int(C2-1)))
-            CmaxNeighbors.remove(int(C1-1))
-            #print(CmaxNeighbors)
-            #print(CminNeighbors)
-            #C1Hash = {"0" : [x,y,z] , "1" : [[x,y,z] , [x,y,z]]  , "idx" : idx}
-            for name in list(boltzmannDF["logID"]):
-                CmaxContacts = []
-                CminContacts = []
-                fileStr = f"{name}.log"
-                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
-
-                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5  , 1)
-
-                idx = 0
-                for _ , coords in coordHash.items():
-                    idx +=1
-                    if idx == C1:
-                        c1_coords = np.array(coords[2:5])
-                        c1Idx = idx
-                    elif idx == C2:
-                        c2_coords = coords[2:5]
-                        c2Idx = idx 
-                    if (idx-1) in CminNeighbors:
-                        crds = np.array(coords[2:5])
-                        CminContacts.append(crds) 
-                    if (idx-1) in CmaxNeighbors:
-                        crds = np.array(coords[2:5])
-                        CmaxContacts.append(crds) 
-                C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
-                C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
-                for rad in radList:
-                    mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad , 0.15)
-                    mainCylinder.getAtoms(coordHash ,{"Nan" : "Nan"} , False)
-                    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxBurCap , minBurCap , totSemiCylinder = mainCylinder.getBurriedVolume(True , False)
-                    #Cburr = mainCylinder.getBurriedVolume(False , False)
-                    #CburrHash[rad].append(Cburr[0])
-                    maxSemiHash[rad].append(maxSemi_Pi)
-                    minSemiHash[rad].append(minSemi_Pi)
-                    maxSemiHashOrth[rad].append(maxSemi_Orth)
-                    minSemiHashOrth[rad].append(minSemi_Orth)
-                    maxCap[rad].append(maxBurCap)
-                    minCap[rad].append(minBurCap)
-                    CburrHash[rad].append(totSemiCylinder)
-        '''
-        if "%VburSemiCylinders" in featureList:
             radList = [2.5,3.0,3.5]
 
-            maxSemiHash = {r: [] for r in radList}
-            minSemiHash = {r: [] for r in radList}
-            maxSemiHashOrth = {r: [] for r in radList}
-            minSemiHashOrth = {r: [] for r in radList}  
-            maxCap = {r: [] for r in radList}
-            minCap = {r: [] for r in radList}         
-            CburrHash = {r: [] for r in radList}
+            orangeData = {atom: {quad: {r: [] for r in radList} for quad in range(4)} for atom in ("C1", "C2")}
+            g = Graph()
+            for bond in molec.GetBonds():
+                start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+                g.add_edge(start, end)
+            CminNeighbors = list(g.neighbors(int(C1-1)))
+            CminNeighbors.remove(int(C2-1))
+            CmaxNeighbors = list(g.neighbors(int(C2-1)))
+            CmaxNeighbors.remove(int(C1-1))
+
+            for name in list(boltzmannDF["logID"]):
+                CmaxContacts = []
+                CminContacts = []
+                fileStr = f"{name}.log"
+                conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
+                coordHash = getAtomCoordsRobust(str(conformer) , "GINC-COMPUTE" , 5  , 1)
+
+                atoms = []
+                idxList = []
+                symbols = []
+                for atomIdx , coords in coordHash.items():
+                    idxList.append(atomIdx)
+                    atoms.append(coords[2:5])
+                    symbols.append(coords[0])
+                    atomIdx +=1
+                    if atomIdx == C1:
+                        c1_coords = np.array(coords[2:5])
+                        c1Idx = atomIdx
+                    elif atomIdx == C2:
+                        c2_coords = coords[2:5]
+                        c2Idx = atomIdx
+                    if (atomIdx-1) in CminNeighbors:
+                        crds = np.array(coords[2:5])
+                        CminContacts.append(crds) 
+                    if (atomIdx-1) in CmaxNeighbors:
+                        crds = np.array(coords[2:5])
+                        CmaxContacts.append(crds) 
+                C1Hash = {"0" : c1_coords , "1" : CminContacts , "idx" : c1Idx}
+                C2Hash = {"0" : c2_coords , "1" : CmaxContacts , "idx" : c2Idx}
+                for rad in radList:
+                    alkeneOranges = alkeneSlicedOranges(C1Hash , C2Hash , rad)
+                    alkeneOranges.getAtoms(atoms , idxList , symbols ,{"Nan" : "Nan"} , False)
+                    orangeSlices = alkeneOranges.slicedOranges(True , False , False ,"alkene")
+
+                    for center in ("C1", "C2"):
+                        for quad in range(4):
+                            orangeData[center][quad][rad].append(
+                                orangeSlices[f"{center}_quad_{quad}"]
+                            )
+            weights = boltzmannDF["boltzWeights"]
+            orangeSlices_lowEIdx = max(enumerate(weights), key=lambda x: x[1])[0]
+            weight_sum = weights.sum()
+
+            vburAvg = {
+                center: {
+                    quad: {
+                        r: (
+                            np.asarray(orangeData[center][quad][r]) * weights
+                        ).sum() / weight_sum
+                        for r in radList
+                    }
+                    for quad in range(4)
+                }
+                for center in ("C1", "C2")
+            }
+            vburLowE = {
+                center: {
+                    quad: {
+                        r: orangeData[center][quad][r][orangeSlices_lowEIdx]
+                        for r in radList
+                    }
+                    for quad in range(4)
+                }
+                for center in ("C1", "C2")
+            }
+            vburOrangeSlices = {}
+
+            for center in ("C1", "C2"):
+                for quad in range(4):
+                    for rad in radList:
+
+                        vburOrangeSlices[
+                            f"vbur{center}_slice{quad}_{rad}"
+                        ] = vburAvg[center][quad][rad]
+
+                        vburOrangeSlices[
+                            f"vbur{center}_slice{quad}_{rad}_lowE"
+                        ] = vburLowE[center][quad][rad]
+
+        if "%VburSemiCylinders" in featureList:
+            radList = [2.5,3.0,3.5]
+            segmentList = ["maxSemiPi" , "minSemiPi" , "maxSemiHashOrth" , "minSemiHashOrth" , "maxCap" , "minCap" , "CburrHash"]
+            cappedSemis = {segment : {r : [] for r in radList} for segment in segmentList}
             g = Graph()
             for bond in molec.GetBonds():
                 start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
@@ -379,61 +392,49 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 for rad in radList:
                     mainCylinder = alkeneSemiCylinders(C1Hash , C2Hash , rad , 0.15)
                     mainCylinder.getAtoms(coordHash ,{"Nan" : "Nan"} , False)
-                    maxSemi_Pi , minSemi_Pi , maxSemi_Orth, minSemi_Orth , maxBurCap , minBurCap , totSemiCylinder = mainCylinder.getBurriedVolume(True , False)
+                    segmentHash = mainCylinder.getBurriedVolume(True , False)
                     #Cburr = mainCylinder.getBurriedVolume(False , False)
-                    #CburrHash[rad].append(Cburr[0])
-                    maxSemiHash[rad].append(maxSemi_Pi)
-                    minSemiHash[rad].append(minSemi_Pi)
-                    maxSemiHashOrth[rad].append(maxSemi_Orth)
-                    minSemiHashOrth[rad].append(minSemi_Orth)
-                    maxCap[rad].append(maxBurCap)
-                    minCap[rad].append(minBurCap)
-                    CburrHash[rad].append(totSemiCylinder)
-                    
+                    for segment in segmentList:
+                        cappedSemis[segment][rad] = segmentHash[segment]
 
             weights = boltzmannDF["boltzWeights"]
-            SemiCylinder_lowEIdx = min(enumerate(weights), key=lambda x: x[1])[0]
+            SemiCylinder_lowEIdx = max(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
 
-            Vbur_MaxSemi = { r: (maxSemiHash[r] * weights).sum() / weight_sum for r in radList}
-            Vbur_MinSemi = { r: (minSemiHash[r] * weights).sum() / weight_sum for r in radList}
-            Vbur_MaxSemi_Orth = { r: (maxSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
-            Vbur_MinSemi_Orth = { r: (minSemiHashOrth[r] * weights).sum() / weight_sum for r in radList}
-            Vbur_MaxCap = { r: (maxCap[r] * weights).sum() / weight_sum for r in radList}
-            Vbur_MinCap = { r: (minCap[r] * weights).sum() / weight_sum for r in radList}
-            Vbur_CBurr = { r: (CburrHash[r] * weights).sum() / weight_sum for r in radList}
-
-            Vbur_MaxSemi_lowE = {r : maxSemiHash[r][SemiCylinder_lowEIdx] for r in radList}
-            Vbur_MinSemi_lowE = {r : minSemiHash[r][SemiCylinder_lowEIdx] for r in radList}
-            Vbur_MaxSemi_Orth_lowE = {r : maxSemiHashOrth[r][SemiCylinder_lowEIdx] for r in radList}
-            Vbur_MinSemi_Orth_lowE = {r : minSemiHashOrth[r][SemiCylinder_lowEIdx] for r in radList}
-            Vbur_MaxCap_lowE = {r : maxCap[r][SemiCylinder_lowEIdx] for r in radList}
-            Vbur_MinCap_lowE = {r : minCap[r][SemiCylinder_lowEIdx] for r in radList}
-            Vburr_CBurr_lowE = {r : CburrHash[r][SemiCylinder_lowEIdx] for r in radList}
+            semiCylinders = {segment : {rad : (np.asarray(cappedSemis[segment][rad]) * weights).sum() for rad in radList } for segment in segmentList}
+            semiCylinders_lowE = {segment : {rad : cappedSemis[segment][rad][SemiCylinder_lowEIdx] for rad in radList } for segment in segmentList}
 
             Vburr_SemiCylinders ={}
             for rad in radList:
-                Vburr_SemiCylinders[f"Vbur_MaxSemi_Pi_{rad}"] = Vbur_MaxSemi[rad]
-                Vburr_SemiCylinders[f"Vbur_MinSemi_Pi_{rad}"] = Vbur_MinSemi[rad]
-                Vburr_SemiCylinders[f"Vbur_MaxSemi_Orth_{rad}"] = Vbur_MaxSemi_Orth[rad]
-                Vburr_SemiCylinders[f"Vbur_MinSemi_Orth_{rad}"] = Vbur_MinSemi_Orth[rad]
-
-                Vburr_SemiCylinders[f"Vbur_MaxSemi_Pi_{rad}_lowE"] = Vbur_MaxSemi_lowE[rad]
-                Vburr_SemiCylinders[f"Vbur_MinSemi_Pi_{rad}_lowE"] = Vbur_MinSemi_lowE[rad]
-                Vburr_SemiCylinders[f"Vbur_MaxSemi_Orth_{rad}_lowE"] = Vbur_MaxSemi_Orth_lowE[rad]
-                Vburr_SemiCylinders[f"Vbur_MinSemi_Orth_{rad}_lowE"] = Vbur_MinSemi_Orth_lowE[rad]
-
-                Vburr_SemiCylinders[f"Vbur_MaxCap_{rad}_lowE"] = Vbur_MaxCap_lowE[rad]
-                Vburr_SemiCylinders[f"Vbur_MinCap_{rad}_lowE"] = Vbur_MinCap_lowE[rad]
-                Vburr_SemiCylinders[f"Vbur_MaxCap_{rad}"] = Vbur_MaxCap[rad]
-                Vburr_SemiCylinders[f"Vbur_MinCap_{rad}"] = Vbur_MinCap[rad]
-
-                Vburr_SemiCylinders[f"Vbur_deltaPi_{rad}"] = np.abs(Vbur_MaxSemi_lowE[rad] - Vbur_MinSemi_lowE[rad])
-                Vburr_SemiCylinders[f"Vbur_deltaOrth_{rad}"] = np.abs(Vbur_MaxSemi_Orth_lowE[rad] - Vbur_MinSemi_Orth_lowE[rad])
-                Vburr_SemiCylinders[f"Vbur_deltaCap_{rad}"] = np.abs(Vbur_MaxCap[rad] - Vbur_MinCap[rad])
-
-                Vburr_SemiCylinders[f"Vburr_tot_{rad}_lowE"] = Vburr_CBurr_lowE[rad]
-                Vburr_SemiCylinders[f"Vburr_tot_{rad}"] = Vbur_CBurr[rad]
+                piList = []
+                piList_lowE = []
+                orthList = []
+                orthList_lowE = []
+                capList = []
+                capList_lowE = []
+                for segment in segmentList:
+                    Vburr_SemiCylinders[f"Vbur_{segment}_{rad}"] = semiCylinders[segment][rad]
+                    Vburr_SemiCylinders[f"Vbur_{segment}_{rad}_lowE"] = semiCylinders_lowE[segment][rad]
+                    if "Pi" in segment:
+                        piList.append(semiCylinders[segment][rad])
+                        piList_lowE.append(semiCylinders_lowE[segment][rad])
+                        if len(piList) == 2 and len(piList_lowE) == 2:
+                            Vburr_SemiCylinders[f"Vbur_deltaPi_{rad}"] = np.abs(piList[0] - piList[1])
+                            Vburr_SemiCylinders[f"Vbur_deltaPi_{rad}_lowE"] = np.abs(piList_lowE[0] - piList_lowE[1])
+                    elif "Orth" in segment:
+                        orthList.append(semiCylinders[segment][rad])
+                        orthList_lowE.append(semiCylinders_lowE[segment][rad])
+                        if len(orthList) == 2 and len(orthList_lowE) == 2:
+                            Vburr_SemiCylinders[f"Vbur_deltaOrth_{rad}"] = np.abs(orthList[0] - orthList[1])
+                            Vburr_SemiCylinders[f"Vbur_deltaOrth_{rad}_lowE"] = np.abs(orthList_lowE[0] - orthList_lowE[1])
+                    elif "Cap" in segment:
+                        capList.append(semiCylinders[segment][rad])
+                        capList_lowE.append(semiCylinders_lowE[segment][rad])
+                        if len(capList) == 2 and len(capList_lowE) == 2:
+                            Vburr_SemiCylinders[f"Vbur_deltaCap_{rad}"] = np.abs(capList[0] - capList[1])
+                            Vburr_SemiCylinders[f"Vbur_deltaCap_{rad}_lowE"] = np.abs(capList_lowE[0] - capList_lowE[1])
+                    else:
+                        continue
             hashList.append(Vburr_SemiCylinders)
 
         if "EvsZ" in featureList:
@@ -474,7 +475,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                         c2_coords = coords[2:5]
                 dist1 = np.linalg.norm(np.array(c1_coords , dtype=float) - np.array(c2_coords , dtype=float))
                 distList.append(dist1)
-            alkeneDist_lowE_idx = min(enumerate(weights), key = lambda x:x[1])[0]
+            alkeneDist_lowE_idx = max(enumerate(weights), key = lambda x:x[1])[0]
             alkeneDist_lowE = distList[alkeneDist_lowE_idx]
             distMAST = ( (distList * weights).sum()    / weights.sum()  )  
             distHash = {"C1C2Dist" : distMAST , "C1C2Dist_lowE" : alkeneDist_lowE} 
