@@ -251,8 +251,6 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                         meanLowE = np.mean(vBurlowE)
                         BurVolHash[f"{rad}_Ang_Vburr_mean_lowE"] = deltaLowE
                         BurVolHash[f"{rad}_Ang_Vburr_delta_lowE"] = meanLowE
-
-
             hashList.append(BurVolHash)
         if "firstContactVbur" in featureList:
             radList = [2.0,2.5,3.0,3.5,4.0]
@@ -284,9 +282,17 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             weights = boltzmannDF["boltzWeights"]
             firstContact_lowEIdx = max(enumerate(weights), key=lambda x: x[1])[0]
             vBurContactsAvg = {atom : {contact : {rad : ((np.asarray(vBurHash[atom][contact][rad])*weights).sum() / weights.sum()) for rad in vBurHash[atom][contact]} for contact in vBurHash[atom]} for atom in vBurHash}
-            vBurContactsAvg = {atom : {contact : {rad : vBurHash[atom][contact][rad][firstContact_lowEIdx] for rad in vBurHash[atom][contact]} for contact in vBurHash[atom]} for atom in vBurHash}
-
-
+            vBurContactslowE = {atom : {contact : {rad : vBurHash[atom][contact][rad][firstContact_lowEIdx] for rad in vBurHash[atom][contact]} for contact in vBurHash[atom]} for atom in vBurHash}
+            vBurContacts = {}
+            for atom in vBurContactsAvg:
+                for contact in vBurContactsAvg[atom]:
+                    for rad in vBurContactsAvg[atom][contact]:
+                        vBurContacts[f"C1_{contact}_{rad}"] = vBurContactsAvg[atom][contact][rad]
+            for atom in vBurContactslowE:
+                for contact in vBurContactslowE[atom]:
+                    for rad in vBurContactslowE[atom][contact]:
+                        vBurContacts[f"C1_{contact}_{rad}_lowE"] = vBurContactslowE[atom][contact][rad]
+            hashList.append(vBurContacts)
         if "orangeSlices" in featureList:
             radList = [2.5,3.0,3.5]
 
@@ -378,7 +384,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                         vburOrangeSlices[
                             f"vbur{center}_slice{quad}_{rad}_lowE"
                         ] = vburLowE[center][quad][rad]
-
+            hashList.append(vburOrangeSlices)
         if "%VburSemiCylinders" in featureList:
             radList = [2.5,3.0,3.5]
             segmentList = ["maxSemiPi" , "minSemiPi" , "maxSemiHashOrth" , "minSemiHashOrth" , "maxCap" , "minCap" , "CburrHash"]
