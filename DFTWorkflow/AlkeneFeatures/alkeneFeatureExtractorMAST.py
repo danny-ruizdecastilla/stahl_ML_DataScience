@@ -195,7 +195,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
 
-            radList = [2.0,2.5,3.0,3.5]
+            radList = [2.0,2.5,3.0]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             minWeightIdx = max(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
@@ -223,7 +223,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
 
                 for rad in radList:
                     vburC1 = BuriedVolume(elements,coordinates,int(C1 - 1),include_hs=True,radius=rad).fraction_buried_volume
-                    vburC2 = BuriedVolume(elements,coordinates,int(C1 - 1),include_hs=True,radius=rad).fraction_buried_volume
+                    vburC2 = BuriedVolume(elements,coordinates,int(C2 - 1),include_hs=True,radius=rad).fraction_buried_volume
                     
                     vBurStorage["Cmn"][rad].append(vburC1)
                     vBurStorage["Cmx"][rad].append(vburC2)
@@ -254,18 +254,19 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             hashList.append(BurVolHash)
         if "firstContactVbur" in featureList:
             radList = [2.0,2.5,3.0,3.5,4.0]
-            atomList = ["C1Atom1" , "C1Atom2" , "C2Atom1" , "C2Atom2"]
             vBurHash = {}
-            alkeneAtoms = [carbon - 1 for carbon in cc]
-            for i in range(len(alkeneAtoms)):
-                alkeneCarbon = alkeneAtoms[i]
-                otherCarbon = alkeneAtoms[i-1]
-                print(otherCarbon)
+            weights = boltzmannDF["boltzWeights"]
+            firstContact_lowEIdx = max(enumerate(weights), key=lambda x: x[1])[0]
+            for i in range(len(cc)):
+                alkeneCarbon = cc[i]
+                otherCarbon = cc[i-1]
+                #print(otherCarbon)
                 atom = molec.GetAtomWithIdx(alkeneCarbon)
                 neighbors = atom.GetNeighbors()
                 neighborLst = [nbr.GetIdx() for nbr in neighbors if nbr.GetIdx() != otherCarbon]
-                print(neighborLst)
+                #print(neighborLst)
                 vBurHash[f"C_{alkeneCarbon}"] = {neighbor : {rad :[] for rad in radList}for neighbor in neighborLst}
+            idxCount = 0
             for name in list(boltzmannDF["logID"]):
                 fileStr = f"{name}.log"
                 conformer  = next((f for f in conformerFiles if fileStr in f.name), None)
@@ -275,26 +276,38 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                 for _, coords in coordHash.items():
                     elements.append(str(coords[0]))
                     coordinates.append(np.array(coords[2:5]))
-                    for atom in vBurHash:
-                        for neighbor in vBurHash[atom]:
-                            for rad in vBurHash[atom][neighbor]:
-                                vBurHash[atom][neighbor][rad].append(BuriedVolume(elements,coordinates,int(neighbor),include_hs=True,radius=rad).fraction_buried_volume)
-            weights = boltzmannDF["boltzWeights"]
-            firstContact_lowEIdx = max(enumerate(weights), key=lambda x: x[1])[0]
+                if idxCount == firstContact_lowEIdx:
+                    c1Vbur = BuriedVolume(elements,coordinates,int(cc[0]),include_hs=True,radius=2.0).fraction_buried_volume
+                    c2Vbur = BuriedVolume(elements,coordinates,int(cc[1]),include_hs=True,radius=2.0).fraction_buried_volume
+                    if c1Vbur >= c2Vbur:
+                        orientationHash = {f"C_{cc[0]}" : "C_1" , f"C_{cc[1]}" : "C_2"}
+                    else:
+                        orientationHash = {f"C_{cc[0]}" : "C_2" , f"C_{cc[1]}" : "C_1"}
+                idxCount +=1
+                for atom in vBurHash:
+                    for neighbor in vBurHash[atom]:
+                        for rad in vBurHash[atom][neighbor]:
+                            vBurHash[atom][neighbor][rad].append(BuriedVolume(elements,coordinates,int(neighbor),include_hs=True,radius=rad).fraction_buried_volume)
             vBurContactsAvg = {atom : {contact : {rad : ((np.asarray(vBurHash[atom][contact][rad])*weights).sum() / weights.sum()) for rad in vBurHash[atom][contact]} for contact in vBurHash[atom]} for atom in vBurHash}
             vBurContactslowE = {atom : {contact : {rad : vBurHash[atom][contact][rad][firstContact_lowEIdx] for rad in vBurHash[atom][contact]} for contact in vBurHash[atom]} for atom in vBurHash}
             vBurContacts = {}
             for atom in vBurContactsAvg:
+                orientation = orientationHash[atom]
+                count = 0
                 for contact in vBurContactsAvg[atom]:
+                    count +=1
                     for rad in vBurContactsAvg[atom][contact]:
-                        vBurContacts[f"C1_{contact}_{rad}"] = vBurContactsAvg[atom][contact][rad]
+                        vBurContacts[f"{orientation}_{count}_{rad}"] = vBurContactsAvg[atom][contact][rad]
             for atom in vBurContactslowE:
+                orientation = orientationHash[atom]
+                count = 0
                 for contact in vBurContactslowE[atom]:
+                    count +=1
                     for rad in vBurContactslowE[atom][contact]:
-                        vBurContacts[f"C1_{contact}_{rad}_lowE"] = vBurContactslowE[atom][contact][rad]
-            hashList.append(vBurContacts)
+                        vBurContacts[f"{orientation}_{count}_{rad}_lowE"] = vBurContactslowE[atom][contact][rad]
+            hashList.append(vBurContacts)      
         if "orangeSlices" in featureList:
-            radList = [2.5,3.0,3.5]
+            radList = [2.0,2.5,3.0]
 
             orangeData = {atom: {quad: {r: [] for r in radList} for quad in range(4)} for atom in ("C1", "C2")}
             g = Graph()
