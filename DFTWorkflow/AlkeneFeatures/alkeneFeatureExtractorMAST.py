@@ -195,7 +195,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
 
-            radList = [2.0,2.5,3.0]
+            radList = [2.0,2.5]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             minWeightIdx = max(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
@@ -283,6 +283,18 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                         orientationHash = {f"C_{cc[0]}" : "C_1" , f"C_{cc[1]}" : "C_2"}
                     else:
                         orientationHash = {f"C_{cc[0]}" : "C_2" , f"C_{cc[1]}" : "C_1"}
+                    c1 = next((k for k, v in orientationHash.items() if v == "C_1"), None)
+                    c2 = next((k for k, v in orientationHash.items() if v == "C_2"), None)
+                    c1Contacts = list(vBurHash[c1].keys())
+                    c2Contacts = list(vBurHash[c2].keys())
+                    length1 = np.linalg.norm(coordinates[c1Contacts[0]] - coordinates[c2Contacts[0]])
+                    length2 = np.linalg.norm(coordinates[c1Contacts[0]] - coordinates[c2Contacts[1]])
+                    if length1 < length2:
+                        #1 and 1 orientations are good 
+                        bondHash = {"face1" : [c1Contacts[0] , c2Contacts[0]] , "face2" : [c1Contacts[1] , c2Contacts[1]]}
+                    else:
+                        #1 and 2 orientations need to be switched
+                        bondHash = {"face1" : [c1Contacts[0] , c2Contacts[1]] , "face2" : [c1Contacts[1] , c2Contacts[0]]}
                 idxCount +=1
                 for atom in vBurHash:
                     for neighbor in vBurHash[atom]:
@@ -293,18 +305,22 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             vBurContacts = {}
             for atom in vBurContactsAvg:
                 orientation = orientationHash[atom]
-                count = 0
                 for contact in vBurContactsAvg[atom]:
-                    count +=1
+                    if contact in bondHash["face1"]:
+                        face = "1"
+                    else:
+                        face = "2"
                     for rad in vBurContactsAvg[atom][contact]:
-                        vBurContacts[f"{orientation}_{count}_{rad}"] = vBurContactsAvg[atom][contact][rad]
+                        vBurContacts[f"{orientation}_{face}_{rad}"] = vBurContactsAvg[atom][contact][rad]
             for atom in vBurContactslowE:
                 orientation = orientationHash[atom]
-                count = 0
                 for contact in vBurContactslowE[atom]:
-                    count +=1
+                    if contact in bondHash["face1"]:
+                        face = "1"
+                    else:
+                        face = "2"
                     for rad in vBurContactslowE[atom][contact]:
-                        vBurContacts[f"{orientation}_{count}_{rad}_lowE"] = vBurContactslowE[atom][contact][rad]
+                        vBurContacts[f"{orientation}_{face}_{rad}_lowE"] = vBurContactslowE[atom][contact][rad]
             hashList.append(vBurContacts)      
         if "orangeSlices" in featureList:
             radList = [2.0,2.5,3.0]
