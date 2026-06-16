@@ -14,7 +14,6 @@ from sklearn.svm import SVR
 from sklearn.metrics import mean_squared_error, r2_score
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
-from DFTWorkflow.pitchingATent import featureFiltering
 class CustomError(Exception):
     pass
 
@@ -174,7 +173,7 @@ def supportVectorRegression(kernelStr, X, y, hyperParmFile, outputDir):
     with open(trainFile, "w") as f:
         f.write(f"Train Results: rmse {rmseTrain} | r2 {r2Train}\n")
 
-def gradientBoostRegression(X, y, hyperParmFile, outputDir):
+def gradientBoostRegression(X, y, hyperParmFile, outputDir , j):
     X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.2, random_state=j)
 
     if hyperParmFile.exists():
@@ -198,7 +197,7 @@ def gradientBoostRegression(X, y, hyperParmFile, outputDir):
         gbMAST = GradientBoostingRegressor(**gridSearch.best_params_, random_state=j)
         gbFinal = GradientBoostingRegressor(**gridSearch.best_params_, random_state=j)
 
-    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, gbMAST, True , n_splits=5)
+    mseCV, r2CV = stratifiedRegressionCV(X_train_CV, y_train_CV, j , gbMAST, False , n_splits=5) #X, y, j , model, standardScale ,n_splits=5
 
     cvFile = Path(outputDir) / "gradientBoost" / "crossvalidation" / "scores.dat"
     cvFile.parent.mkdir(parents=True, exist_ok=True)
