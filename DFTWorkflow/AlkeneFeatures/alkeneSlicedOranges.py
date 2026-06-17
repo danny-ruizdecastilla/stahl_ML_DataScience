@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from networkx import Graph
 from rdkit import Chem
+from plotly_gif import GIF, three_d_scatter_rotate
 parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
 from breadthFirstSearch.radialBasedCorrelation import getCC
@@ -184,6 +185,9 @@ class alkeneSlicedOranges:
                     slicedFig = self.Fig.drawShapes(c1Hash)  
                     slicedFig = self.Fig.drawShapes(c2Hash, fig = slicedFig)
                     slicedFig.write_html(f"slicedOranges_{AlkeneName}.html")
+                    #gifVburr = GIF()
+                    #three_d_scatter_rotate(gifVburr, slicedFig)
+                    #gifVburr.create_gif(gif_path = "/media/danny/KINGSTON/Stahl/subgroup_06_18_figs/steric_0042slicedOrange.gif")
             else:
                 print("noFlip")
                 returnHash = sliceOrange(self.atomCoordsC1 , self.atomSymbolsC1, returnHash , "1" , False)
