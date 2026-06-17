@@ -401,6 +401,11 @@ class stericDrawer:
             )
         )
         return newFig
-
+    def saveHTML(self , figDir  , figName):
+       from pathlib import Path
+       newOutputDir = Path(figDir)
+       newOutputDir.mkdir(parents=True, exist_ok=True)
+       newFig = go.Figure(self.Figure.to_dict())
+       newFig.write_html(newOutputDir / f"{figName}.html")
 
 
