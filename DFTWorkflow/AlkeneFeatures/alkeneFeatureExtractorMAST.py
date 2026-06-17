@@ -416,7 +416,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             hashList.append(vburOrangeSlices)
         if "%VburSemiCylinders" in featureList:
             radList = [2.5,3.0,3.5]
-            segmentList = ["maxSemiPi" , "minSemiPi" , "maxSemiHashOrth" , "minSemiHashOrth" , "maxCap" , "minCap" , "CburrHash"]
+            segmentList = ["maxSemiPi" , "minSemiPi" , "maxSemiOrth" , "minSemiOrth" , "maxCap" , "minCap" , "CburrTot"]
             cappedSemis = {segment : {r : [] for r in radList} for segment in segmentList}
             g = Graph()
             for bond in molec.GetBonds():
@@ -459,12 +459,12 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     segmentHash = mainCylinder.getBurriedVolume(True , False)
                     #Cburr = mainCylinder.getBurriedVolume(False , False)
                     for segment in segmentList:
-                        cappedSemis[segment][rad] = segmentHash[segment]
+                        cappedSemis[segment][rad].append(segmentHash[segment])
 
             weights = boltzmannDF["boltzWeights"]
             SemiCylinder_lowEIdx = max(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
-
+            print(cappedSemis)
             semiCylinders = {segment : {rad : (np.asarray(cappedSemis[segment][rad]) * weights).sum() for rad in radList } for segment in segmentList}
             semiCylinders_lowE = {segment : {rad : cappedSemis[segment][rad][SemiCylinder_lowEIdx] for rad in radList } for segment in segmentList}
 

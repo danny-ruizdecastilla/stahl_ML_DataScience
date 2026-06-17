@@ -364,7 +364,7 @@ class alkeneSemiCylinders:
         self.C2Range = [xMin , c2Cap]
 
         def createCaps(atomList , idxList , symbolList ,localMin, xInt1 , lowerBound , upperBound ):
-            print(xInt1[1])
+            #print(xInt1[1])
             a = (xInt1[0] -  localMin[0]) / (xInt1[1] - localMin[1])**2 
             xAtoms = np.array(atomList[:,0])
             expRadii = np.sqrt((xAtoms - localMin[0] )/a) + localMin[1] 
@@ -455,7 +455,9 @@ class alkeneSemiCylinders:
             capBurr = [c1CapBurr , c2CapBurr]     
 
             if len(atoms) == 0:
-                return [0 ,0 , 0, 0 , max(capBurr) , min(capBurr) , (c1CapVol + c2CapVol) / (self.c1CapVol / self.c2CapVol)*100]
+                return {"maxSemiPi":0, "minSemiPi":0 , "maxSemiOrth" :0, "minSemiOrth":0
+                        , "maxCap":max(capBurr) , "minCap":min(capBurr) , 
+                        "CburrTot": (c1CapVol + c2CapVol) / (self.c1CapVol / self.c2CapVol)*100}   
             else:
                 #pi is the z axis and orth is the y axis
                 posIdx_Pi= np.where(atomCoords[:,2] > 0)[0]
@@ -555,7 +557,7 @@ class alkeneSemiCylinders:
                 totBurrVol = ((posVol_Pi + negVol_Pi)/(volCylinder + self.c1CapVol + self.c2CapVol)) * 100 
                 return {"maxSemiPi":max(posBuried_Pi, negBuried_Pi) , "minSemiPi":min(posBuried_Pi, negBuried_Pi) , 
                          "maxSemiOrth" : max(posBuried_Orth, negBuried_Orth), "minSemiOrth":min(posBuried_Orth, negBuried_Orth)
-                          , "maxCap":max(capBurr) , "minCap":min(capBurr) , "CburrHash": totBurrVol}   
+                          , "maxCap":max(capBurr) , "minCap":min(capBurr) , "CburrTot": totBurrVol}   
         else:
             c1Atoms = np.asarray(self.c1CapSymbols)
             c2Atoms = np.asarray(self.c2CapSymbols)
