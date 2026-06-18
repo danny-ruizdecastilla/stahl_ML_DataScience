@@ -7,6 +7,7 @@ import pandas as pd
 from pathlib import Path
 import json
 import random
+import plotly.graph_objects as go
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
@@ -14,6 +15,62 @@ from sklearn.svm import SVR
 from sklearn.metrics import mean_squared_error, r2_score
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
+def saveScatter(yPredTest, yTest, yPredTrain , yTrain , outputDir):
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=yPredTrain,
+            y=yTrain,
+            mode="markers",
+            marker=dict(
+                size=8,
+                color="rgba(001,031,091,0.8)",
+                line=dict(color="black", width=1)
+            ),
+            name="Train"
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=yPredTest,
+            y=yTest,
+            mode="markers",
+            marker=dict(
+                size=10,
+                color="rgba(153,000,000,0.8)",
+                line=dict(color="black", width=1)
+            ),
+            name="Test"
+        )
+    )
+
+    minVal = min(
+        np.min(yPredTrain),
+        np.min(yPredTest),
+        np.min(yTrain),
+        np.min(yTest)
+    )
+
+    maxVal = max(
+        np.max(yPredTrain),
+        np.max(yPredTest),
+        np.max(yTrain),
+        np.max(yTest)
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[minVal, maxVal],
+            y=[minVal, maxVal],
+            mode="lines",
+            line=dict(color="black", dash="dash"),
+            name="Ideal"
+        )
+    )
+
+    fig.write_html(Path(outputDir) / "gradientBoost" / "Eval" / "parityPlot.html")
 class CustomError(Exception):
     pass
 
@@ -173,7 +230,7 @@ def supportVectorRegression(kernelStr, X, y, hyperParmFile, outputDir):
     with open(trainFile, "w") as f:
         f.write(f"Train Results: rmse {rmseTrain} | r2 {r2Train}\n")
 
-def gradientBoostRegression(X, y, hyperParmFile, outputDir , j):
+def gradientBoostRegression(X, y, hyperParmFile, outputDir , j , saveFig : False):
     X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.2, random_state=j)
 
     if hyperParmFile.exists():
@@ -223,6 +280,8 @@ def gradientBoostRegression(X, y, hyperParmFile, outputDir , j):
     trainFile = Path(outputDir) / "gradientBoost" / "Eval" / "trainScores.dat"
     with open(trainFile, "w") as f:
         f.write(f"Train Results: rmse {rmseTrain} | r2 {r2Train}\n")
+    if saveFig:
+        saveScatter(yPred, y_test, yTrain, y_train_CV, outputDir )
 
     importances = gbFinal.feature_importances_
     if isinstance(X_train_CV, pd.DataFrame):

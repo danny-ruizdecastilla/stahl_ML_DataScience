@@ -50,7 +50,7 @@ def main(dfMAST , saveDir , saveName , hyperFile):
 
         newOutputDir = Path(saveDir) / f"trial{j}"
         newOutputDir.mkdir(parents=True, exist_ok=True)
-        gradientBoostRegression(reducedX, yCol, hyperFile, newOutputDir , j)
+        gradientBoostRegression(reducedX, yCol, hyperFile, newOutputDir , j , True)
         j +=1
 if __name__ == "__main__":
     dfStr = str(sys.argv[1])
