@@ -1,7 +1,7 @@
 import os
+import re
 import sys
 import glob
-from pathlib import Path
 #Danny Ruiz de Castilla
 #writes geom optimization com files from crest 
 def energyCutoff(energiesFile):
@@ -10,8 +10,8 @@ def energyCutoff(energiesFile):
         for idx, line in enumerate(file):
             inputs = line.split("        ")
             energiesDict[idx] = float(inputs[-1].strip())
-    if len(list(energiesDict.keys())) >= 20:
-        energyCutoff = 0.75
+    if len(list(energiesDict.keys())) >= 50:
+        energyCutoff = 1.6
         finalDict = {key: val for key, val in energiesDict.items() if val <= energyCutoff}
         cutoffKey = list(finalDict.keys())[-1]
     else:
@@ -34,6 +34,13 @@ def groupThresh(values, threshold):
             groups.append([v])
     
     return groups
+def getSolventInputs(linkStr):
+    solventHash = {}
+    solventNames = ["stoichiometry" , "solventname" , "eps" , "epsinf" , "hbondacidity" , "hbondbasicity" , "SurfaceTensionAtInterface" , "CarbonAromaticity", "ElectronegativeHalogenicity"]
+    for name in solventNames:
+        val = input(f"Please enter the {name} for {linkStr}: ")
+        solventHash[name] = val
+    return solventHash
 def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
     if numComs == 0:
         numComs +=1
@@ -67,7 +74,7 @@ def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
                 energyLevel = float(line.strip())
         if not termMiddle:
             confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
-    confHash = conformerDownsize(confHash , 15)
+    confHash = conformerDownsize(confHash , 50)
     return confHash
 def conformerDownsize(xyzHash , popThresh):
     population = list(xyzHash.keys())
@@ -81,7 +88,7 @@ def conformerDownsize(xyzHash , popThresh):
                 energyList.append(energy)
             except:
                 print(key , "no energy")
-        energyGroups = groupThresh(energyList ,0.001)
+        energyGroups = groupThresh(energyList ,0.0001)
         allowedEnergies = []
         for group in energyGroups:
             energy = min(group)
@@ -90,8 +97,9 @@ def conformerDownsize(xyzHash , popThresh):
         return newHash
     else:
         return xyzHash
-def geomComWriter(saveStr , coords , output , **kwargs):
+def geomComWriter(saveStr , coords , output ,  **kwargs):
     comFile = str(output) + "/" + str(saveStr) + ".com"
+    solventHash = kwargs["solventHash"]
     try:
         nprocs = int(kwargs["nprocs"])
         mem = int(kwargs["mem"])
@@ -112,21 +120,24 @@ def geomComWriter(saveStr , coords , output , **kwargs):
         for atom, coordinates in coords.items():
             f.write(f"{atom.split(',')[-1]} {coordinates[0]} {coordinates[1]} {coordinates[2]}\n")
         f.write("\n")
-    
+        if solventHash is not None:
+            for key , val in solventHash.items():
+                f.write(f"{key}={val}\n")
+            f.write("\n")
 def binaryInput(inputStr):
     binaryVal = input(f"{inputStr}").strip()
     if binaryVal not in ("0", "1"):
         raise ValueError("Input must be '0' or '1'")
     return bool(int(binaryVal))
-def addLink(comFile , linkStr , linkName , charge , spin):
+def addLink(comFile , linkStr , linkName , charge , spin , **kwargs):
+    solventHash = kwargs["solventHash"]
     with open(comFile, 'r') as f:
         for idx , line in enumerate(f):
             if "nprocs" in line:
                 nproc = int(line.split("=")[-1].strip())
             elif "mem=" in line:
                 mem = str(line.split("=")[-1].strip())
-    #lnkStr = comFile.split("/")[-1].split(".")[0]
-    lnkStr = str(comFile.root.split(".")[0])
+    lnkStr = comFile.split("/")[-1].split(".")[0]
     chkFile = lnkStr + ".chk"
     newName = lnkStr + linkName
     with open(comFile, 'a') as f:
@@ -146,10 +157,17 @@ def addLink(comFile , linkStr , linkName , charge , spin):
         f.write(f"{linkStr}\n\n")
         f.write(f" {newName}\n\n")
         f.write(f"{charge} {spin}\n\n")
-            
+        if solventHash is not None:
+            for key , val in solventHash.items():
+                f.write(f"{key}={val}\n")
+            f.write("\n")
 def main(masterDir , outputDir):
     pathAvailables = glob.glob(masterDir + "/*/crest.energies")
     geomOpt = str(input("Please enter the geometry optimization line: "))
+    if re.search(r"Solvent=Generic,read",geomOpt, re.IGNORECASE):
+        solventHash_ = getSolventInputs(" Energy Minimization")
+    else:
+        solventHash_ = None
     netCharge = int(input("Please enter the net charge for these jobs: "))
     spin = int(input("Please enter the spin for these jobs: (2s+1): "))
     for path in pathAvailables:
@@ -167,7 +185,7 @@ def main(masterDir , outputDir):
         xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms )
         for key , vals in xyzHash.items():
             coords = vals["coordinates"]
-            geomComWriter(key, coords , outputDir , nprocs = 16 , mem = 25 , 
+            geomComWriter(key, coords , outputDir , solventHash = solventHash_, nprocs = 16 , mem = 25 , 
                           chk = str(key) + ".chk" ,  geomLine = geomOpt , netCharge = netCharge , spin = spin)
 
 if __name__ == "__main__":
@@ -180,11 +198,15 @@ if __name__ == "__main__":
         link = binaryInput(f"Select if you want to add a --link--\n[0]   No Link\n[1]    Add Link\n")
         if link:
             linkStr = input(f"Write out the input line for your --link--\n")
+            if re.search(r"Solvent=Generic,read",linkStr, re.IGNORECASE):
+                solventHash_ = getSolventInputs(" Energy Minimization")
+            else:
+                solventHash_ = None
             linkName = input(f"Enter the title for the --link--: ")
             netCharge = int(input("Please enter the net charge for these jobs: "))
             spin = int(input("Please enter the spin for these jobs: (2s+1)"))
             comFiles = glob.glob(outputDir + "/*.com")
             for com in comFiles:
-                addLink(Path(com) , linkStr , linkName , netCharge , spin)
+                addLink(com , linkStr , linkName , netCharge , spin , solventHash = solventHash_)
         else:
             break
