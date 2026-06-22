@@ -60,38 +60,40 @@ def askingForAddition(askStr):
         return askingForAddition(askStr)
 
 
-def checkCols(df, xCol=None, yCol=None):
+def checkCols(df, xCol=None, yCol=None , speedPlot = None):
+    if speedPlot:
+        return xCol , yCol
+    else:
+        print("\nAvailable columns:")
+        print(", ".join(df.columns))
 
-    print("\nAvailable columns:")
-    print(", ".join(df.columns))
+        xInput = input("\nEnter x-column name: ").strip()
+        yInput = input("Enter y-column name: ").strip()
 
-    xInput = input("\nEnter x-column name: ").strip()
-    yInput = input("Enter y-column name: ").strip()
+        # validate existence
+        if xInput not in df.columns:
+            print(f"\n'{xInput}' is not a valid column.")
+            return checkCols(df, xCol, yCol)
 
-    # validate existence
-    if xInput not in df.columns:
-        print(f"\n'{xInput}' is not a valid column.")
-        return checkCols(df, xCol, yCol)
+        if yInput not in df.columns:
+            print(f"\n'{yInput}' is not a valid column.")
+            return checkCols(df, xCol, yCol)
 
-    if yInput not in df.columns:
-        print(f"\n'{yInput}' is not a valid column.")
-        return checkCols(df, xCol, yCol)
+        # validate consistency with previous dataframes
+        if xCol is not None and xInput != xCol:
+            print(f"\nAll datasets must use the same x-column.")
+            print(f"Expected: {xCol}")
+            return checkCols(df, xCol, yCol)
 
-    # validate consistency with previous dataframes
-    if xCol is not None and xInput != xCol:
-        print(f"\nAll datasets must use the same x-column.")
-        print(f"Expected: {xCol}")
-        return checkCols(df, xCol, yCol)
+        if yCol is not None and yInput != yCol:
+            print(f"\nAll datasets must use the same y-column.")
+            print(f"Expected: {yCol}")
+            return checkCols(df, xCol, yCol)
 
-    if yCol is not None and yInput != yCol:
-        print(f"\nAll datasets must use the same y-column.")
-        print(f"Expected: {yCol}")
-        return checkCols(df, xCol, yCol)
-
-    return xInput, yInput
+        return xInput, yInput
 
 
-def compareSources(fig, saveDir, saveStr, xCol=None, yCol=None):
+def compareSources(fig, saveDir, saveStr, xCol=None, yCol=None, speedPlot = None):
 
     addSources = askingForAddition(
         "Do you want to add a dataframe to the scatter plot? (yes/no): "
@@ -106,14 +108,15 @@ def compareSources(fig, saveDir, saveStr, xCol=None, yCol=None):
 
         except Exception as e:
             print(f"\nError reading dataframe:\n{e}")
-            return compareSources(fig, saveDir, saveStr, xCol, yCol)
+            return compareSources(fig, saveDir, saveStr, xCol, yCol , speedPlot)
 
         # get validated columns
-        xColNew, yColNew = checkCols(df, xCol, yCol)
+        xColNew, yColNew = checkCols(df, xCol, yCol , speedPlot)
 
         # set master columns if first dataframe
         if xCol is None:
             xCol = xColNew
+            speedPlot = askingForAddition("Do you want to assume this column name for all other dataframes? (yes/no)")
 
         if yCol is None:
             yCol = yColNew
@@ -121,7 +124,7 @@ def compareSources(fig, saveDir, saveStr, xCol=None, yCol=None):
         datasetName = input(
             "\nEnter label for this dataframe: "
         ).strip()
-
+        pointName = input("\nEnter the name for the ID column for these points: ")
         # scatter plot
         fig.add_trace(
             go.Scatter(
@@ -129,9 +132,15 @@ def compareSources(fig, saveDir, saveStr, xCol=None, yCol=None):
                 y=df[yCol],
                 mode="markers",
                 name=datasetName,
+                text=df[pointName],
+                hovertemplate=(
+                    f"{pointName}: %{{text}}<br>"
+                    f"{xCol}: %{{x}}<br>"
+                    f"{yCol}: %{{y}}<extra></extra>"
+                ),
                 marker=dict(
                     size=12,
-                    opacity= 0.8,
+                    opacity=0.8,
                     line=dict(
                         width=1,
                         color="black"
@@ -149,7 +158,7 @@ def compareSources(fig, saveDir, saveStr, xCol=None, yCol=None):
             saveDir,
             saveStr,
             xCol,
-            yCol
+            yCol , speedPlot
         )
 
     else:
