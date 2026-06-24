@@ -13,17 +13,32 @@ parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
 from DFTWorkflow.pitchingATent import featureFiltering
 from dimensionalityReduction.reactivityFeatures import boxGen
-from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 from ml_Regression.ML_RegressionV2 import gradientBoostRegression
+def listInputs(prompt:str):
+    while True:
+        partitionInput = input(prompt)
+        partitionList = [part.strip() for part in partitionInput.split(",")]
+        if len(partitionList) == 0 or any(part == '' for part in partitionList):
+            partitionList = []
+            break
+        else:
+            print("Input List:", partitionList)
+            conf = int(input("Confirm your strings entry by Typing 1: "))
+            if conf == 1:
+                break
+    return partitionList
 def encodeReactionInfo(df):
     cols = list(df.columns)
     boxCol = boxGen(cols)
     encodeLst = listInputs(f"Enter a list of indices for string columns you want to encode as features\n {boxCol}\n")
-    dropColsStr = [cols[int(i)] for i in encodeLst]
-    for col in dropColsStr:
-        types = {colStr : i for i , colStr in enumerate(df[col].unique())}
-        df[col] = df[col].map(types)
-    return df 
+    if len(encodeLst) != 0:
+        dropColsStr = [cols[int(i)] for i in encodeLst]
+        for col in dropColsStr:
+            types = {colStr : i for i , colStr in enumerate(df[col].unique())}
+            df[col] = df[col].map(types)
+        return df 
+    else:
+        return df
 def main(dfMAST , saveDir , saveName , hyperFile):
     cols = list(dfMAST.columns)
     boxCols = boxGen(cols)
