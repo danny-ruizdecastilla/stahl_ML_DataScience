@@ -195,7 +195,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                             "f_neg_meanAlk" : float(f_minus_Mx+f_minus_Mn)/2, "f_pos_meanAlk" : float(f_plus_Mx+f_plus_Mn)/2 , "f_neut_meanAlk" : float(f_neut_Mx+f_neut_Mn)/2 })
         if "%Vbur" in featureList:
 
-            radList = [2.0,2.5]
+            radList = [2.0,2.5 , 3.0 , 3.5]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             minWeightIdx = max(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
@@ -303,24 +303,25 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             vBurContactsAvg = {atom : {contact : {rad : ((np.asarray(vBurHash[atom][contact][rad])*weights).sum() / weights.sum()) for rad in vBurHash[atom][contact]} for contact in vBurHash[atom]} for atom in vBurHash}
             vBurContactslowE = {atom : {contact : {rad : vBurHash[atom][contact][rad][firstContact_lowEIdx] for rad in vBurHash[atom][contact]} for contact in vBurHash[atom]} for atom in vBurHash}
             vBurContacts = {}
-            for atom in vBurContactsAvg:
+            for atom in vBurHash:
                 orientation = orientationHash[atom]
                 for contact in vBurContactsAvg[atom]:
                     if contact in bondHash["face1"]:
                         face = "1"
                     else:
                         face = "2"
-                    for rad in vBurContactsAvg[atom][contact]:
+                    for rad in radList:
                         vBurContacts[f"{orientation}_{face}_{rad}"] = vBurContactsAvg[atom][contact][rad]
-            for atom in vBurContactslowE:
-                orientation = orientationHash[atom]
-                for contact in vBurContactslowE[atom]:
-                    if contact in bondHash["face1"]:
-                        face = "1"
-                    else:
-                        face = "2"
-                    for rad in vBurContactslowE[atom][contact]:
                         vBurContacts[f"{orientation}_{face}_{rad}_lowE"] = vBurContactslowE[atom][contact][rad]
+            for rad in radList:
+                avgFace1 = (vBurContacts[f"C_1_1_{rad}"] + vBurContacts[f"C_2_1_{rad}"]) /2 
+                avgFace2 = (vBurContacts[f"C_1_2_{rad}"] + vBurContacts[f"C_2_2_{rad}"]) /2 
+                avg1 = (vBurContacts[f"C_1_1_{rad}"] + vBurContacts[f"C_1_2_{rad}"]) /2 
+                avg2 = (vBurContacts[f"C_2_1_{rad}"] + vBurContacts[f"C_2_2_{rad}"]) /2 
+                vBurContacts[f"delta_Faces_{rad}"] = np.abs(avgFace1-avgFace2)
+                vBurContacts[f"delta_Ends_{rad}"] = np.abs(avg1-avg2)
+
+
             hashList.append(vBurContacts)      
         if "orangeSlices" in featureList:
             radList = [2.0,2.5,3.0]
@@ -626,14 +627,12 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                                  f"meanTopology_{period}" : meanTopology , })
 
         if "Sterimol" in featureList:
-            radList = [3.0,4.0,4.5]
+            radList = [2.0 , 2.5, 3.0,4.0,4.5]
             weights = boltzmannDF["boltzWeights"].to_numpy()
             weight_sum = weights.sum()
-            sterimol_MinIdx = min( enumerate(weights)  , key = lambda x:x[1])[0]
+            sterimol_MinIdx = max(enumerate(weights), key=lambda x: x[1])[0]
             # Storage
-            ster_B1 = {r: [] for r in radList}
-            ster_L = {r: [] for r in radList}
-            ster_B5 = {r: [] for r in radList}
+            sterimolHash = {c : {rad : { ang : [] for ang in ["B1" , "B5" , "L"]} for rad in radList} for c in ["C1" , "C2"]}
 
             for name in boltzmannDF["logID"]:
                 fileStr = f"{name}.log"
@@ -657,33 +656,28 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     coordinates.append(np.array(coords[2:5]))
                 for rad in radList:
                     #print(C1 , C2)
-                    sterimol_values = Sterimol(elements, coordinates, int(C1), int(C2)) 
-                    sterimol_values.bury(method="delete", sphere_radius=float(rad))
-                    L = sterimol_values.L_value
-                    B1 = sterimol_values.B_1_value
-                    B5 = sterimol_values.B_5_value
-                    ster_B1[rad].append(B1) 
-                    ster_B5[rad].append(B5)
-                    ster_L[rad].append(L)
-            
+                    cStr = 0
+                    for i in range(len([C1 , C2])):
+                        cStr +=1
+                        cH = f"C" + str(cStr)
+                        alkeneCarbon = [C1 , C2][i]
+                        otherCarbon = [C1 , C2][i-1]
+                        sterimol_values = Sterimol(elements, coordinates, int(alkeneCarbon), int(otherCarbon)) 
+                        sterimol_values.bury(method="delete", sphere_radius=float(rad))
+                        L = sterimol_values.L_value
+                        B1 = sterimol_values.B_1_value
+                        B5 = sterimol_values.B_5_value
+                        sterimolHash[cH][rad]["B1"].append(B1)
+                        sterimolHash[cH][rad]["L"].append(L)
+                        sterimolHash[cH][rad]["B5"].append(B5)
+            sterimolLowE = {c : {rad : { ang : sterimolHash[c][rad][ang][sterimol_MinIdx] for ang in ["B1" , "B5" , "L"]} for rad in radList} for c in ["C1" , "C2"]}
+            sterimolBoltzAvg = {c : {rad : { ang : (np.asarray(sterimolHash[c][rad][ang])*weights).sum() for ang in ["B1" , "B5" , "L"]} for rad in radList} for c in ["C1" , "C2"]}
             sterHash = {}
-            for rad in radList:
-                sterB1_lowE = ster_B1[rad][sterimol_MinIdx]
-                sterB5_lowE = ster_B5[rad][sterimol_MinIdx]
-                sterL_lowE = ster_L[rad][sterimol_MinIdx]
-
-                sterB1 = np.array(ster_B1[rad])
-                sterB5 = np.array(ster_B5[rad])
-                sterL = np.array(ster_L[rad])
-                avgSterB1 = (sterB1 * weights).sum() / weight_sum
-                avgSterB5 = (sterB5 * weights).sum() / weight_sum
-                avgSterL = (sterL * weights).sum() / weight_sum
-                sterHash[f"sterB1_{rad}"] = avgSterB1
-                sterHash[f"sterB5_{rad}"] = avgSterB5
-                sterHash[f"sterL_{rad}"] = avgSterL
-                sterHash[f"sterB1_{rad}_lowE"] = sterB1_lowE
-                sterHash[f"sterB5_{rad}_lowE"] = sterB5_lowE
-                sterHash[f"sterL_{rad}_lowE"] = sterL_lowE
+            for c in ["C1" , "C2"]:
+                for rad in radList:
+                    for ang in ["B1" , "B5" , "L"]:
+                        sterHash[f"{c}_sterimol_{rad}_{ang}"] = sterimolBoltzAvg[c][rad][ang]
+                        sterHash[f"{c}_sterimol_{rad}_{ang}_lowE"] = sterimolLowE[c][rad][ang]
 
             hashList.append(sterHash)
         masterDict = {}
