@@ -13,6 +13,8 @@ from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKF
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.svm import SVR
 from sklearn.metrics import mean_squared_error, r2_score
+import shap
+import matplotlib.pyplot as plt
 parentDir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parentDir)
 def saveScatter(yPredTest, yTest, yPredTrain , yTrain , outputDir):
@@ -291,6 +293,14 @@ def gradientBoostRegression(X, y, hyperParmFile, outputDir , j , saveFig : False
     featDF = pd.DataFrame({"feature": feature_names, "importance": importances}).sort_values(by="importance", ascending=False)
     featFile = Path(outputDir) / "gradientBoost" / "Eval" / "testWeights.csv"
     featDF.to_csv(featFile, index=False)
+    gbExplainer = shap.TreeExplainer(gbFinal , X_test)
+    shapValues = gbExplainer(X_test)
+    plt.figure(figsize=(10, 8))
+    shap.plots.beeswarm(shapValues, max_display=20, show=False)
+    plt.tight_layout()
+    plt.savefig(Path(outputDir)  /  "gradientBoost" / "Eval" / "shap_beeswarm.png", dpi=300, bbox_inches="tight")
+    plt.savefig(Path(outputDir)  /  "gradientBoost" / "Eval" / "shap_beeswarm.pdf", bbox_inches="tight")
+    plt.close()
 
 def chooseRegressionModels():
     models = {
