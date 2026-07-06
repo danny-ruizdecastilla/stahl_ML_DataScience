@@ -30,9 +30,8 @@ def diagonalChecker(matrix):
                 isDiagonal = False
     return isDiagonal 
 def correlationGenerator(corrDF, corrStr , savePath , template: str = None):
-    mask = np.triu(np.ones(corrDF.shape), k=1).astype(bool)
-    z_masked = corrDF.copy()
-    z_masked.values[mask] = None
+    mask = np.triu(np.ones(corrDF.shape, dtype=bool), k=1)
+    z_masked = corrDF.mask(mask)
     if template is None:
         plotTemplate = openPlotlyTemplate
     if savePath is None:
@@ -41,13 +40,13 @@ def correlationGenerator(corrDF, corrStr , savePath , template: str = None):
         save_path = True
 
     fig = go.Figure(
-        data=go.Heatmap(
-            z=z_masked.values,
-            x=corrDF.columns,
-            y=corrDF.columns,
-            colorscale="RdBu", 
-            colorbar=dict(title=corrStr, titleside="right")
-        ),
+    data=go.Heatmap(
+        z=z_masked.to_numpy(),
+        x=corrDF.columns,
+        y=corrDF.columns,
+        colorscale="RdBu",
+        colorbar=dict(title=corrStr)
+    ),
         layout=dict(template=plotTemplate())
     )
     annotations = []
