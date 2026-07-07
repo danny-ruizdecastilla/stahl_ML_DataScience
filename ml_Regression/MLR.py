@@ -1,7 +1,7 @@
 #MLR workflow for combination of features
 import pandas as pd
 import numpy as np
-import seaborn as sns
+#import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn import preprocessing
@@ -25,13 +25,14 @@ def combinations(pool, r):
         for j in range(i+1, r):
             indices[j] = indices[j-1] + 1
         yield tuple(pool[i] for i in indices)
-def rmseCalc(fit , actual):
+def rmseCalc(fit, actual):
     sum_ = np.sum((np.array(actual) - np.array(fit))**2)
     n = len(fit)
-    sumSqr = sum_/n
-    return np.sqrt(sumSqr)
-def maeCalc(fit , actual):
-    return np.sum(np.abs(np.array(actual) - np.array(fit)))/len(fit)
+    sumSqr = sum_ / n
+    return float(np.sqrt(sumSqr))
+
+def maeCalc(fit, actual):
+    return float(np.sum(np.abs(np.array(actual) - np.array(fit))) / len(fit))
 def MLR(df , yCol , paramNum):
     resultsHash = {}
     colList = tuple(df.columns)
@@ -43,9 +44,9 @@ def MLR(df , yCol , paramNum):
         rmseDump = []
         maeDump = []
         rmseTrain = []
-        for i in range(5):
+        for i in range(10):
             mlr = LinearRegression()
-            X_train, X_test, y_train, y_test = train_test_split(X, yCol, test_size=0.3, random_state=i)
+            X_train, X_test, y_train, y_test = train_test_split(X, yCol, test_size=0.4, random_state=i)
             mlr.fit(X_train,y_train)
             y_fit = mlr.predict(X_test)
             y_fitT = mlr.predict(X_train)
@@ -54,7 +55,7 @@ def MLR(df , yCol , paramNum):
             mae = maeCalc(y_fit , y_test)
             rmseDump.append(rmse)
             maeDump.append(mae)
-        dataHash = {"rmseDump" : rmseDump , "maeDump" : maeDump , "rmseAvg" : np.mean(rmseDump) , "rmseTrainAvg" : np.mean(rmseTrain)}
+        dataHash = {"rmseDump" : rmseDump , "maeDump" : maeDump , "rmseAvg" : float(np.mean(rmseDump)) , "rmseTrainAvg" : float(np.mean(rmseTrain))}
         resultStr = ""
         for col in cols:
             resultStr += f"{col}&"
@@ -76,11 +77,9 @@ if __name__ == "__main__":
     outPath = Path(outStr)
     outPath.mkdir(parents=True, exist_ok=True)
     dfMain = pd.read_csv(dfStr)
-    #yCol = dfMain["RelRate"]
-    yCol2 = dfMain["k2"]
-    yCol3 = dfMain["err"]
-    dfMain = dfMain.drop(columns=[ "k2" , "err" , "SMILES" , "Canonicals" , "ID"])
-    MLRHash = MLR(dfMain , yCol2 , numParms)
+    yCol = dfMain["log_k2"]
+    dfMain = dfMain.drop(columns=[  "log_k2" , "SMILES" , "ID"])
+    MLRHash = MLR(dfMain , yCol , numParms)
     MLRFile = outPath / f"{outName}_MLR.dat"
     with MLRFile.open("w") as f:
         for key , val in MLRHash.items():
