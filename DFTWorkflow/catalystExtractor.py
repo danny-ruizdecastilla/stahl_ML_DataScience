@@ -61,4 +61,7 @@ def locateCatRows(logDir , splitStr , catalystFile):
             except:
                 continue
     return catalystHash , smilesHash
-def getChiralKetoneFeatures(catalystHash , smilesHash):
+def getChiralKetone(smilesStr):
+    return idx
+def getChiralKetoneFeatures(catalystHash , smilesHash , featuresHash , ):
+    featuresMASTDF = pd.DataFrame()
