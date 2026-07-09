@@ -61,7 +61,112 @@ def locateCatRows(logDir , splitStr , catalystFile):
             except:
                 continue
     return catalystHash , smilesHash
-def getChiralKetone(smilesStr):
-    return idx
-def getChiralKetoneFeatures(catalystHash , smilesHash , featuresHash , ):
+def getChiralKetone(smiles):
+    molec = Chem.MolFromSmiles(smiles)
+
+    for bond in molec.GetBonds():
+        atom1 = bond.GetBeginAtom()
+        atom2 = bond.GetEndAtom()
+        if (atom1.GetAtomicNum() == 6 and atom2.GetAtomicNum() == 8 and bond.GetBondType() == Chem.BondType.DOUBLE):
+            #Carbonyl with C at atom1
+            neighbors = atom1.GetNeighbors()
+            carbonCount = 0
+            for nbr in neighbors:
+                atomNum = nbr.GetAtomicNum()
+                if int(atomNum) == 6:
+                    carbonCount +=1
+            if carbonCount == 2 :# 2 carbon neighbors this is the carbonyl we want
+                c = bond.GetBeginAtomIdx() #carbon first then oxygen
+                o = bond.GetEndAtomIdx()
+                return [c , o] , molec
+        elif (atom1.GetAtomicNum() == 8 and atom2.GetAtomicNum() == 6 and bond.GetBondType() == Chem.BondType.DOUBLE):
+            #Carbonyl with C at atom1
+            neighbors = atom2.GetNeighbors()
+            carbonCount = 0
+            for nbr in neighbors:
+                atomNum = nbr.GetAtomicNum()
+                if int(atomNum) == 6:
+                    carbonCount +=1
+            if carbonCount == 2 :# 2 carbon neighbors this is the carbonyl we want
+                o = bond.GetBeginAtomIdx() #carbon first then oxygen
+                c = bond.GetEndAtomIdx()
+                return [c , o] , molec      
+    return ["Poison" , "Poison"] , molec
+def getKetoneNBOInfo(weightsDF,logList  ,  carbonyl , nboStr , charge , catalystID , smiles ):
+    carbonyl = [c + 1 for c in carbonyl]
+    cNBO = []
+    oNBO = []
+
+    piBond = []
+    piAntiBond = []
+    piEnergy = []
+    antiPiEnergy = []
+
+    oLP1 = []
+    oLP2 = []
+    oLP1E = []
+    oLP2E = []
+
+    piBondEnergyWeights = []
+    localWeights = weightsDF["boltzWeights"]
+
+    for idx , row in weightsDF.iterrows():
+        logFile = row["logID"]
+        logPath = f"{logFile}.log"
+        conformer  = next((f for f in logList if logPath in f.name), None)
+        chargeHash  , bondHash , lonePairHash = extractNBOOccupancies(conformer , nboStr , charge)
+        carbonylHash = {key: chargeHash[key] for key in chargeHash if key == carbonyl[0] or key == carbonyl[1]}
+
+        cNBO.append(float(carbonylHash[carbonyl[0]][1]))
+        oNBO.append(float(carbonylHash[carbonyl[1]][1]))
+        
+        oxygenLP1 = lonePairHash[f"O_{carbonyl[1]}_lp_1"]
+        oxygenLP2 = lonePairHash[f"O_{carbonyl[1]}_lp_2"]
+        oLP1.append(oxygenLP1["occupancy"])
+        oLP2.append(oxygenLP2["occupancy"])
+        oLP1E.append(oxygenLP1["energy"])
+        oLP2E.append(oxygenLP2["energy"])
+
+        if charge == 0:
+            try:
+                carbonylBondStr = f"bonding_O{carbonyl[1]}_C{carbonyl[0]}_2"
+                carbonylAntiBondStr = f"antibonding_O{carbonyl[1]}_C{carbonyl[0]}_2"
+                piOccupancy = float(bondHash[carbonylBondStr]["occupancy"])
+                piEnergy_ = float(bondHash[carbonylAntiBondStr]["energy"])
+                piBond.append(piOccupancy)
+                piEnergy.append(piEnergy_)
+                piAntiOccupancy = float(bondHash[carbonylBondStr]["occupancy"])
+                piAntiEnergy = float(bondHash[carbonylAntiBondStr]["energy"])
+                piAntiBond.append(piAntiOccupancy)
+                antiPiEnergy.append(piAntiEnergy)
+                localWeight = localWeights[idx]
+                piBondEnergyWeights.append(localWeight)
+            except:
+                continue
+    def weightedAvg(values, weights):
+        weightTot = sum(weights)
+        if weightTot == 0:
+            return 0
+        return sum(v * w for v, w in zip(values, weights)) / weightTot
+    finalHash = {}
+    finalHash["ID"] = catalystID
+    finalHash["SMILES"] = smiles
+    finalHash["carbonNBO"] =weightedAvg(cNBO , list(weightsDF["boltzWeights"]))
+    finalHash["oxygenNBO"] =weightedAvg(oNBO , list(weightsDF["boltzWeights"]))
+    finalHash["oxygenLonePair1"] =weightedAvg(oLP1 , list(weightsDF["boltzWeights"]))
+    finalHash["oxygenLonePair2"] =weightedAvg(oLP2, list(weightsDF["boltzWeights"]))
+    finalHash["oxygenLonePairEnergy1"] =weightedAvg(oLP1E, list(weightsDF["boltzWeights"]))
+    finalHash["oxygenLonePairEnergy2"] =weightedAvg(oLP2E , list(weightsDF["boltzWeights"]))
+    return finalHash
+
+
+def getChiralKetoneFeatures(catalystHash , smilesHash  , logEnergyStr , nboStr ):
     featuresMASTDF = pd.DataFrame()
+    for catalystID , catPaths in catalystHash.items():
+        idName = catalystID.split("_")[0]
+        smilesStr = smilesHash[idName]
+        carbonyl , molec = getChiralKetone(smilesStr)
+        boltzmannDF = getBoltzmannWeightsGauss(catPaths, 298, "electronic" , logEnergyStr)
+        #NBO Features 
+        neutralHash = getKetoneNBOInfo(boltzmannDF,catPaths ,  carbonyl,  nboStr , 0 , catalystID , smilesStr)
+        
