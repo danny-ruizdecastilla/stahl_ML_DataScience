@@ -9,7 +9,7 @@ import json
 import random
 import plotly.graph_objects as go
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
+from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 import shap
@@ -18,10 +18,33 @@ sys.path.append(str(parentDir))
 from DFTWorkflow.pitchingATent import featureFiltering
 from dimensionalityReduction.reactivityFeatures import boxGen
 from ml_Regression.multiExperimentRegression import listInputs , encodeReactionInfo
+from sklearn.dummy import DummyRegressor 
+def plotly_template(): #Credit to Dylan Walsh
+    template = go.layout.Template()
+    template.layout.font = dict(family="Arial", size=18, color="black")
+    template.layout.plot_bgcolor = "white"
+    template.layout.width, template.layout.height = 1200, 600
+    template.layout.xaxis.tickprefix = "<b>"
+    template.layout.xaxis.ticksuffix = "<b>"
+    template.layout.xaxis.showline = True
+    template.layout.xaxis.linewidth = 5
+    template.layout.xaxis.linecolor = "black"
+    template.layout.xaxis.ticks = "outside"
+    template.layout.xaxis.tickwidth = 4
+    template.layout.xaxis.showgrid = False
+    template.layout.xaxis.mirror = True
+    template.layout.yaxis.tickprefix = "<b>"
+    template.layout.yaxis.ticksuffix = "<b>"
+    template.layout.yaxis.showline = True
+    template.layout.yaxis.linewidth = 5
+    template.layout.yaxis.linecolor = "black"
+    template.layout.yaxis.ticks = "outside"
+    template.layout.yaxis.tickwidth = 4
+    template.layout.yaxis.showgrid = False
+    template.layout.yaxis.mirror = True
+    return template
 def greedyBackwardElimination(reducedX, yCol, worstFeats, rmseToBeat, r2ToBeat,
-                                nEstimators, maxDepth, learningRate, maxFeatures,
-                                nSeeds=5, droppedSoFar=None):
-
+                                hyperParamFile, nSeeds=10, droppedSoFar=None):
     if droppedSoFar is None:
         droppedSoFar = []
 
@@ -38,9 +61,7 @@ def greedyBackwardElimination(reducedX, yCol, worstFeats, rmseToBeat, r2ToBeat,
         rmseF = []
         r2F = []
         for j in range(nSeeds):
-            rmseTest, r2Test, shapDF = gbRegressorQuick(
-                newX, yCol, j, nEstimators, maxDepth, learningRate, maxFeatures
-            )
+            rmseTest, r2Test, shapDF  , dummyRMSE= gbRegressorQuick(newX, yCol, j, hyperParamFile)
             rmseF.append(rmseTest)
             r2F.append(r2Test)
 
@@ -55,35 +76,35 @@ def greedyBackwardElimination(reducedX, yCol, worstFeats, rmseToBeat, r2ToBeat,
                 r2Comp
             ]
 
-    # base case: nothing improved this round, stop recursion
     if not candidates:
         return reducedX, droppedSoFar, rmseToBeat, r2ToBeat
 
-    # pick the single best feature to drop this round
-    # ranked by rmse improvement magnitude (primary criterion)
     bestFeature = max(candidates.items(), key=lambda kv: kv[1][0])[0]
     bestRmse = candidates[bestFeature][2]
     bestR2 = candidates[bestFeature][3]
 
     newReducedX = reducedX.drop(columns=[bestFeature])
+    newCols = len(newReducedX.columns)
     droppedSoFar = droppedSoFar + [bestFeature]
 
-    # remove the dropped feature from worstFeats so it's not retested
     newWorstFeats = {k: v for k, v in worstFeats.items() if k != bestFeature}
 
-    print(f"Dropped: {bestFeature} | new RMSE: {bestRmse:.5f} (was {rmseToBeat:.5f}) "
-          f"| new R2: {bestR2:.5f} (was {r2ToBeat:.5f})")
+    savePath = hyperParamFile.parent
+    results = savePath  / "dropFeatures.dat"
+    with open(results , "w") as f:
+        f.write(f"Dropped: {bestFeature} | new RMSE: {bestRmse:.5f} (was {rmseToBeat:.5f}) | new R2: {bestR2:.5f} (was {r2ToBeat:.5f}) | totFeats: {newCols}\n")
+    return greedyBackwardElimination(newReducedX, yCol, newWorstFeats, bestRmse, bestR2, hyperParamFile , nSeeds=nSeeds, droppedSoFar=droppedSoFar)
+def gbRegressorQuick(X , y , j , hyperParamFile):
+    X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.25, random_state=j)
+    dummy = DummyRegressor(strategy="median")
+    dummy.fit(X_train_CV , y_train_CV)
+    yDummy = dummy.predict(X_test)
+    dummyRMSE = float(np.sqrt(mean_squared_error(y_test, yDummy)))
 
-    # recurse with updated baseline
-    return greedyBackwardElimination(
-        newReducedX, yCol, newWorstFeats, bestRmse, bestR2,
-        nEstimators, maxDepth, learningRate, maxFeatures,
-        nSeeds=nSeeds, droppedSoFar=droppedSoFar
-    )
-def gbRegressorQuick(X , y , j , nEstimators, maxDepth , learningRate, maxFeatures ):
-    X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.2, random_state=j)
-    gbFinal = GradientBoostingRegressor(n_estimators = nEstimators , max_depth = maxDepth , 
-                                        learning_rate = learningRate , max_features = maxFeatures , random_state=j)
+    with open(hyperParamFile, "r") as f:
+        savedParms = json.load(f)
+    bestParameters = savedParms["best_params"]
+    gbFinal = GradientBoostingRegressor(**bestParameters ,random_state=j)
     gbFinal.fit(X_train_CV, y_train_CV)
     yTrain = gbFinal.predict(X_train_CV)
     yPred = gbFinal.predict(X_test)
@@ -93,7 +114,53 @@ def gbRegressorQuick(X , y , j , nEstimators, maxDepth , learningRate, maxFeatur
     shapValues = gbExplainer(X_test)
     meanAbsShap = np.abs(shapValues.values).mean(axis=0)
     shapDF = pd.DataFrame({"feature" : X_test.columns , "Shap" : meanAbsShap}).sort_values("Shap" , ascending = False).reset_index(drop=False)
-    return rmseTest , r2Test , shapDF
+    return rmseTest , r2Test , shapDF , dummyRMSE
+def RMSEMinimizationGraph(resultsPath , dummyRMSE , numSeeds , saveStr):
+    resultsHash = {"RMSE" : [] , "numFeats" : [] , "featDropped" : []}
+    with open(resultsPath , "r") as f:
+        for idx, line in enumerate(f):
+            rmse = float(line.split("|")[1].split("RMSE:")[-1].split("(")[0].strip())
+            numCols = int(line.split("| totFeats:")[-1].strip())
+            featDropped = str(line.split("|")[0].split("Dropped: ")[-1].strip())
+            resultsHash["featDropped"].append(featDropped)
+            resultsHash["RMSE"].append(rmse)
+            resultsHash["numFeats"].append(numCols)
+    
+    fig = go.Figure(layout=dict(template=plotly_template()))
+    names = resultsHash["featDropped"]
+    fig.add_trace(go.Scatter(
+        x=resultsHash["numFeats"], 
+        y=resultsHash["RMSE"],
+        mode="lines+markers",
+        text=names,                               
+        hovertemplate="<b>%{text}</b><br>" +            
+                    "Features: %{x}<br>" + 
+                    "RMSE: %{y:.4f}<extra></extra>"
+    ))
+    fig.add_hline(y=dummyRMSE, line_width=2, line_dash="solid", line_color="#990000")
+    fig.update_layout(
+        xaxis=dict(title='Number of Features Remaining', scaleanchor="y"),  # Keeps x and y scales equal
+        yaxis=dict(title=f'Test RMSE of {numSeeds} random splits'),
+        plot_bgcolor='rgba(255,255,255,0.1)',  # Light background transparency
+        width=600,  
+        height=600,  
+        margin=dict(l=60, r=60, t=50, b=60),  
+        legend=dict(
+            x=0.0,  
+            y=0.0,  
+            bgcolor="rgba(255,255,255,0.7)",  
+            bordercolor="black",
+            borderwidth=1
+        ),
+        title=dict(
+            text=f"Bootstrap Feature Selection (Greedy Approach) for {saveStr} Feature Class",  # Fixed f-string
+            font=dict(size=18, color="black"),  
+            x=0.5,  # Center the title
+            y=0.95  
+        )
+    )
+    outputDir = resultsPath.parent
+    fig.write_html(outputDir / "rmseMinimization.html")
 def main(dfMAST , saveDir , saveName , hyperFile):
     cols = list(dfMAST.columns)
     boxCols = boxGen(cols)
@@ -119,15 +186,13 @@ def main(dfMAST , saveDir , saveName , hyperFile):
     j = 0
     rmse = []
     r2 = []
-    nEstimators = int(input("Enter the number of estimators for this model: "))
-    maxDepth = int(input("Enter the max Depth for this model: "))
-    learningRate = float(input("Enter the learning rate for this model: "))
-    maxFeatures = float(input("Enter the max Features for this model: "))
     worstFeats = {}
-    while j < 5:
-        rmseTest , r2Test , shapDF = gbRegressorQuick(reducedX , yCol , j, nEstimators , maxDepth, learningRate , maxFeatures )
+    dummy = []
+    while j < 10:
+        rmseTest , r2Test , shapDF , dummyRMSE = gbRegressorQuick(reducedX , yCol , j, hyperFile )
         rmse.append(rmseTest)
         r2.append(r2Test)
+        dummy.append(dummyRMSE)
         features = shapDF["feature"]
         nWorst = features[-targetCols:]
         for feature in nWorst:
@@ -137,11 +202,10 @@ def main(dfMAST , saveDir , saveName , hyperFile):
                 worstFeats[feature] = 1 
         
         j +=1
-    
+    dummyRMSEFinal = np.mean(dummy)
     rmseToBeat = np.mean(rmse)
     r2ToBeat = np.mean(r2)
-    greedyBackwardElimination(reducedX, yCol, worstFeats, rmseToBeat, r2ToBeat,
-                                    nEstimators, maxDepth, learningRate, maxFeatures)
+    greedyBackwardElimination(reducedX, yCol, worstFeats, rmseToBeat, r2ToBeat, hyperFile)
     
 
 
@@ -150,5 +214,5 @@ if __name__ == "__main__":
     dfMain = pd.read_csv(dfStr)
     saveDir = Path(sys.argv[2])
     saveStr = str(sys.argv[3])
-
+    saveDir.parent.mkdir(parents=True, exist_ok=True)
     main(dfMain , saveDir , saveStr , saveDir / "hyperParameterOptimization.dat")
