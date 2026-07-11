@@ -9,7 +9,7 @@ import json
 import random
 import plotly.graph_objects as go
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold , train_test_split
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 import shap
@@ -49,72 +49,93 @@ def plotly_template():  # Credit to Dylan Walsh
     template.layout.yaxis.tickfont = dict(size=12)
 
     return template
-def greedyBackwardElimination( X , yCol , saveStr , nSeeds , dummyFinal  , hyperFile , targetCols):
-    j = 0
+def greedyBackwardElimination(X, yCol, saveStr, nSeeds, dummyFinal, hyperFile,
+                               targetFrac=0.5, minFeatures=3,
+                               rmseToBeat=None, history=None):
+    savePath = hyperFile.parent
+    results = savePath / "dropFeatures.dat"
+    targetCols = max(1, int(len(X.columns) * targetFrac))
+    opportunities = (nSeeds // 2) * 5
+    freqThreshold = max(1, int(0.5 * opportunities))
+
+    if history is None:
+        history = []
+
+    with open(hyperFile, "r") as f:
+        bestParameters = json.load(f)["best_params"]
+
     rmse = []
-    r2 = []
     worstFeats = {}
-    targetCols = int(len(list(X.columns))*0.5)
-    while j < 10:
-        rmseTest , r2Test , shapDF = gbRegressorQuick(X , yCol , j, hyperFile )
-        rmse.append(rmseTest)
-        r2.append(r2Test)
-        features = shapDF["feature"]
-        nWorst = features[-targetCols:]
-        for feature in nWorst:
-            if feature in worstFeats.keys():
-                worstFeats[feature] += 1 
-            else:
-                worstFeats[feature] = 1 
-        
-        j +=1
-    rmseToBeat = np.mean(rmse)
-    r2ToBeat = np.mean(r2)
-    print(rmseToBeat , r2ToBeat)
+    for seed in range(nSeeds // 2):
+        kf = KFold(n_splits=5, shuffle=True, random_state=seed)
+        foldScores = []
+        for train_idx, test_idx in kf.split(X):
+            xTrain, xTest = X.iloc[train_idx], X.iloc[test_idx]
+            yTrain, yTest = yCol[train_idx], yCol[test_idx]
+
+            model = GradientBoostingRegressor(**bestParameters, random_state=seed)
+            model.fit(xTrain, yTrain)
+            yFit = model.predict(xTest)
+            foldScores.append(float(np.sqrt(mean_squared_error(yTest, yFit))))
+
+            explainer = shap.TreeExplainer(model)
+            shapVals = explainer(xTest)
+            meanAbsShap = np.abs(shapVals.values).mean(axis=0)
+            foldDF = (pd.DataFrame({"feature": xTest.columns, "shap": meanAbsShap})
+                        .sort_values("shap", ascending=False)
+                        .reset_index(drop=True))
+            nWorst = foldDF["feature"].iloc[-targetCols:]   # ← fixed: proper slice
+            for feature in nWorst:
+                worstFeats[feature] = worstFeats.get(feature, 0) + 1
+
+        rmse.append(np.mean(foldScores))
+
+    currentBaseline = np.mean(rmse)
+    if rmseToBeat is None:
+        rmseToBeat = currentBaseline
+        history.append(f"Dropped: None | new RMSE: {rmseToBeat:.5f} (was {rmseToBeat:.5f}) | R2: 0.8 | totFeats: {len(X.columns)}")
+
     sortedWorst = sorted(
-        ((k, v) for k, v in worstFeats.items() if v >= 3),
+        ((k, v) for k, v in worstFeats.items() if v >= freqThreshold),
         key=lambda kv: kv[1], reverse=True
     )
 
     candidates = {}
-
     for feature, _ in sortedWorst:
-        print(feature)
         newX = X.drop(columns=[feature])
+        rmseF, r2F = [], []
+        for seed in range(nSeeds):
+            kf = KFold(n_splits=5, shuffle=True, random_state=seed)
+            for train_idx, test_idx in kf.split(newX):
+                xTrain, xTest = newX.iloc[train_idx], newX.iloc[test_idx]   # ← fixed: newX
+                yTrain, yTest = yCol[train_idx], yCol[test_idx]
 
-        rmseF = []
-        r2F = []
-        for j in range(nSeeds):
-            rmseTest, r2Test, shapDF = gbRegressorQuick(newX, yCol, j, hyperFile)
-            rmseF.append(rmseTest)
-            r2F.append(r2Test)
+                model = GradientBoostingRegressor(**bestParameters, random_state=seed)
+                model.fit(xTrain, yTrain)
+                yFit = model.predict(xTest)
+                rmseF.append(float(np.sqrt(mean_squared_error(yTest, yFit))))
+                r2F.append(float(r2_score(yTest, yFit)))
 
         rmseComp = np.mean(rmseF)
-        r2Comp = np.mean(r2F)
-        print(rmseComp , r2Comp)
-        if rmseComp < rmseToBeat and r2Comp > r2ToBeat:
-            candidates[feature] = [
-                np.abs(rmseToBeat - rmseComp),
-                np.abs(r2ToBeat - r2Comp),
-                rmseComp,
-                r2Comp
-            ]
-    savePath = hyperFile.parent
-    results = savePath  / "dropFeatures.dat"
-    if not candidates:
-        RMSEMinimizationGraph(results , dummyFinal, nSeeds , saveStr)
-        return X, rmseToBeat, r2ToBeat
-    else:
-        bestFeature = max(candidates.items(), key=lambda kv: kv[1][0])[0]
-        bestRmse = candidates[bestFeature][2]
-        bestR2 = candidates[bestFeature][3]
+        if rmseComp < rmseToBeat:
+            candidates[feature] = (abs(rmseToBeat - rmseComp), rmseComp, np.mean(r2F))
 
-        newReducedX = X.drop(columns=[bestFeature])
-        newCols = len(newReducedX.columns)
-        with open(results , "w") as f:
-            f.write(f"Dropped: {bestFeature} | new RMSE: {bestRmse:.5f} (was {rmseToBeat:.5f}) | new R2: {bestR2:.5f} (was {r2ToBeat:.5f}) | totFeats: {newCols}\n")
+    if not candidates or len(X.columns) <= minFeatures:
+        with open(results, "a") as f:      # ← fixed: append, not overwrite
+            f.write("\n".join(history) + "\n")
+        RMSEMinimizationGraph(results, dummyFinal, nSeeds, saveStr)
+        return X, rmseToBeat
 
-        return greedyBackwardElimination( newReducedX , yCol , saveStr , nSeeds , dummyFinal  , hyperFile , targetCols)
+    bestFeature = max(candidates.items(), key=lambda kv: kv[1][0])[0]
+    bestRmse, bestR2 = candidates[bestFeature][1], candidates[bestFeature][2]
+
+    newReducedX = X.drop(columns=[bestFeature])
+    history.append(f"Dropped: {bestFeature} | new RMSE: {bestRmse:.5f} (was {rmseToBeat:.5f}) | R2: {bestR2:.4f} | totFeats: {len(newReducedX.columns)}")
+
+    return greedyBackwardElimination(
+        newReducedX, yCol, saveStr, nSeeds, dummyFinal, hyperFile,
+        targetFrac=targetFrac, minFeatures=minFeatures,
+        rmseToBeat=bestRmse, history=history)
 def gbRegressorQuick(X , y , j , hyperParamFile):
     X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, y, test_size=0.25, random_state=j)
 
@@ -138,13 +159,7 @@ def gbRegressorQuick(X , y , j , hyperParamFile):
 def RMSEMinimizationGraph(resultsPath , dummyRMSE , numSeeds , saveStr):
     resultsHash = {"RMSE" : [] , "numFeats" : [] , "featDropped" : []}
     with open(resultsPath , "r") as f:
-        for idx, line in enumerate(f):
-            if len(resultsHash["RMSE"]) == 0:
-                rmse = float(line.split("|")[1].split("(was")[-1].split(")")[0].strip())
-                numCols = int(line.split("| totFeats:")[-1].strip()) + 1
-                resultsHash["featDropped"].append("No Features Dropped")
-                resultsHash["RMSE"].append(rmse)
-                resultsHash["numFeats"].append(numCols)               
+        for idx, line in enumerate(f):             
             rmse = float(line.split("|")[1].split("RMSE:")[-1].split("(")[0].strip())
             numCols = int(line.split("| totFeats:")[-1].strip())
             featDropped = str(line.split("|")[0].split("Dropped: ")[-1].strip())
@@ -166,7 +181,7 @@ def RMSEMinimizationGraph(resultsPath , dummyRMSE , numSeeds , saveStr):
     fig.add_hline(y=dummyRMSE, line_width=2, line_dash="solid", line_color="#990000")
     fig.update_layout(
         xaxis=dict(title='Number of Features Remaining', scaleanchor="y"),  # Keeps x and y scales equal
-        yaxis=dict(title=f'Test RMSE of {numSeeds} random splits'),
+        yaxis=dict(title=f'CV RMSE of {numSeeds} random splits'),
         plot_bgcolor='rgba(255,255,255,0.1)',  # Light background transparency
         width=600,  
         height=600,  
@@ -185,7 +200,7 @@ def RMSEMinimizationGraph(resultsPath , dummyRMSE , numSeeds , saveStr):
     )
     outputDir = resultsPath.parent
     fig.write_html(outputDir / "rmseMinimization.html")
-def main(dfMAST , saveDir , saveName , hyperFile , nSeeds):
+def reduceMain(dfMAST , saveDir , saveName , hyperFile , nSeeds):
     cols = list(dfMAST.columns)
     boxCols = boxGen(cols)
 
@@ -210,21 +225,25 @@ def main(dfMAST , saveDir , saveName , hyperFile , nSeeds):
     j = 0
     dummyLst = []
     while j < nSeeds:
-        X_train_CV, X_test, y_train_CV, y_test = train_test_split(X, yCol, test_size=0.25, random_state=j)
-        dummy = DummyRegressor(strategy="median")
-        dummy.fit(X_train_CV , y_train_CV)
-        yDummy = dummy.predict(X_test)
-        dummyRMSE = float(np.sqrt(mean_squared_error(y_test, yDummy)))
-        dummyLst.append(dummyRMSE)
-        
+        kf = KFold(n_splits=5, shuffle=True, random_state=j)
+        foldScores = []
+        for train_idx, test_idx in kf.split(reducedX):
+            xTrain, xTest = reducedX[train_idx], reducedX[test_idx]
+            yTrain, yTest = yCol[train_idx], yCol[test_idx]
+            dummy = DummyRegressor(strategy="mean")
+            dummy.fit(xTrain , yTrain)
+            yDummy = dummy.predict(xTest)
+            dummyRMSE = float(np.sqrt(mean_squared_error(yTest, yDummy)))
+            foldScores.append(dummyRMSE)
         j +=1
+        dummyLst.append(np.mean(foldScores))
     dummyRMSEFinal = np.mean(dummyLst)
 
     finalDF , finalRMSE , finalR2 =  greedyBackwardElimination( reducedX , yCol , saveStr , nSeeds , dummyRMSEFinal , hyperFile , targetCols)
     finalDF[yStr] = yCol 
     savePath = hyperFile.parent
     finalDF.to_csv(savePath / f"{saveStr}_reducedFeatures.csv")
-    
+
 
 
 if __name__ == "__main__":
@@ -234,4 +253,6 @@ if __name__ == "__main__":
     saveStr = str(sys.argv[3])
     nSeeds = int(sys.argv[4])
     saveDir.parent.mkdir(parents=True, exist_ok=True)
-    main(dfMain , saveDir , saveStr , saveDir / "hyperParameterOptimization.dat" , nSeeds)
+    reduceMain(dfMain , saveDir , saveStr , saveDir / "hyperParameterOptimization.dat" , nSeeds)
+    #else:
+        #buildMain(dfMain , saveDir , saveStr , saveDir / "hyperParameterOptimization.dat" , nSeeds)
