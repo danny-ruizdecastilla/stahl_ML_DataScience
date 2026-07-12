@@ -161,11 +161,10 @@ def RMSEMinimizationGraph(resultsPath , dummyRMSE , numSeeds , saveStr):
     with open(resultsPath , "r") as f:
         for idx, line in enumerate(f):             
             rmse = float(line.split("|")[1].split("RMSE:")[-1].split("(")[0].strip())
-            numCols = int(line.split("| totFeats:")[-1].strip())
             featDropped = str(line.split("|")[0].split("Dropped: ")[-1].strip())
             resultsHash["featDropped"].append(featDropped)
             resultsHash["RMSE"].append(rmse)
-            resultsHash["numFeats"].append(numCols)
+            resultsHash["numFeats"].append(idx)
     
     fig = go.Figure(layout=dict(template=plotly_template()))
     names = resultsHash["featDropped"]
@@ -180,7 +179,7 @@ def RMSEMinimizationGraph(resultsPath , dummyRMSE , numSeeds , saveStr):
     ))
     fig.add_hline(y=dummyRMSE, line_width=2, line_dash="solid", line_color="#990000")
     fig.update_layout(
-        xaxis=dict(title='Number of Features Remaining', scaleanchor="y"),  # Keeps x and y scales equal
+        xaxis=dict(title='Number of Features Dropped', scaleanchor="y"),  # Keeps x and y scales equal
         yaxis=dict(title=f'CV RMSE of {numSeeds} random splits'),
         plot_bgcolor='rgba(255,255,255,0.1)',  # Light background transparency
         width=600,  
@@ -228,7 +227,7 @@ def reduceMain(dfMAST , saveDir , saveName , hyperFile , nSeeds):
         kf = KFold(n_splits=5, shuffle=True, random_state=j)
         foldScores = []
         for train_idx, test_idx in kf.split(reducedX):
-            xTrain, xTest = reducedX[train_idx], reducedX[test_idx]
+            xTrain, xTest = reducedX.iloc[train_idx], reducedX.iloc[test_idx]
             yTrain, yTest = yCol[train_idx], yCol[test_idx]
             dummy = DummyRegressor(strategy="mean")
             dummy.fit(xTrain , yTrain)
@@ -239,7 +238,7 @@ def reduceMain(dfMAST , saveDir , saveName , hyperFile , nSeeds):
         dummyLst.append(np.mean(foldScores))
     dummyRMSEFinal = np.mean(dummyLst)
 
-    finalDF , finalRMSE , finalR2 =  greedyBackwardElimination( reducedX , yCol , saveStr , nSeeds , dummyRMSEFinal , hyperFile , targetCols)
+    finalDF , finalRMSE  =  greedyBackwardElimination( reducedX , yCol , saveStr , nSeeds , dummyRMSEFinal , hyperFile , targetCols)
     finalDF[yStr] = yCol 
     savePath = hyperFile.parent
     finalDF.to_csv(savePath / f"{saveStr}_reducedFeatures.csv")
