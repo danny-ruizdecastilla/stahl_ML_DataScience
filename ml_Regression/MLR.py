@@ -8,6 +8,9 @@ from sklearn import preprocessing
 import sys
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
+parentDir = Path(__file__).resolve().parents[1]
+sys.path.append(str(parentDir))
+from ml_Regression.multiExperimentRegression import encodeReactionInfo
 def combinations(pool, r):
     n = len(pool)
     if r > n:
@@ -72,13 +75,16 @@ if __name__ == "__main__":
     dfStr = str(sys.argv[1])
     numParms = int(sys.argv[2])
     outStr = str(sys.argv[3])
+    multiExperiment = int(sys.argv[4])
     dfPath = Path(dfStr)
     outName = dfPath.stem
     outPath = Path(outStr)
     outPath.mkdir(parents=True, exist_ok=True)
     dfMain = pd.read_csv(dfStr)
-    yCol = dfMain["log_k2"]
-    dfMain = dfMain.drop(columns=[  "log_k2" , "SMILES" , "ID"])
+    yCol = dfMain["deltadeltaG"]
+    #dfMain = dfMain.drop(columns=[  "log_k2" , "SMILES" , "ID"])
+    if multiExperiment == 1:
+        dfMain = encodeReactionInfo(dfMain)
     MLRHash = MLR(dfMain , yCol , numParms)
     MLRFile = outPath / f"{outName}_MLR.dat"
     with MLRFile.open("w") as f:
