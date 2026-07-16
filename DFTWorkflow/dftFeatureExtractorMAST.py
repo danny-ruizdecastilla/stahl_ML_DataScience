@@ -139,6 +139,8 @@ def getAtomCoordsRobust(logFile , xyzStr , commaSplit:int , locationIdx  ):
         masterList = masterStr.split("\\")
         beginLoop = False
         for i ,  phrase in enumerate(masterList):
+            if ",solvent=Generic," in phrase:
+                continue
             atomStr = phrase.split(",")
             atomStr[2:5] = map(float, atomStr[2:5])
             #print(atomStr)

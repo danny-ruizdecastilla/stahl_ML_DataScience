@@ -5,17 +5,16 @@ import sys
 import pandas as pd 
 import numpy as np
 import chemdraw
-import base64
-import re
+import glob as glob
 from pathlib import Path
-from morfeus import SASA , Sterimol, BuriedVolume
 from rdkit import Chem
 from networkx import Graph
-parentDir = Path(__file__).resolve().parents[2]
+from morfeus import BuriedVolume
+parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
 from DFTWorkflow.cleanLogs import basicTerm
 from dimensionalityReduction.reactivityFeatures import boxGen
-from DFTWorkflow.dftFeatureExtractorMAST import time_to_seconds , extractNBOOccupancies , getBoltzmannWeightsGauss , getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks
+from DFTWorkflow.dftFeatureExtractorMAST import time_to_seconds , extractNBOOccupancies , getBoltzmannWeightsGauss ,  getAtomCoordsRobust
 
 def locateCatRows(logDir , splitStr , catalystFile):
     catalystDF = pd.read_csv(catalystFile)
@@ -41,7 +40,7 @@ def locateCatRows(logDir , splitStr , catalystFile):
             print("Try again, enter an integer")
     #returns hash table of log paths that lead to unique catalysts with solvents 
     path = Path(logDir)
-    logFiles = list(path.glob("/*/comFiles/logs/*.log"))
+    logFiles = list(path.glob("*/*.log"))
     catalystHash = {}
     smilesHash = {}
     for log in logFiles:
@@ -49,7 +48,7 @@ def locateCatRows(logDir , splitStr , catalystFile):
         if not termError:
             catalysts = list(catalystHash.keys())
             fileID = log.name.split(splitStr)[0]
-            solventID = Path(str(log).split("comFiles")[0]).name
+            solventID = str(log).split("/")[-2]
             try:
                 pos = idMAST[idMAST == fileID].index[0]
                 if f"{fileID}_{solventID}" in catalysts:
@@ -159,14 +158,57 @@ def getKetoneNBOInfo(weightsDF,logList  ,  carbonyl , nboStr , charge , catalyst
     finalHash["oxygenLonePairEnergy2"] =weightedAvg(oLP2E , list(weightsDF["boltzWeights"]))
     return finalHash
 
-
 def getChiralKetoneFeatures(catalystHash , smilesHash  , logEnergyStr , nboStr ):
     featuresMASTDF = pd.DataFrame()
     for catalystID , catPaths in catalystHash.items():
-        idName = catalystID.split("_")[0]
+        print(catalystID)
+        catID = catalystID.split("_")[1]
+        idName = f"cat_{catID}"
+        solvent = catalystID.split("_")[2]
         smilesStr = smilesHash[idName]
         carbonyl , molec = getChiralKetone(smilesStr)
-        boltzmannDF = getBoltzmannWeightsGauss(catPaths, 298, "electronic" , logEnergyStr)
+        boltzmannDF = getBoltzmannWeightsGauss(catPaths, 298, "electronic" , f"{logEnergyStr}_{solvent}")
         #NBO Features 
         neutralHash = getKetoneNBOInfo(boltzmannDF,catPaths ,  carbonyl,  nboStr , 0 , catalystID , smilesStr)
-        
+        oVbur_3 = []
+        weights = boltzmannDF["boltzWeights"].to_numpy()
+        minWeightIdx = max(enumerate(weights), key=lambda x: x[1])[0]
+        weight_sum = weights.sum()
+        for name in boltzmannDF["logID"]:
+            print(name)
+            fileStr = f"{name}.log"
+            conformer = next((f for f in catPaths if fileStr in f.name),None)
+            if conformer is None:
+                continue
+            coordHash = getAtomCoordsRobust(str(conformer),"GINC-COMPUTE",5,1)
+            elements = []
+            coordinates = []
+            for _, coords in coordHash.items():
+                elements.append(str(coords[0]))
+                coordinates.append(np.array(coords[2:5]))
+            vburO = BuriedVolume(elements,coordinates,int(carbonyl[1]),include_hs=True,radius=3.0).fraction_buried_volume
+            oVbur_3.append(vburO)
+        avgVbur = (np.asarray(oVbur_3)*weights).sum()/weight_sum 
+        Vbur_lowE = oVbur_3[minWeightIdx]
+
+        final = {"Solvent" : solvent , "Ox_vbur_3" : avgVbur , "Ox_vbur_3_lowE" : Vbur_lowE}
+        masterDict = {}
+        for d in [neutralHash , final]:
+            masterDict.update(d)
+        df_row = pd.DataFrame([masterDict]) 
+        featuresMASTDF = pd.concat([featuresMASTDF, df_row], ignore_index=True)
+    return featuresMASTDF
+
+
+if __name__ == "__main__":
+    logDir = str(sys.argv[1])
+    outputDir = str(sys.argv[2])
+    if not os.path.exists(outputDir ): 
+        os.makedirs(outputDir) 
+    catalystCSV = str(sys.argv[3])
+    splitStr = str(sys.argv[4])
+    logEnergyStr = str(sys.argv[5])
+    catalystHash , smilesHash  = locateCatRows(logDir , splitStr , catalystCSV)
+    substratesMAST = getChiralKetoneFeatures(catalystHash , smilesHash  , logEnergyStr , "nbo7_neutral" )
+    outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
+    substratesMAST.to_csv(outputFile , index=False )
