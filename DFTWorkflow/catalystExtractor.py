@@ -210,5 +210,5 @@ if __name__ == "__main__":
     logEnergyStr = str(sys.argv[5])
     catalystHash , smilesHash  = locateCatRows(logDir , splitStr , catalystCSV)
     substratesMAST = getChiralKetoneFeatures(catalystHash , smilesHash  , logEnergyStr , "nbo7_neutral" )
-    outputFile = Path(outputDir) / "alkeneFeaturesMAST.csv"
+    outputFile = Path(outputDir) / "catalystFeaturesMAST.csv"
     substratesMAST.to_csv(outputFile , index=False )
