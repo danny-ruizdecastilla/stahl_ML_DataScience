@@ -81,8 +81,8 @@ if __name__ == "__main__":
     outPath = Path(outStr)
     outPath.mkdir(parents=True, exist_ok=True)
     dfMain = pd.read_csv(dfStr)
-    yCol = dfMain["deltadeltaG"]
-    #dfMain = dfMain.drop(columns=[  "log_k2" , "SMILES" , "ID"])
+    yCol = dfMain["ddG"]
+    dfMain = dfMain.drop(columns=["ddG"])
     if multiExperiment == 1:
         dfMain = encodeReactionInfo(dfMain)
     MLRHash = MLR(dfMain , yCol , numParms)
