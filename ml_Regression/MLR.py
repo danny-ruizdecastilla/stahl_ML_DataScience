@@ -10,7 +10,9 @@ from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
-from ml_Regression.multiExperimentRegression import encodeReactionInfo
+from DFTWorkflow.pitchingATent import featureFiltering
+from ml_Regression.multiExperimentRegression import encodeReactionInfo , listInputs
+from dimensionalityReduction.reactivityFeatures import boxGen
 def combinations(pool, r):
     n = len(pool)
     if r > n:
@@ -36,12 +38,32 @@ def rmseCalc(fit, actual):
 
 def maeCalc(fit, actual):
     return float(np.sum(np.abs(np.array(actual) - np.array(fit))) / len(fit))
-def MLR(df , yCol , paramNum):
+def MLR(df , yCol , paramNum , outPath , fixedCols:False):
     resultsHash = {}
-    colList = tuple(df.columns)
-    colsCombos = list(combinations(colList, paramNum))
+    reducedX , featureLabels  = featureFiltering(outPath, df ,list(df.columns), "MLRFeats")
+    if fixedCols:
+        cols = list(reducedX.columns)
+        boxCols = boxGen(cols)
+
+        constIdx = listInputs(
+            "Input the indices of all the columns you want to keep present in MLR\n"
+            f"{boxCols}\n"
+        )
+        constIdx = [int(idx) for idx in constIdx]
+        constCols = [cols[idx] for idx in constIdx]
+
+        subSet = set(constCols)
+        colList = [c for c in cols if c not in subSet]
+
+        colsCombos = [
+            constCols + list(combo)
+            for combo in list(combinations(colList, paramNum))
+        ]
+    else:
+        colList = tuple(reducedX.columns)
+        colsCombos = list(combinations(colList , paramNum))
     for cols in colsCombos:
-        X = df[list(cols)]
+        X = reducedX[list(cols)]
         scaler = StandardScaler()
         X = scaler.fit_transform(X)
         rmseDump = []
@@ -81,11 +103,11 @@ if __name__ == "__main__":
     outPath = Path(outStr)
     outPath.mkdir(parents=True, exist_ok=True)
     dfMain = pd.read_csv(dfStr)
-    yCol = dfMain["ddG"]
-    dfMain = dfMain.drop(columns=["ddG"])
+    yCol = dfMain["deltadeltaG"]
+    dfMain = dfMain.drop(columns=["deltadeltaG"])
     if multiExperiment == 1:
         dfMain = encodeReactionInfo(dfMain)
-    MLRHash = MLR(dfMain , yCol , numParms)
+    MLRHash = MLR(dfMain , yCol , numParms , outPath , False)
     MLRFile = outPath / f"{outName}_MLR.dat"
     with MLRFile.open("w") as f:
         for key , val in MLRHash.items():
