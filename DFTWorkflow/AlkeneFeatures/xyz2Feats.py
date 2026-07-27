@@ -1,6 +1,8 @@
 #Danny Ruiz de Castilla
 #Generate features from xyz files 
 #MM Paper Exclusive
+import os
+import glob as glob
 import numpy as np
 import pandas as pd 
 from pathlib import Path
@@ -9,6 +11,7 @@ from rdkit import Chem
 from itertools import combinations
 from morfeus import Sterimol, BuriedVolume
 parentDir = Path(__file__).resolve().parents[2]
+sys.path.append(str(parentDir))
 from DFTWorkflow.AlkeneFeatures.alkeneStericDougnut import alkeneSemiCylinders
 from DFTWorkflow.AlkeneFeatures.alkeneSlicedOranges import alkeneSlicedOranges
 sys.path.append(str(parentDir))
@@ -24,7 +27,7 @@ def alkene2xyz(xyzFile):
         for lineNum, line in enumerate(f, start=1):
             if lineNum == 1:
                 numAtoms = int(line.strip())
-                atomHash["totAtoms"] = numAtoms
+                #atomHash["totAtoms"] = numAtoms
             elif "." in line: #atom coords
                 atomIdx = int(lineNum - 3) 
                 parts = line.strip().split()
@@ -73,6 +76,7 @@ def alkene2Feats(xyzList):
     featuresMASTDF = pd.DataFrame()
     for xyz in xyzList:
         idName = Path(xyz).name.split(".")[0]
+        print(idName)
         hashList = [{"ID" : idName}]
         alkene , atomHash , distanceMatrix = alkene2xyz(xyz)
         #Get alkene Contacts 
@@ -88,7 +92,7 @@ def alkene2Feats(xyzList):
             nearestSource = [(int(idx), float(allLengths[idx])) for idx in np.argsort(allLengths)[:2]]
             sourceEndsVdw = 0 
             for atom in nearestSource:
-                atomID = atomHash[atom][0]
+                atomID = atomHash[atom[0]][0]
 
                 sourceEndsVdw += vdw_radius(atomID)
 
@@ -101,28 +105,40 @@ def alkene2Feats(xyzList):
                 targetEndsVdw += vdw_radius(atomID)
             if targetEndsVdw > sourceEndsVdw:
                 #Target is alpha Source is beta 
-                CAlphaHash["0"] = atomHash[target][2:5]
+                CAlphaHash["0"] = np.array(atomHash[target][2:5])
                 CAlphaHash["idx"] = target 
-                CAlphaHash["1"] = [atomHash[nearestTarget[0][0]][2:5] , atomHash[nearestTarget[1][0]][2:5]]
+                CAlphaHash["1"] = [np.array(atomHash[nearestTarget[0][0]][2:5]) , np.array(atomHash[nearestTarget[1][0]][2:5])]
 
-                CBetaHash["0"] = atomHash[source][2:5]
+                CBetaHash["0"] = np.array(atomHash[source][2:5])
                 CBetaHash["idx"] = source
-                CBetaHash["1"] = [atomHash[nearestSource[0][0]][2:5] , atomHash[nearestSource[1][0]][2:5]]
+
+                length1 = np.linalg.norm(np.array(atomHash[nearestTarget[0][0]][2:5])  - np.array(atomHash[nearestSource[0][0]][2:5]))
+                length2 = np.linalg.norm(np.array(atomHash[nearestTarget[0][0]][2:5])  - np.array(atomHash[nearestSource[1][0]][2:5]))
+                if length1 > length2:
+                    CBetaHash["1"] = [np.array(atomHash[nearestSource[1][0]][2:5]) , np.array(atomHash[nearestSource[0][0]][2:5])]
+                else:
+                    CBetaHash["1"] = [np.array(atomHash[nearestSource[0][0]][2:5]) , np.array(atomHash[nearestSource[1][0]][2:5])]
             else:
                 #Target is beta Source is alpha 
-                CBetaHash["0"] = atomHash[target][2:5]
-                CBetaHash["idx"] = target 
-                CBetaHash["1"] = [atomHash[nearestTarget[0][0]][2:5] , atomHash[nearestTarget[1][0]][2:5]]
-
-                CAlphaHash["0"] = atomHash[source][2:5]
+                CAlphaHash["0"] = np.array(atomHash[source][2:5])
                 CAlphaHash["idx"] = source
-                CAlphaHash["1"] = [atomHash[nearestSource[0][0]][2:5] , atomHash[nearestSource[1][0]][2:5]]
+                CAlphaHash["1"] = [np.array(atomHash[nearestSource[0][0]][2:5]) , np.array(atomHash[nearestSource[1][0]][2:5])]
+
+                CBetaHash["0"] = np.array(atomHash[target][2:5])
+                CBetaHash["idx"] = target 
+                length1 = np.linalg.norm(np.array(atomHash[nearestSource[0][0]][2:5])  - np.array(atomHash[nearestTarget[0][0]][2:5]))
+                length2 = np.linalg.norm(np.array(atomHash[nearestSource[0][0]][2:5])  - np.array(atomHash[nearestTarget[1][0]][2:5]))
+                if length1 > length2:
+                    CBetaHash["1"] = [np.array(atomHash[nearestTarget[1][0]][2:5]) , np.array(atomHash[nearestTarget[0][0]][2:5])]
+                else:
+                    CBetaHash["1"] = [np.array(atomHash[nearestTarget[0][0]][2:5]) , np.array(atomHash[nearestTarget[1][0]][2:5])]
         #Done orienting lets calculate features 
         radListSemis = [2.5,3.0,3.5]
         segmentList = ["maxSemiPi" , "minSemiPi" , "maxSemiOrth" , "minSemiOrth" , "maxCap" , "minCap" , "CburrTot"]
         cappedSemisHash = {}
         for rad in radListSemis:
             mainCylinder = alkeneSemiCylinders(CAlphaHash , CBetaHash , rad , 0.15)
+            #print(atomHash)
             mainCylinder.getAtoms(atomHash ,{"Nan" : "Nan"} , False)
             segmentHash = mainCylinder.getBurriedVolume(True , False)
             for segment in segmentList:
@@ -152,4 +168,55 @@ def alkene2Feats(xyzList):
                     orangeData[f"vbur{name}_slice{quad}_{rad}"] = orangeSlices[f"{center}_quad_{quad}"]
         hashList.append(orangeData)
 
-        
+        firstContactRad = [2.0,2.5,3.0,3.5,4.0]
+        firstContactHash = {}
+        for rad in firstContactRad:
+            cAlphaContacts = CAlphaHash["1"]
+            CBetaContacts = CBetaHash["1"]
+            for i in range(len(cAlphaContacts)):
+                AlphaContact = atoms.index(list(cAlphaContacts[i]))
+                BetaContact = atoms.index(list(CBetaContacts[i]))
+
+                alphaContactVbur = BuriedVolume(symbols,atoms,AlphaContact,include_hs=True,radius=rad).fraction_buried_volume
+                betaContactVbur = BuriedVolume(symbols,atoms,BetaContact,include_hs=True,radius=rad).fraction_buried_volume
+
+                firstContactHash[f"C_Alpha_{i+1}_{rad}"] = alphaContactVbur
+                firstContactHash[f"C_Beta_{i+1}_{rad}"] = betaContactVbur
+            avgFace1 = (firstContactHash[f"C_Alpha_1_{rad}"] + firstContactHash[f"C_Beta_1_{rad}"]) /2 
+            avgFace2 = (firstContactHash[f"C_Alpha_2_{rad}"] + firstContactHash[f"C_Beta_2_{rad}"]) /2 
+            avg1 = (firstContactHash[f"C_Alpha_1_{rad}"] + firstContactHash[f"C_Alpha_2_{rad}"]) /2 
+            avg2 = (firstContactHash[f"C_Beta_1_{rad}"] + firstContactHash[f"C_Beta_2_{rad}"]) /2 
+            firstContactHash[f"delta_Faces_{rad}"] = np.abs(avgFace1-avgFace2)
+            firstContactHash[f"delta_Ends_{rad}"] = np.abs(avg1-avg2)
+        hashList.append(firstContactHash)
+
+        sterimolHash = {}
+        sterimolRad = [2.0 , 2.5 , 3.0 , 3.5 , 4.0 , 4.5]
+        for rad in sterimolRad:
+            sterimolAlpha = Sterimol(symbols, atoms, CAlphaHash["idx"] + 1 , CBetaHash["idx"] + 1) 
+            sterimolAlpha.bury(method="delete", sphere_radius=float(rad))
+            sterimolBeta = Sterimol(symbols, atoms, CBetaHash["idx"] + 1 , CAlphaHash["idx"] + 1) 
+            sterimolBeta.bury(method="delete", sphere_radius=float(rad))
+
+            sterimolHash[f"CAlpha_sterimol_{rad}_L"] = sterimolAlpha.L_value
+            sterimolHash[f"CAlpha_sterimol_{rad}_B1"] = sterimolAlpha.B_1_value
+            sterimolHash[f"CAlpha_sterimol_{rad}_B5"] = sterimolAlpha.B_5_value
+
+            sterimolHash[f"CBeta_sterimol_{rad}_L"] = sterimolBeta.L_value
+            sterimolHash[f"CBeta_sterimol_{rad}_B1"] = sterimolBeta.B_1_value
+            sterimolHash[f"CBeta_sterimol_{rad}_B5"] = sterimolBeta.B_5_value
+        hashList.append(sterimolHash)
+        masterDict = {}
+        for d in hashList:
+            masterDict.update(d)
+        df_row = pd.DataFrame([masterDict]) 
+        featuresMASTDF = pd.concat([featuresMASTDF, df_row], ignore_index=True)
+    return featuresMASTDF
+if __name__ == "__main__":
+    xyzdir = str(sys.argv[1])
+    outputDir = str(sys.argv[2])
+    if not os.path.exists(outputDir ): 
+        os.makedirs(outputDir) 
+    xyzFiles = glob.glob(xyzdir + "/*.xyz")
+    featureDF = alkene2Feats(xyzFiles)
+    featureDF.to_csv(f"{outputDir}/MMFeatureMAST.csv")
