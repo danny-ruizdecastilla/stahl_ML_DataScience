@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 import shap
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 import json
 import shutil
 import html 
@@ -31,9 +32,14 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir):
         <script>
             const jsonSHAP = {json.dumps(shapJSON)};
             const jsonFeats = {json.dumps(featJSON)};
+            const figTrace = [];
 
             funciton plotData(){{
-                
+                for (const cols in {sortedCols.values()}){{
+                    const x = jsonSHAP.map(p => p[cols]);
+                    const featVals = jsonFeats.map(p => p[cols]);
+                    cons y = 
+                }}
             }}
         </script>
         <style>
@@ -77,13 +83,15 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir):
 
 def main(df , yCol  , idStr , SMILESStr , outputDir):
     while True:
-        modelInt = input(f"Please Select the index for the model you want to fit to:\n\n[1]  XGBOOST\n\n[2]   RandomForest").strip()
+        modelInt = input(f"Please Select the index for the model you want to fit to:\n\n[1]  XGBOOST\n\n[2]   RandomForest\n\n[3]    Linear Regression\n\n").strip()
         if modelInt == "1":
             model = GradientBoostingRegressor(n_estimators=300 ,max_depth=4 , learning_rate=0.05 )
             break
         elif modelInt == "2" : 
             model = RandomForestRegressor(n_estimators=300,max_depth=4,random_state=42,n_jobs=-1)
             break
+        elif modelInt == "3":
+            model = LinearRegression()
         else:
             print("Invalid input, enter 1 or 2 only")
 
@@ -98,8 +106,10 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
         base64Col.append(base64)
     dfMAST = dfMAST.drop(columns = [yCol , idStr , SMILESStr , "pngPath"])
     model.fit(dfMAST , yVals)
-
-    modelExplainer = shap.TreeExplainer(model , dfMAST)
+    if modelInt == 3:
+        modelExplainer = shap.LinearExplainer(model , dfMAST)
+    else:
+        modelExplainer = shap.TreeExplainer(model , dfMAST)
     shapValues = modelExplainer.shap_values(dfMAST)
     shapDF = pd.DataFrame(shapValues,index=dfMAST.index,columns=dfMAST.columns)
     shutil.rmtree(figDir)
