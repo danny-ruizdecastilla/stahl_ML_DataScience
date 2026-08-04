@@ -289,12 +289,22 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     c2Contacts = list(vBurHash[c2].keys())
                     length1 = np.linalg.norm(coordinates[c1Contacts[0]] - coordinates[c2Contacts[0]])
                     length2 = np.linalg.norm(coordinates[c1Contacts[0]] - coordinates[c2Contacts[1]])
-                    if length1 < length2:
-                        #1 and 1 orientations are good 
-                        bondHash = {"face1" : [c1Contacts[0] , c2Contacts[0]] , "face2" : [c1Contacts[1] , c2Contacts[1]]}
+                    if len(set(c1Contacts + c2Contacts)) == 3:
+                        #some tricyclic things going on
+                        intersection = list(set(c1Contacts) & set(c2Contacts))[0]
+                        bondHash = {"face1" : [intersection] , "face2" : [contact for contact in (c1Contacts + c2Contacts) if contact != intersection]}
+                    elif len(set(c1Contacts + c2Contacts)) == 2:
+                        intersection = list(set(c1Contacts) & set(c2Contacts))[0]
+                        intersection2 = list(set(c1Contacts) & set(c2Contacts))[1]
+                        bondHash = {"face1" : [intersection] , "face2" : [intersection2]}
                     else:
-                        #1 and 2 orientations need to be switched
-                        bondHash = {"face1" : [c1Contacts[0] , c2Contacts[1]] , "face2" : [c1Contacts[1] , c2Contacts[0]]}
+
+                        if length1 < length2:
+                            #1 and 1 orientations are good 
+                            bondHash = {"face1" : [c1Contacts[0] , c2Contacts[0]] , "face2" : [c1Contacts[1] , c2Contacts[1]]}
+                        else:
+                            #1 and 2 orientations need to be switched
+                            bondHash = {"face1" : [c1Contacts[0] , c2Contacts[1]] , "face2" : [c1Contacts[1] , c2Contacts[0]]}
                 idxCount +=1
                 for atom in vBurHash:
                     for neighbor in vBurHash[atom]:
@@ -303,9 +313,12 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             vBurContactsAvg = {atom : {contact : {rad : ((np.asarray(vBurHash[atom][contact][rad])*weights).sum() / weights.sum()) for rad in vBurHash[atom][contact]} for contact in vBurHash[atom]} for atom in vBurHash}
             vBurContactslowE = {atom : {contact : {rad : vBurHash[atom][contact][rad][firstContact_lowEIdx] for rad in vBurHash[atom][contact]} for contact in vBurHash[atom]} for atom in vBurHash}
             vBurContacts = {}
+            #print(bondHash)
             for atom in vBurHash:
                 orientation = orientationHash[atom]
+                #print(atom)
                 for contact in vBurContactsAvg[atom]:
+                    #print(contact)
                     if contact in bondHash["face1"]:
                         face = "1"
                     else:
@@ -313,6 +326,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                     for rad in radList:
                         vBurContacts[f"{orientation}_{face}_{rad}"] = vBurContactsAvg[atom][contact][rad]
                         vBurContacts[f"{orientation}_{face}_{rad}_lowE"] = vBurContactslowE[atom][contact][rad]
+            #print(vBurContacts)
             for rad in radList:
                 avgFace1 = (vBurContacts[f"C_1_1_{rad}"] + vBurContacts[f"C_2_1_{rad}"]) /2 
                 avgFace2 = (vBurContacts[f"C_1_2_{rad}"] + vBurContacts[f"C_2_2_{rad}"]) /2 
@@ -465,7 +479,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             weights = boltzmannDF["boltzWeights"]
             SemiCylinder_lowEIdx = max(enumerate(weights), key=lambda x: x[1])[0]
             weight_sum = weights.sum()
-            print(cappedSemis)
+            #print(cappedSemis)
             semiCylinders = {segment : {rad : (np.asarray(cappedSemis[segment][rad]) * weights).sum() for rad in radList } for segment in segmentList}
             semiCylinders_lowE = {segment : {rad : cappedSemis[segment][rad][SemiCylinder_lowEIdx] for rad in radList } for segment in segmentList}
 

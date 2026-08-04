@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from networkx import Graph
 from rdkit import Chem
+from morfeus import Sterimol, BuriedVolume
 parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
 from breadthFirstSearch.radialBasedCorrelation import getCC
@@ -375,7 +376,7 @@ class alkeneSemiCylinders:
             maskedSymbol = []
             ySpace = np.linspace(localMin[1] , xInt1[0] , 10000)
             xSpace = (ySpace - localMin[0]) / a
-            vol = np.pi * np.trapz(xSpace , ySpace)
+            vol = np.pi * np.trapezoid(xSpace , ySpace)
             for i in range(len(expRadii)):
                 radii = expRadii[i]
                 atom = atomList[i]
