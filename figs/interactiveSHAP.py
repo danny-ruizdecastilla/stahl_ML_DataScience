@@ -122,7 +122,7 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                         
                         imageContainer.innerHTML = `
                             <h3>Hover Image</h3>
-                            <p><strong>${{pointData.text}}</strong></p>
+                            <p><strong>${{pointData.customdata.id}}</strong></p>
                             <img id="hoverImage" 
                                 src="${{imageSrc}}" 
                                 alt="Point Image" 
