@@ -14,7 +14,13 @@ import sys
 parentDir = Path(__file__).resolve().parents[1]
 sys.path.append(str(parentDir))
 from figs.chemPlotlyV2 import createPNGDF,png64
-def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir):
+def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
+    colList = []
+    colCount = len(sortedCols)
+    yColRange = [[i * 5 for i in range(colCount)]]
+    for col in sortedCols:
+        colName = col[0]
+        colList.append(colName)
     shapJSON = shapDF.to_json(orient='records' , force_ascii = False)
     shapJSON = shapJSON.replace('\\/' , '/')
 
@@ -32,15 +38,120 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir):
         <script>
             const jsonSHAP = {json.dumps(shapJSON)};
             const jsonFeats = {json.dumps(featJSON)};
+            const globalMin = Math.min(...jsonFeats.flatMap(p => {colList}.map(c => p[c])));
+            const globalMax = Math.max(...jsonFeats.flatMap(p => {colList}.map(c => p[c])));
             const figTrace = [];
-
-            funciton plotData(){{
-                for (const cols in {sortedCols.values()}){{
-                    const x = jsonSHAP.map(p => p[cols]);
+            const tickVals = [];
+            const tickText = [];
+            function plotData(){{
+                for (let i = 0; i < {colList}.length; i++){{
+                    const cols = {colList}[i];
+                    const yVals = {yColRange}[i];
+                    const xData = jsonSHAP.map(p => p[cols]);
                     const featVals = jsonFeats.map(p => p[cols]);
-                    cons y = 
+                    const yData = new Array(xData.length).fill(cols);
+                    tickVals.push(yVals);
+                    tickText.push(cols);
+
+                    const trace = {{
+                        x: xData,
+                        y: yData,
+                        mode: 'markers',
+                        type: 'scatter',
+                        customdata: jsonSHAP.map((p, i) => ({{
+                            id: p.ID || `point_${{i}}`, 
+                            image: p.base64 || null
+                        }})),
+                        hovertemplate:
+                            '<b>%{{text}}</b><br>' +
+                            `$'SHAP Value': %{{x}}<br>` +
+                            `${{cols}}: %{{y}}<br>` +
+                            '<extra></extra>',
+                        marker: {{
+                            size: 8,
+                            color: featVals,
+                            colorscale: 'RdBu',
+                            cmin: globalMin,
+                            cmax: globalMax,
+                            showscale: i === 0,
+                            colorbar: {{
+                                title: 'Feature value'
+                            }}
+                        }}
+                    }};
+                    figTrace.push(trace);
                 }}
+            const layout = {{
+                title: 'Interactive SHAP Plot',
+                xaxis: {{
+                    title: {{text: 'SHAP Value', font: {{family: 'Arial', size: 16, weight: 'bold'}}}},
+                    tickfont: {{family: 'Arial', size: 14, weight: 'bold'}},
+                    linecolor: 'black',
+                    linewidth: 2,
+                    mirror: true,
+                    showgrid: true,
+                    zeroline: false
+                }},
+                yaxis: {{
+                    type: "category",
+                    tickmode: "array",
+                    tickvals: tickVals,
+                    ticktext: tickText
+                }},
+                hovermode: 'closest',
+                showlegend: true,
+                }};
+            const config = {{
+                responsive: true,
+                displayModeBar: true,
+                toImageButtonOptions: {{
+                    format: 'png',
+                    filename: 'scatter_plot',
+                    height: 600,
+                    width: 800,
+                    scale: 1
+                }}
+            }};
+            Plotly.newPlot('plotContainer', figTrace, layout, config).then(() => {{
+                const plotElement = document.getElementById('plotContainer');
+                const imageContainer = document.getElementById('imageContainer');
+                
+                plotElement.on('plotly_hover', function(data) {{
+                    const pointData = data.points[0];
+                    const customData = pointData.customdata;
+                    
+                    if (customData && customData.image) {{
+                        const imageSrc = customData.image.startsWith('data:') ? 
+                            customData.image : 
+                            `data:image/png;base64,${{customData.image}}`;
+                        
+                        imageContainer.innerHTML = `
+                            <h3>Hover Image</h3>
+                            <p><strong>${{pointData.text}}</strong></p>
+                            <img id="hoverImage" 
+                                src="${{imageSrc}}" 
+                                alt="Point Image" 
+                                style="max-width: 100%; height: auto; border: 1px solid #ddd;"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <div style="display:none; color: #999; font-style: italic;">Image failed to load</div>
+                        `;
+                    }} else {{
+                        imageContainer.innerHTML = `
+                            <h3>Hover Image</h3>
+                            <div class="image-placeholder">No image data for this point</div>
+                        `;
+                    }}
+                }});
+                
+                plotElement.on('plotly_unhover', function(data) {{
+                    imageContainer.innerHTML = `
+                        <h3>Hover Image</h3>
+                        <div class="image-placeholder">Hover over a point to see its image</div>
+                    `;
+                }});
+            }});
             }}
+        plotData();
         </script>
         <style>
             body{{
@@ -80,7 +191,8 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir):
             }}
 
     """
-
+    with open(featureDir + "/shapInteractive.html", "w", encoding="utf-8") as f:
+        f.write(html)
 def main(df , yCol  , idStr , SMILESStr , outputDir):
     while True:
         modelInt = input(f"Please Select the index for the model you want to fit to:\n\n[1]  XGBOOST\n\n[2]   RandomForest\n\n[3]    Linear Regression\n\n").strip()
@@ -118,17 +230,18 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
     for idx , feature in enumerate(shapDF.columns):
         shapVal = np.mean([np.abs(val) for val in list(shapDF[feature])])
         featureColsHash[feature] = shapVal
-    sortedCols = sorted(
-        featureColsHash.items(),
-        key=lambda kv: kv[1]
-    )
+    sortedCols = sorted(featureColsHash.items(),key=lambda kv: kv[1])
     shapDF["ID"] = idVals
-    shapDF["Base64"] = base64Col
+    shapDF["base64"] = base64Col
     featureDir = Path(outputDir) / "features" 
     featureDir.parent.mkdir(parents=True, exist_ok=True)
 
     generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir)
 
-
-
-
+if __name__ == "__main__":
+    featureDF = str(sys.argv[1])
+    yStr = str(sys.argv[2])
+    idStr = str(sys.argv[3])
+    smilesStr = str(sys.argv[4])
+    outputDir = str(sys.argv[5])
+    main(featureDF , yStr , idStr , smilesStr , outputDir )
