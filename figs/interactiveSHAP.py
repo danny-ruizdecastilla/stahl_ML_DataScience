@@ -7,6 +7,7 @@ from pathlib import Path
 import shap
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
 import json
 import shutil
 import html 
@@ -21,11 +22,8 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
     for col in sortedCols:
         colName = col[0]
         colList.append(colName)
-    shapJSON = shapDF.to_json(orient='records' , force_ascii = False)
-    shapJSON = shapJSON.replace('\\/' , '/')
-
-    featJSON = dfMAST.to_json(orient='records' , force_ascii = False)
-    featJSON = featJSON.replace('\\/' , '/')
+    shapJSON = shapDF.to_dict(orient="records")
+    featJSON = dfMAST.to_dict(orient="records")
 
     html = f"""
     <!DOCTYPE html>
@@ -36,13 +34,11 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
         <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
         <script src="https://unpkg.com/simple-statistics@7.8.3/dist/simple-statistics.min.js"></script>
         <script>
-            const jsonSHAP = {json.dumps(shapJSON)};
-            const jsonFeats = {json.dumps(featJSON)};
+            const jsonFeats = {featJSON};
+            const jsonSHAP = {shapJSON};
             const globalMin = Math.min(...jsonFeats.flatMap(p => {colList}.map(c => p[c])));
             const globalMax = Math.max(...jsonFeats.flatMap(p => {colList}.map(c => p[c])));
             const figTrace = [];
-            const tickVals = [];
-            const tickText = [];
             function plotData(){{
                 for (let i = 0; i < {colList}.length; i++){{
                     const cols = {colList}[i];
@@ -50,8 +46,6 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                     const xData = jsonSHAP.map(p => p[cols]);
                     const featVals = jsonFeats.map(p => p[cols]);
                     const yData = new Array(xData.length).fill(cols);
-                    tickVals.push(yVals);
-                    tickText.push(cols);
 
                     const trace = {{
                         x: xData,
@@ -63,10 +57,9 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                             image: p.base64 || null
                         }})),
                         hovertemplate:
-                            '<b>%{{text}}</b><br>' +
-                            `$'SHAP Value': %{{x}}<br>` +
-                            `${{cols}}: %{{y}}<br>` +
-                            '<extra></extra>',
+                            `<b>${{cols}}</b><br>` +
+                            `SHAP value: %{{x:.3f}}<br>` +
+                            `Feature value: %{{marker.color:.3f}}<extra></extra>`,
                         marker: {{
                             size: 8,
                             color: featVals,
@@ -94,9 +87,11 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                 }},
                 yaxis: {{
                     type: "category",
-                    tickmode: "array",
-                    tickvals: tickVals,
-                    ticktext: tickText
+                    side: "left",
+                    automargin: true,
+                    autorange: "reversed",
+                    linecolor: "black",
+                    linewidth: 2
                 }},
                 hovermode: 'closest',
                 showlegend: true,
@@ -151,7 +146,7 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                 }});
             }});
             }}
-        plotData();
+        document.addEventListener("DOMContentLoaded", plotData);
         </script>
         <style>
             body{{
@@ -189,9 +184,20 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                 text-align: center;
                 padding: 50px 0;
             }}
-
+        </style>
+    </head>
+    <body>
+        <div class="plot-container">
+            <div id="plotContainer"></div>
+            <div id="imageContainer">
+                <h3>Hover Image</h3>
+                <div class="image-placeholder">Hover over a point to see its image</div>
+            </div>
+        </div>
+    </body>
+    </html>
     """
-    with open(featureDir + "/shapInteractive.html", "w", encoding="utf-8") as f:
+    with open(featureDir / "shapInteractive.html", "w", encoding="utf-8") as f:
         f.write(html)
 def main(df , yCol  , idStr , SMILESStr , outputDir):
     while True:
@@ -204,13 +210,14 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
             break
         elif modelInt == "3":
             model = LinearRegression()
+            break
         else:
             print("Invalid input, enter 1 or 2 only")
 
     yVals = df[yCol]
     idVals = df[idStr]    
     figDir = Path(outputDir) / "png" 
-    dfMAST = createPNGDF(dfMAST ,"SMILES" , str(figDir))
+    dfMAST = createPNGDF(df ,"SMILES" , str(figDir))
     base64Col = []
     for img in list(dfMAST["pngPath"]):
 
@@ -218,7 +225,14 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
         base64Col.append(base64)
     dfMAST = dfMAST.drop(columns = [yCol , idStr , SMILESStr , "pngPath"])
     model.fit(dfMAST , yVals)
-    if modelInt == 3:
+    if modelInt == "3":
+        scaler = StandardScaler()
+
+        dfMAST = pd.DataFrame(
+            scaler.fit_transform(dfMAST),
+            columns=dfMAST.columns,
+            index=dfMAST.index
+        )
         modelExplainer = shap.LinearExplainer(model , dfMAST)
     else:
         modelExplainer = shap.TreeExplainer(model , dfMAST)
@@ -231,17 +245,20 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
         shapVal = np.mean([np.abs(val) for val in list(shapDF[feature])])
         featureColsHash[feature] = shapVal
     sortedCols = sorted(featureColsHash.items(),key=lambda kv: kv[1])
+    print(shapDF.head())
+    print(dfMAST.head())
     shapDF["ID"] = idVals
     shapDF["base64"] = base64Col
     featureDir = Path(outputDir) / "features" 
-    featureDir.parent.mkdir(parents=True, exist_ok=True)
+    featureDir.mkdir(parents=True, exist_ok=True)
 
     generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir)
 
 if __name__ == "__main__":
-    featureDF = str(sys.argv[1])
+    featureDFStr = str(sys.argv[1])
     yStr = str(sys.argv[2])
     idStr = str(sys.argv[3])
     smilesStr = str(sys.argv[4])
     outputDir = str(sys.argv[5])
+    featureDF = pd.read_csv(featureDFStr)
     main(featureDF , yStr , idStr , smilesStr , outputDir )
