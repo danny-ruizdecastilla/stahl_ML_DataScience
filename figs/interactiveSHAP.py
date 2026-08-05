@@ -224,7 +224,6 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
         base64 = png64(img)
         base64Col.append(base64)
     dfMAST = dfMAST.drop(columns = [yCol , idStr , SMILESStr , "pngPath"])
-    model.fit(dfMAST , yVals)
     if modelInt == "3":
         scaler = StandardScaler()
 
@@ -233,8 +232,10 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
             columns=dfMAST.columns,
             index=dfMAST.index
         )
+        model.fit(dfMAST , yVals)
         modelExplainer = shap.LinearExplainer(model , dfMAST)
     else:
+        model.fit(dfMAST , yVals)
         modelExplainer = shap.TreeExplainer(model , dfMAST)
     shapValues = modelExplainer.shap_values(dfMAST)
     shapDF = pd.DataFrame(shapValues,index=dfMAST.index,columns=dfMAST.columns)
