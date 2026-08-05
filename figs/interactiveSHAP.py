@@ -19,7 +19,7 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
     colList = []
     colCount = len(sortedCols)
     yColRange = [[i * 5 for i in range(colCount)]]
-    for col in sortedCols:
+    for col in sortedCols[::-1]:
         colName = col[0]
         colList.append(colName)
     shapJSON = shapDF.to_dict(orient="records")
