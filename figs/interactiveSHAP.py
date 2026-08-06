@@ -50,6 +50,7 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                     const trace = {{
                         x: xData,
                         y: yData,
+                        name: cols,
                         mode: 'markers',
                         type: 'scatter',
                         customdata: jsonSHAP.map((p, i) => ({{
@@ -66,14 +67,37 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                             colorscale: 'RdBu',
                             cmin: globalMin,
                             cmax: globalMax,
-                            showscale: i === 0,
-                            colorbar: {{
-                                title: 'Feature value'
-                            }}
+                            showscale: false,
                         }}
                     }};
                     figTrace.push(trace);
                 }}
+                const featureList = document.getElementById("featureList");
+                const traceVisible = new Array(figTrace.length).fill(true);
+                figTrace.forEach((trace, idx)=>{{
+                    const button = document.createElement("button");
+                    button.className = "featureButton";
+                    button.textContent = trace.name;
+                    button.dataset.trace = idx;
+                    featureList.appendChild(button);
+                }});
+                figTrace.push({{
+                    x: [null],
+                    y: [null],
+                    mode: "markers",
+                    hoverinfo: "skip" , 
+                    showlegend: false,
+                    marker: {{
+                        size: 0,
+                        color: [globalMin],
+                        colorscale: "RdBu",
+                        cmin: globalMin,
+                        cmax: globalMax,
+                        showscale:true,
+                        colorbar: {{title: "Feature Value"}}
+                    }}
+                }});
+
             const layout = {{
                 title: 'Interactive SHAP Plot',
                 xaxis: {{
@@ -85,16 +109,18 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                     showgrid: true,
                     zeroline: false
                 }},
-                yaxis: {{
-                    type: "category",
-                    side: "left",
-                    automargin: true,
-                    autorange: "reversed",
-                    linecolor: "black",
-                    linewidth: 2
+                yaxis:{{
+                    type:"category",
+                    side:"left",
+                    showticklabels:false,
+                    autorange:"reversed",
+                    automargin:true,
+                    linecolor:"black",
+                    linewidth:2,
+                    mirror:true
                 }},
                 hovermode: 'closest',
-                showlegend: true,
+                showlegend: false,
                 }};
             const config = {{
                 responsive: true,
@@ -108,6 +134,22 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                 }}
             }};
             Plotly.newPlot('plotContainer', figTrace, layout, config).then(() => {{
+                const featureList = document.getElementById("featureList");
+                const visible = new Array(figTrace.length).fill(true);
+                featureList.addEventListener("click" , e=>{{
+                    if(!e.target.matches(".featureButton"))
+                        return;
+                    const idx = Number(e.target.dataset.trace);
+                    visible[idx] = !visible[idx];
+                    Plotly.restyle(
+                        "plotContainer",
+                        {{
+                            visible: visible[idx] ? true : "legendonly"
+                        }},
+                        [idx]
+                    );
+                    e.target.classList.toggle("inactive");
+                }});
                 const plotElement = document.getElementById('plotContainer');
                 const imageContainer = document.getElementById('imageContainer');
                 
@@ -154,45 +196,82 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
                 margin: 20px;
                 background-color: #f5f5f5;
             }}
-            .plot-container {{
-                display: flex;
-                gap: 20px;
+            .plot-container{{
+                display:flex;
+                gap:20px;
+                align-items:flex-start;
             }}
-            #plotContainer {{
-                background-color: white;
-                border-radius: 5px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                flex: 1;
-                min-height: 500px;
+
+            #featureList{{
+                width:180px;
+                display:flex;
+                flex-direction:column;
+                gap:3px;
             }}
-            #imageContainer {{
-                width: 300px;
-                background-color: white;
-                padding: 20px;
-                border-radius: 5px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+            .featureButton{{
+
+                background:white;
+
+                border:1px solid #ccc;
+
+                border-radius:3px;
+
+                cursor:pointer;
+
+                text-align:right;
+
+                padding:4px 8px;
+
+                font-size:13px;
+
+                transition:.15s;
             }}
-            #hoverImage {{
-                max-width: 100%;
-                height: auto;
-                border: 1px solid #ddd;
-                border-radius: 4px;
+
+            .featureButton:hover{{
+                background:#eee;
             }}
-            .image-placeholder {{
-                color: #666;
-                font-style: italic;
-                text-align: center;
-                padding: 50px 0;
+
+            .featureButton.inactive{{
+
+                color:#999;
+
+                text-decoration:line-through;
+
+                background:#f7f7f7;
+            }}
+
+            #plotContainer{{
+
+                flex:1;
+
+                min-height:700px;
+
+                background:white;
+            }}
+
+            #imageContainer{{
+
+                width:300px;
             }}
         </style>
     </head>
     <body>
+        <h1>Interactive SHAP Plot</h1>
+
         <div class="plot-container">
+
+            <div id="featureList"></div>
+
             <div id="plotContainer"></div>
+
             <div id="imageContainer">
                 <h3>Hover Image</h3>
-                <div class="image-placeholder">Hover over a point to see its image</div>
+                <div class="image-placeholder">
+                    Hover over a point to see its image
+                </div>
             </div>
+
         </div>
     </body>
     </html>
