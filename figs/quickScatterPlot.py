@@ -152,6 +152,7 @@ def compareSources(fig, saveDir, saveStr, xCol=None, yCol=None, speedPlot = None
         fig.update_layout(
             template=scatterTemplate()
         )
+        fig.update_layout(width=600,height=540,margin=dict(l=40, r=15, t=35, b=40), )
 
         return compareSources(
             fig,
