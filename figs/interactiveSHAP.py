@@ -8,6 +8,7 @@ import shap
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPRegressor
 import json
 import shutil
 import html 
@@ -290,6 +291,9 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
         elif modelInt == "3":
             model = LinearRegression()
             break
+        elif modelInt == "4":
+            model = MLPRegressor(activation = 'relu' , alpha =  0.01, hidden_layer_sizes = (100, 50), learning_rate_init =  0.005)
+            break
         else:
             print("Invalid input, enter 1 or 2 only")
 
@@ -313,6 +317,9 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
     if modelInt == "3":
         model.fit(dfMAST , yVals)
         modelExplainer = shap.LinearExplainer(model , dfMAST)
+    elif modelInt == "4":
+        model.fit(dfMAST , yVals )
+        modelExplainer = shap.KernelExplainer(model.predict_proba, dfMAST)
     else:
         model.fit(dfMAST , yVals)
         modelExplainer = shap.TreeExplainer(model)
