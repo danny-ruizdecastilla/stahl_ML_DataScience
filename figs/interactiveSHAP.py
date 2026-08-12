@@ -281,7 +281,7 @@ def generateInteractiveSHAP(shapDF, dfMAST ,sortedCols , featureDir ):
         f.write(html)
 def main(df , yCol  , idStr , SMILESStr , outputDir):
     while True:
-        modelInt = input(f"Please Select the index for the model you want to fit to:\n\n[1]  XGBOOST\n\n[2]   RandomForest\n\n[3]    Linear Regression\n\n").strip()
+        modelInt = input(f"Please Select the index for the model you want to fit to:\n\n[1]  XGBOOST\n\n[2]   RandomForest\n\n[3]    Linear Regression\n\n[4]    MLP\n\n").strip()
         if modelInt == "1":
             model = GradientBoostingRegressor(n_estimators=300 ,max_depth=4 , learning_rate=0.05 )
             break
@@ -319,7 +319,7 @@ def main(df , yCol  , idStr , SMILESStr , outputDir):
         modelExplainer = shap.LinearExplainer(model , dfMAST)
     elif modelInt == "4":
         model.fit(dfMAST , yVals )
-        modelExplainer = shap.KernelExplainer(model.predict_proba, dfMAST)
+        modelExplainer = shap.KernelExplainer(model, dfMAST)
     else:
         model.fit(dfMAST , yVals)
         modelExplainer = shap.TreeExplainer(model)
