@@ -10,8 +10,8 @@ def energyCutoff(energiesFile):
         for idx, line in enumerate(file):
             inputs = line.split("        ")
             energiesDict[idx] = float(inputs[-1].strip())
-    if len(list(energiesDict.keys())) >= 50:
-        energyCutoff = 1.6
+    if len(list(energiesDict.keys())) >= 80:
+        energyCutoff = 3.6
         finalDict = {key: val for key, val in energiesDict.items() if val <= energyCutoff}
         cutoffKey = list(finalDict.keys())[-1]
     else:
@@ -47,6 +47,7 @@ def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
     comCount = 0
     confHash = {}
     termMiddle = False
+    atomSet = {}
     with open(coordsFile , 'r') as file:
         coordHash = None
         for idx , line in enumerate(file):
@@ -66,6 +67,7 @@ def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
             elif line.split("         ")[0].strip()[:1].isalpha():
                 lineOptions = line.strip().split("    ")
                 atom = str(lineOptions[0])
+                atomSet.add(atom)
                 coords = [num.strip() for num in lineOptions if is_float(num.strip())]
                 coordHash[str(idx) + "," + atom] = coords
                 #print("atom List:" , len(coordHash.keys()))
@@ -74,13 +76,35 @@ def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
                 energyLevel = float(line.strip())
         if not termMiddle:
             confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
-    confHash = conformerDownsize(confHash , 50)
-    return confHash
+    confHash = conformerDownsize(confHash , 100)
+    metalList = []
+    otherAtoms = []
+    for atom in atomSet:
+        if atom in ["Pt" , "Pd" , "Fe" , "Ni" , "W" , "Co" , "Ru" , "Rh" , "Ir"]:
+            metalList.append(atom)
+        else:
+            otherAtoms.append(atom)
+    if len(metalList) > 0:
+        metalHash = {}
+        #We have metals in the system, we need to decide if we want to ECP them or if we want to use a different basis set for them.
+        for metal in metalList:
+            metalCore = input(f"Enter the basis set for Core Electrons Treatment for metal: {metal}").strip()
+            metalValence = input(f"Enter the basis set for Valence Electrons Treatment for metal: {metal}").strip()
+            coreValence = f"{metalCore} {metalValence}"
+            #If core and valence combination already exists in the hash we add to the list of metals that use this combination
+            if coreValence in list(metalHash.keys()):
+                metalHash[coreValence].append(metal)
+            else:
+                metalHash[coreValence] = [metal]
+        otherBasis = input(f"Enter the basis set for the other atoms in the system: ")
+        others = [f"{atomSymbol} " for atomSymbol in otherAtoms][0]
+        metalHash["others"] = {others : otherBasis.strip()}
+        return confHash , metalHash
+    return confHash , None
 def conformerDownsize(xyzHash , popThresh):
     population = list(xyzHash.keys())
     if len(population) >= popThresh:
         #We must downsize by reducing the number of keys
-        print(len(population))
         energyList = []
         for key , val in xyzHash.items():
             try:
@@ -88,7 +112,7 @@ def conformerDownsize(xyzHash , popThresh):
                 energyList.append(energy)
             except:
                 print(key , "no energy")
-        energyGroups = groupThresh(energyList ,0.0001)
+        energyGroups = groupThresh(energyList ,0.00001)
         allowedEnergies = []
         for group in energyGroups:
             energy = min(group)
@@ -100,6 +124,7 @@ def conformerDownsize(xyzHash , popThresh):
 def geomComWriter(saveStr , coords , output ,  **kwargs):
     comFile = str(output) + "/" + str(saveStr) + ".com"
     solventHash = kwargs["solventHash"]
+    metalHash = kwargs.get("metalBasis", None)
     try:
         nprocs = int(kwargs["nprocs"])
         mem = int(kwargs["mem"])
@@ -120,6 +145,30 @@ def geomComWriter(saveStr , coords , output ,  **kwargs):
         for atom, coordinates in coords.items():
             f.write(f"{atom.split(',')[-1]} {coordinates[0]} {coordinates[1]} {coordinates[2]}\n")
         f.write("\n")
+        if metalHash is not None and "GenECP" in InputGeomLine:
+            restAtomHash = metalHash["others"]
+            f.write(f"{restAtomHash.keys()[0]} 0\n{restAtomHash.values()[0]}\n")
+            f.write(f"****\n")
+            metalKeys = [metal for metal in metalHash.keys() if metal != "others"]
+            for metalKey in metalKeys: #metalKey looks like this "LanL2DZ LanL2DZ"
+                valence = metalKey.split(" ")[-1]
+                metalList = metalHash[metalKey]
+                metalStr = ""
+                for metal in metalList:
+                    metalStr += f"{metal} "
+                metalStr += " 0"
+                f.write(f"{metalStr}\n{valence}\n")
+                f.write(f"****\n")
+            f.write(f"\n")
+            for metalKey in metalKeys:
+                core = metalKey.split(" ")[0]
+                metalList = metalHash[metalKey]
+                metalStr = ""
+                for metal in metalList:
+                    metalStr += f"{metal} "
+                metalStr += " 0"
+                f.write(f"{metalStr}\n{core}\n")
+            f.write(f"\n")
         if solventHash is not None:
             for key , val in solventHash.items():
                 f.write(f"{key}={val}\n")
@@ -182,11 +231,17 @@ def main(masterDir , outputDir):
         else:
             sys.exit()
         
-        xyzHash = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms )
-        for key , vals in xyzHash.items():
-            coords = vals["coordinates"]
-            geomComWriter(key, coords , outputDir , solventHash = solventHash_, nprocs = 16 , mem = 25 , 
-                          chk = str(key) + ".chk" ,  geomLine = geomOpt , netCharge = netCharge , spin = spin)
+        xyzHash  , areMetals = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms )
+        if areMetals is not None:
+            for key , vals in xyzHash.items():
+                coords = vals["coordinates"]
+                geomComWriter(key, coords , outputDir , solventHash = solventHash_, nprocs = 16 , mem = 25 , 
+                            chk = str(key) + ".chk" ,  geomLine = geomOpt , netCharge = netCharge , spin = spin , metalBasis = areMetals)
+        else:
+            for key , vals in xyzHash.items():
+                coords = vals["coordinates"]
+                geomComWriter(key, coords , outputDir , solventHash = solventHash_, nprocs = 16 , mem = 25 , 
+                            chk = str(key) + ".chk" ,  geomLine = geomOpt , netCharge = netCharge , spin = spin)    
 
 if __name__ == "__main__":
     masterDir = str(sys.argv[1])    
