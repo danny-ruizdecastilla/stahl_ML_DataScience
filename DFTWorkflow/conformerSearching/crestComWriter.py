@@ -4,6 +4,30 @@ import sys
 import glob
 #Danny Ruiz de Castilla
 #writes geom optimization com files from crest 
+def boxGen(list_):
+    lines = []
+    for i , line_ in enumerate(list_):
+        str = f"{line_} == [{i}]"
+        lines.append(str)
+    maxLine = max(len(line) for line in lines)
+    Box = "+" + "-"*(maxLine) + "+\n"
+    for line in lines:
+        Box += "| " + line.ljust(maxLine) + " |\n"
+    Box +=  "+" + "-"*(maxLine) + "+\n" 
+    return Box
+def listInputs(prompt:str):
+    while True:
+        partitionInput = input(prompt)
+        partitionList = [part.strip() for part in partitionInput.split(",")]
+        if len(partitionList) == 0 or any(part == '' for part in partitionList):
+            partitionList = []
+            break
+        else:
+            print("Input List:", partitionList)
+            conf = int(input("Confirm your strings entry by Typing 1: "))
+            if conf == 1:
+                break
+    return partitionList
 def energyCutoff(energiesFile):
     energiesDict = {}
     with open(energiesFile , 'r') as file:
@@ -41,13 +65,13 @@ def getSolventInputs(linkStr):
         val = input(f"Please enter the {name} for {linkStr}: ")
         solventHash[name] = val
     return solventHash
-def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
+def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms , basisGen = False ):
     if numComs == 0:
         numComs +=1
     comCount = 0
     confHash = {}
     termMiddle = False
-    atomSet = {}
+    atomSet = set()
     with open(coordsFile , 'r') as file:
         coordHash = None
         for idx , line in enumerate(file):
@@ -77,29 +101,35 @@ def xyzExtractor(coordsFile , pathNameMAST ,numComs, numAtoms ):
         if not termMiddle:
             confHash[pathNameMAST + "_conf_" + str(comCount)] = {"EnergyLevel" : energyLevel , "coordinates" : coordHash}
     confHash = conformerDownsize(confHash , 100)
-    metalList = []
-    otherAtoms = []
-    for atom in atomSet:
-        if atom in ["Pt" , "Pd" , "Fe" , "Ni" , "W" , "Co" , "Ru" , "Rh" , "Ir"]:
-            metalList.append(atom)
-        else:
-            otherAtoms.append(atom)
-    if len(metalList) > 0:
-        metalHash = {}
-        #We have metals in the system, we need to decide if we want to ECP them or if we want to use a different basis set for them.
-        for metal in metalList:
-            metalCore = input(f"Enter the basis set for Core Electrons Treatment for metal: {metal}").strip()
-            metalValence = input(f"Enter the basis set for Valence Electrons Treatment for metal: {metal}").strip()
-            coreValence = f"{metalCore} {metalValence}"
-            #If core and valence combination already exists in the hash we add to the list of metals that use this combination
-            if coreValence in list(metalHash.keys()):
-                metalHash[coreValence].append(metal)
+    if basisGen:
+        groupHash = {}
+        atomList = list(atomSet)
+        atomBox = boxGen(atomList)
+        while True:
+            #Goal is to get user to group the atoms into corresponding basis sets, iteratively generate a new box showing decreasing number of atoms as they are grouped into basis sets
+            prompt = f"Please enter the indices of the atoms you want to group into a basis set\n{atomBox}\n"
+            groupedIdx = listInputs(prompt)
+            #drop the grouped atoms from the atomList and atomBox
+            groupedAtoms = [atomList[int(idx)] for idx in groupedIdx]
+            basisName = input(f"Please enter the basis set name for the following atoms: {groupedAtoms}\n").strip()
+            #Check for ECP
+            while True:
+                ecp = input(f"Does this basis set require an ECP? [0] for No and [1] for Yes\n").strip()
+                if ecp not in ("0", "1"):
+                    print("Input must be '0' or '1'")
+                else:
+                    break
+            if ecp == "1":
+                ecpName = input(f"Please enter the ECP name for this basis set: {groupedAtoms}\n").strip()
+                groupHash[basisName + " " + ecpName] = groupedAtoms
             else:
-                metalHash[coreValence] = [metal]
-        otherBasis = input(f"Enter the basis set for the other atoms in the system: ")
-        others = [f"{atomSymbol} " for atomSymbol in otherAtoms][0]
-        metalHash["others"] = {others : otherBasis.strip()}
-        return confHash , metalHash
+                groupHash[basisName] = groupedAtoms
+            for atom in groupedAtoms:
+                atomList.remove(atom)
+            if len(atomList) == 0:
+                break
+            atomBox = boxGen(atomList)
+        return confHash , groupHash
     return confHash , None
 def conformerDownsize(xyzHash , popThresh):
     population = list(xyzHash.keys())
@@ -145,11 +175,8 @@ def geomComWriter(saveStr , coords , output ,  **kwargs):
         for atom, coordinates in coords.items():
             f.write(f"{atom.split(',')[-1]} {coordinates[0]} {coordinates[1]} {coordinates[2]}\n")
         f.write("\n")
-        if metalHash is not None and "GenECP" in InputGeomLine:
-            restAtomHash = metalHash["others"]
-            f.write(f"{restAtomHash.keys()[0]} 0\n{restAtomHash.values()[0]}\n")
-            f.write(f"****\n")
-            metalKeys = [metal for metal in metalHash.keys() if metal != "others"]
+        if metalHash is not None and "Gen" in InputGeomLine:
+            metalKeys = [metal for metal in metalHash.keys()]
             for metalKey in metalKeys: #metalKey looks like this "LanL2DZ LanL2DZ"
                 valence = metalKey.split(" ")[-1]
                 metalList = metalHash[metalKey]
@@ -160,15 +187,19 @@ def geomComWriter(saveStr , coords , output ,  **kwargs):
                 f.write(f"{metalStr}\n{valence}\n")
                 f.write(f"****\n")
             f.write(f"\n")
-            for metalKey in metalKeys:
-                core = metalKey.split(" ")[0]
-                metalList = metalHash[metalKey]
-                metalStr = ""
-                for metal in metalList:
-                    metalStr += f"{metal} "
-                metalStr += " 0"
-                f.write(f"{metalStr}\n{core}\n")
-            f.write(f"\n")
+            if "ECP" in InputGeomLine:
+                for metalKey in metalKeys:
+                    if metalKey.split(" ") > 1:
+                        core = metalKey.split(" ")[0]
+                        metalList = metalHash[metalKey]
+                        metalStr = ""
+                        for metal in metalList:
+                            metalStr += f"{metal} "
+                        metalStr += " 0"
+                        f.write(f"{metalStr}\n{core}\n")
+                    else:
+                        continue
+                f.write(f"\n")
         if solventHash is not None:
             for key , val in solventHash.items():
                 f.write(f"{key}={val}\n")
@@ -212,28 +243,35 @@ def addLink(comFile , linkStr , linkName , charge , spin , **kwargs):
             f.write("\n")
 def main(masterDir , outputDir):
     pathAvailables = glob.glob(masterDir + "/*/crest.energies")
+    print(pathAvailables)
     geomOpt = str(input("Please enter the geometry optimization line: "))
     if re.search(r"Solvent=Generic,read",geomOpt, re.IGNORECASE):
         solventHash_ = getSolventInputs(" Energy Minimization")
     else:
         solventHash_ = None
+    if "Gen" in geomOpt:
+        basisGen = True
     netCharge = int(input("Please enter the net charge for these jobs: "))
     spin = int(input("Please enter the spin for these jobs: (2s+1): "))
     for path in pathAvailables:
+        print("257")
         pathNameMAST = str(path.split("/")[-2].strip())
         cutoffKey = energyCutoff(path)
         pathDir = path.split("crest.energies")[0]
         pathXYZ = pathDir + "/" + str(pathNameMAST) + ".xyz"
+        print(pathXYZ)
         coordsFile = pathDir +  "/crest_conformers.xyz"
         if os.path.exists(pathXYZ):
             with open(pathXYZ , 'r') as file:
                 numAtoms =  int(file.readline().strip())
         else:
+            print("exiting")
             sys.exit()
-        
-        xyzHash  , areMetals = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms )
+        print("266")
+        xyzHash  , areMetals = xyzExtractor(coordsFile , pathNameMAST , cutoffKey, numAtoms , basisGen )
         if areMetals is not None:
             for key , vals in xyzHash.items():
+                print("270")
                 coords = vals["coordinates"]
                 geomComWriter(key, coords , outputDir , solventHash = solventHash_, nprocs = 16 , mem = 25 , 
                             chk = str(key) + ".chk" ,  geomLine = geomOpt , netCharge = netCharge , spin = spin , metalBasis = areMetals)
