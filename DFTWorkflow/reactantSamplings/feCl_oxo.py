@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 import numpy as np
 import math
+import os
 parentDir = Path(__file__).resolve().parents[2]
 sys.path.append(str(parentDir))
 from DFTWorkflow.dftFeatureExtractorMAST import getAtomCoordsRobust #logFile , xyzStr , commaSplit:int , locationIdx
@@ -112,31 +113,37 @@ def main(logDir , outputDir , commaSplit , locationIdx , xyzStr):
             saveAtomCoords(atomHash , outputDir / f"{parent}_oxoType1.xyz")
         elif oxoTransferType == "2":
             #Axial attachment replacing the Cl and then bonding the Cl to the O
-            newO = [0 , 0 , -oxoFeDouble]
+            newO = [0 , 0 , oxoFeSingle]
             atomHash[len(atomHash)] = ["O" , newO[0] , newO[1] , newO[2]]
-            #Move Cl to be bonded to O
-            newCl = [0 , 0 , -oxoFeDouble - oxoClSingle]
-            
-            atomHash[clIdx[0]][1:4] = newCl
+            #Calculate position for Cl based on O position and angle
+            #proj along x axis 
+            alongX = oxoClAngle - 90 # Creating right triangle along x axis 
+            #oxoClSingle is the hypotenuse, we need to find the adjacent side (x) and opposite side (y)
+            angleRad = math.radians(alongX)
+            x = oxoClSingle * math.cos(angleRad)
+            y = oxoClSingle * math.sin(angleRad)
+            atomHash[clIdx[0]][1:4] = [x , 0 , oxoFeSingle + y]
             saveAtomCoords(atomHash , outputDir / f"{parent}_oxoType2.xyz")
         elif oxoTransferType == "3":
-            #Axial attachment on the opposite side and then another O on the same side as the Cl
-            newO1 = [0 , 0 , -oxoFeDouble]
+            #Combine type 1 and type 2 
+            newO1 = [0 , 0 , oxoFeSingle]
             atomHash[len(atomHash)] = ["O" , newO1[0] , newO1[1] , newO1[2]]
-            #Calculate position for second O based on Cl position and angle
-            clPos = np.array(atomHash[clIdx[0]][1:4])
-            angleRad = np.radians(oxoClAngle)
-            distance = oxoClSingle
-            newO2X = clPos[0] + distance * np.sin(angleRad)
-            newO2Y = clPos[1]
-            newO2Z = clPos[2] + distance * np.cos(angleRad)
-            atomHash[len(atomHash)+ 1 ] = ["O" , newO2X , newO2Y , newO2Z]
+            #Calculate position for Cl based on O position and angle
+            #proj along x axis 
+            alongX = oxoClAngle - 90 # Creating right triangle along x axis
+            #oxoClSingle is the hypotenuse, we need to find the adjacent side (x) and opposite side (y)
+            angleRad = math.radians(alongX)
+            x = oxoClSingle * math.cos(angleRad)
+            y = oxoClSingle * math.sin(angleRad)
+            atomHash[clIdx[0]][1:4] = [x , 0 , oxoFeSingle + y]
+            #Add another O on the opposite side of the Cl
+            newO2 = [0 , 0 , - oxoFeDouble]
+            atomHash[len(atomHash)+1 ] = ["O" , newO2[0] , newO2[1] , newO2[2]] #Added 2 new atoms to the system, so we need to add 1 to the index for the second O
             saveAtomCoords(atomHash , outputDir / f"{parent}_oxoType3.xyz")
                 
-
-
-
-                    
-
-
-
+if __name__ == "__main__":
+    logDir = sys.argv[1]  # Directory containing log files
+    outputDir = sys.argv[2]  # Directory to save the output XYZ files
+    if not os.path.exists(outputDir):
+        os.makedirs(outputDir)
+    main(logDir , outputDir , 4 , 0 , "GINC-COMPUTE")
