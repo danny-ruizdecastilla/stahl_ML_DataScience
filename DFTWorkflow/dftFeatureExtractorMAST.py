@@ -85,6 +85,7 @@ def extractEnergies(logFile , linkStr, energyStr):
         raise ValueError(f"Unknown energy type: {energyStr}. "
                 f"Available types: {list(patterns.keys())}")
     logName = str(logFile.name.split(".")[0])
+    print(logName + f"{linkStr}" )
     firstIdx = locateinLog(logFile , logName + f"{linkStr}" , "earliest" )
     secondIdx = locateinLog(logFile , logName + f"{linkStr}" , "latest" )
     with open(logFile, 'r') as f:
@@ -142,7 +143,7 @@ def getAtomCoordsRobust(logFile , xyzStr , commaSplit:int , locationIdx  ):
             if ",solvent=Generic," in phrase:
                 continue
             atomStr = phrase.split(",")
-            atomStr[2:5] = map(float, atomStr[2:5])
+            atomStr[commaSplit-3:commaSplit] = map(float, atomStr[commaSplit-3:commaSplit])
             #print(atomStr)
             if len(atomStr) == commaSplit:
                 if not beginLoop:
