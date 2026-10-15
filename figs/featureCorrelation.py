@@ -7,7 +7,9 @@ from dash import Dash, html
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
 import pandas as pd
-
+import utf
+from scipy import stats
+from pathlib import Path
 def openPlotlyTemplate():#for use when plotting correlation matrix's , variable typesettings based on length of features \
     template = go.layout.Template()
     template.layout.font = dict(family="Arial", size=8, color="black")
@@ -85,3 +87,25 @@ def correlationGenerator(corrDF, corrStr , savePath , template: str = None):
         print(f"✅ Correlation matrix saved to {savePath}")
     
     return fig
+def main(df , corrType , savePath):
+    dfMain = pd.read_csv(df ,encoding =utf-8)
+    featureLabels = df.columns.tolist()
+    if corrType == "Spearman":
+        result = stats.spearmanr(dfMain.values, axis=0)
+        correlationMatrix = result.correlation
+        spearmanDF = pd.DataFrame(correlationMatrix, index=featureLabels, columns=featureLabels)
+        correlationGenerator(spearmanDF, "Spearman", Path(savePath) / "spearman.html", openPlotlyTemplate())
+    elif corrType == "Pearson":
+        correlationMatrix = np.corrcoef(dfMain.values, rowvar=False)
+        pearsonDF = pd.DataFrame(correlationMatrix, index=featureLabels, columns=featureLabels)
+        correlationGenerator(pearsonDF, "Pearson", Path(savePath) / "pearson.html", openPlotlyTemplate())
+    else:
+        raise ValueError("Invalid correlation type. Choose 'pearson' or 'spearman'.")
+
+if __name__ == "__main__":
+    corrDF = pd.read_csv(sys.argv[1], index_col=0)
+    corrStr = sys.argv[2]
+    savePath = sys.argv[3]
+    if not os.path.exists(os.path.dirname(savePath)):
+        os.makedirs(os.path.dirname(savePath))
+    main(corrDF, corrStr , savePath)
