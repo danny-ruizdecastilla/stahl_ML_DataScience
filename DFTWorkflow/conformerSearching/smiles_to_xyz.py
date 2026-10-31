@@ -53,13 +53,17 @@ def main(csvDir, outputDir):
     for _, row in df.iterrows():
         smiles = row[smilesCol]
         id = row[idCol]
-        elements, coords = smiles_to_coords(smiles)
+        #add try and except to catch errors in the smiles_to_coords function
+        try:
+            elements, coords = smiles_to_coords(smiles)
+            xyzDir = Path(outputDir) / str(id)
+            xyzFile = xyzDir / f"{id}.xyz"
 
-        xyzDir = Path(outputDir) / str(id)
-        xyzFile = xyzDir / f"{id}.xyz"
-
-        xyzDir.mkdir(parents=True, exist_ok=True)
-        write_xyz(elements, coords, xyzFile)
+            xyzDir.mkdir(parents=True, exist_ok=True)
+            write_xyz(elements, coords, xyzFile)
+        except:
+            print(f"Could not convert SMILES {smiles} to .xyz")
+            continue
 
 
 if __name__ == "__main__":
