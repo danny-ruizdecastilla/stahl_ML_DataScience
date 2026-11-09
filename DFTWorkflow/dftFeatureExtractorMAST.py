@@ -62,7 +62,7 @@ def extractShiftsByIdx(logFile: str, extract1:str, extract2:str,location1:str ,l
     atomShifts = {}
     with open(logFile , "r") as f:
         for idx, line in enumerate(f):
-            if idx > int(lowerInd)  and idx < int(upperInd):
+            if idx >= int(lowerInd)  and idx < int(upperInd):
                 if "   Isotropic =  " in line:
                     atomInd = line.split("   Isotropic =  ")[0].strip()
                     atomIdx = int(atomInd.split(" ")[0].strip())
@@ -85,7 +85,7 @@ def extractEnergies(logFile , linkStr, energyStr):
         raise ValueError(f"Unknown energy type: {energyStr}. "
                 f"Available types: {list(patterns.keys())}")
     logName = str(logFile.name.split(".")[0])
-    print(logName + f"{linkStr}" )
+    #print(logName + f"{linkStr}" )
     firstIdx = locateinLog(logFile , logName + f"{linkStr}" , "earliest" )
     secondIdx = locateinLog(logFile , logName + f"{linkStr}" , "latest" )
     with open(logFile, 'r') as f:
@@ -158,6 +158,59 @@ def getAtomCoordsRobust(logFile , xyzStr , commaSplit:int , locationIdx  ):
 def time_to_seconds(line):
     d, h, m, s = map(float, re.findall(r"\d+(?:\.\d+)?", line))
     return d*86400 + h*3600 + m*60 + s
+def extractCHELPGCharges(logFile , chelpgStr ):
+    chelpgHash = {}
+    chelpgIdx = regexLocateInLog(logFile ,rf"{str(logFile.name)}_?{chelpgStr}" , 1 )
+    chelpgIdx2 = regexLocateInLog(logFile , rf"{str(logFile.name)}_?{chelpgStr}" , 2 )
+    with open(logFile, "r") as f:
+        extractingCharges = False 
+        extractingElectrostatics = False
+        for i, line in enumerate(islice(f, chelpgIdx, chelpgIdx2), start=chelpgIdx):
+            if " ESP charges:" in line:
+                extractingCharges = True
+            if extractingCharges:
+                if "Sum of ESP charges =" in line:
+                    extractingCharges = False
+                else:
+                    splits = line.strip().split()
+                    if len(splits) > 1 :
+                            idx = int(splits[0])
+                            atom = splits[1]
+                            chelpg = float(splits[2])
+                            chelpgHash[idx] = [atom, chelpg]
+            elif "   1 Atom    " in line:
+                extractingElectrostatics = True
+            if extractingElectrostatics:
+                if "---------------------------" in line:
+                    extractingElectrostatics = False
+                else:
+                    atomSplits = [object.strip() for object in line.split("Atom")]
+                    atomid = int(atomSplits[0])
+                    atomElectro = float(atomSplits[1])
+                    chelpgHash[atomid].append(atomElectro)
+    return chelpgHash
+def extractHirshfeldCharges(logFile , hirshStr):
+    hirshHash = {}
+    hirshIdx = regexLocateInLog(logFile ,rf"{str(logFile.name)}_?{hirshStr}" , 1 )
+    hirshIdx2 = regexLocateInLog(logFile , rf"{str(logFile.name)}_?{hirshStr}" , 2 )
+    with open(logFile, "r") as f:
+        extractingPop = False
+        for i, line in enumerate(islice(f, hirshIdx, hirshIdx2), start=hirshIdx):
+            if "Hirshfeld populations at iteration   1 (CA, CB, DipXYZ):" in line:
+                extractingPop = True
+            if extractingPop:
+                if "Tot  " in line:
+                    extractingPop = False
+                else:
+                    splits = line.split()
+                    if len(splits) > 5 :
+                        idx = int(splits[0])
+                        atomSymbol = splits[1]
+                        spinUp = float(splits[2])
+                        spinDown = float(splits[3])
+                        total = spinUp + spinDown
+                        hirshHash[idx] = [atomSymbol, spinUp, spinDown, total]
+    return hirshHash
 def extractNBOOccupancies(logFile , nboStr , charge:int):
     logName = str(logFile.name.split(".")[0])
     #print(logName)

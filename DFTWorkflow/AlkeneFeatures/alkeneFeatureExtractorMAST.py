@@ -19,10 +19,14 @@ from DFTWorkflow.ionComGenerator import locateinLog
 from DFTWorkflow.AlkeneFeatures.alkeneStericDougnut import alkeneSemiCylinders
 from DFTWorkflow.AlkeneFeatures.alkeneSlicedOranges import alkeneSlicedOranges
 from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
-from DFTWorkflow.dftFeatureExtractorMAST import compartmentalization , time_to_seconds , extractNBOOccupancies , getBoltzmannWeightsGauss , getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks
+from DFTWorkflow.dftFeatureExtractorMAST import compartmentalization , time_to_seconds , extractNBOOccupancies , getBoltzmannWeightsGauss , getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks , extractCHELPGCharges , extractHirshfeld
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from topologicalStericEffects.alkeneTopologyCalc import calcSingle
-
+def weightedAvg(values, weights):
+    weightTot = sum(weights)
+    if weightTot == 0:
+        return 0
+    return sum(v * w for v, w in zip(values, weights)) / weightTot
 def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboStr , charge, logEnergyStr):
     weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
     Cmin_NBO = []
@@ -68,11 +72,6 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
                 piBondEnergyWeights.append(localWeight)
             except:
                 continue
-    def weightedAvg(values, weights):
-        weightTot = sum(weights)
-        if weightTot == 0:
-            return 0
-        return sum(v * w for v, w in zip(values, weights)) / weightTot
     finalHash = {}
     finalHash["ID"] = logNameMAST
     finalHash["SMILES"] = smiles
@@ -105,6 +104,95 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
         finalHash["antiPiBond"] ="Nan"
         finalHash["antiPiEnergy"] = "Nan"  
     return finalHash
+def getAlkeneCHELPGInfo(logList , CC , energyStr , logNameMAST , smiles , logEnergyStr , chelpgStr , charge):
+    weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
+    Cmin_CHELPG = []
+    Cmax_CHELPG = []
+    CHELPG_delta = []
+    CHELPG_mean = []
+    Cmin_chelpgElectro = []
+    Cmax_chelpgElectro = []
+    electroDelta = []
+    electroMean = []
+    for idx , row in weightsDF.iterrows():
+        logFile = row["logID"]
+        logPath = f"{logFile}.log"
+        conformer  = next((f for f in logList if logPath in f.name), None)
+        chelpgHash = extractCHELPGCharges(conformer , chelpgStr , charge)
+        alkeneHash = {key: chelpgHash[key] for key in chelpgHash if key == CC[0]+1 or key == CC[1]+1}
+        c1CHELPG = float(alkeneHash[CC[0]+1][1])
+        c2CHELPG = float(alkeneHash[CC[1]+1][1])
+        if c2CHELPG >= c1CHELPG:
+            Cmax_CHELPG.append(c2CHELPG)
+            Cmin_CHELPG.append(c1CHELPG)
+            Cmin_chelpgElectro.append(float(alkeneHash[CC[0]+1][2]))
+            Cmax_chelpgElectro.append(float(alkeneHash[CC[1]+1][2]))
+        else:
+            Cmax_CHELPG.append(c1CHELPG)
+            Cmin_CHELPG.append(c2CHELPG)
+            Cmin_chelpgElectro.append(float(alkeneHash[CC[1]+1][2]))
+            Cmax_chelpgElectro.append(float(alkeneHash[CC[0]+1][2]))
+
+        CHELPG_delta.append(abs(c1CHELPG-c2CHELPG))
+        CHELPG_mean.append(float(np.mean([c1CHELPG,c2CHELPG])))
+        electroDelta.append(abs(float(alkeneHash[CC[1]+1][2])-float(alkeneHash[CC[0]+1][2])))
+        electroMean.append(float(np.mean([float(alkeneHash[CC[0]+1][2]), float(alkeneHash[CC[1]+1][2])])))
+    finalHash = {}
+    finalHash["ID"] = logNameMAST
+    finalHash["SMILES"] = smiles
+    finalHash["CHELPG_mxAlk"] =weightedAvg(Cmin_CHELPG , list(weightsDF["boltzWeights"]))
+    finalHash["CHELPG_mnAlk"] =weightedAvg(Cmax_CHELPG , list(weightsDF["boltzWeights"]))
+    finalHash["CHELPG_Mean"] =weightedAvg(CHELPG_mean , list(weightsDF["boltzWeights"]))
+    finalHash["CHELPG_Delta"] =weightedAvg(CHELPG_delta , list(weightsDF["boltzWeights"]))
+    finalHash["CHELPG_mxElectro"] =weightedAvg(Cmin_chelpgElectro , list(weightsDF["boltzWeights"]))
+    finalHash["CHELPG_mnElectro"] =weightedAvg(Cmax_chelpgElectro , list(weightsDF["boltzWeights"]))
+    finalHash["CHELPG_ElectroMean"] =weightedAvg(electroMean , list(weightsDF["boltzWeights"]))
+    finalHash["CHELPG_ElectroDelta"] =weightedAvg(electroDelta , list(weightsDF["boltzWeights"]))
+    lowEidx = max(enumerate(list(weightsDF["boltzWeights"])), key=lambda x: x[1])[0]
+    Cmin_CHELPG_lowE = Cmin_CHELPG[lowEidx]
+    Cmax_CHELPG_lowE = Cmax_CHELPG[lowEidx]
+    Cmin_chelpgElectro_lowE = Cmin_chelpgElectro[lowEidx]
+    Cmax_chelpgElectro_lowE = Cmax_chelpgElectro[lowEidx]
+    finalHash["CHELPG_mxAlk_lowE"] = Cmin_CHELPG_lowE
+    finalHash["CHELPG_mnAlk_lowE"] =Cmax_CHELPG_lowE
+    finalHash["CHELPG_Mean_lowE"] = np.mean([Cmin_CHELPG_lowE, Cmax_CHELPG_lowE])
+    finalHash["CHELPG_Delta_lowE"] =abs(Cmin_CHELPG_lowE - Cmax_CHELPG_lowE)
+    finalHash["CHELPG_mxElectro_lowE"] = Cmin_chelpgElectro_lowE
+    finalHash["CHELPG_mnElectro_lowE"] = Cmax_chelpgElectro_lowE
+    finalHash["CHELPG_ElectroMean_lowE"] = np.mean([Cmin_chelpgElectro_lowE, Cmax_chelpgElectro_lowE])
+    finalHash["CHELPG_ElectroDelta_lowE"] =abs(Cmin_chelpgElectro_lowE - Cmax_chelpgElectro_lowE)
+    return finalHash
+def getAlkeneHirshInfo(logList , CC , energyStr , logNameMAST , smiles , logEnergyStr , hirshStr , charge):
+    weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
+    Cmin_Hirsh = []
+    Cmax_Hirsh = []
+    Hirsh_delta = []
+    Hirsh_mean = []
+    for idx , row in weightsDF.iterrows():
+        logFile = row["logID"]
+        logPath = f"{logFile}.log"
+        conformer  = next((f for f in logList if logPath in f.name), None)
+        hirshHash = extractHirshfeld(conformer , hirshStr)
+        alkeneHash = {key: hirshHash[key] for key in hirshHash if key == CC[0]+1 or key == CC[1]+1}
+        c1Hirsh = float(alkeneHash[CC[0]+1][3])
+        c2Hirsh = float(alkeneHash[CC[1]+1][3])
+        if c2Hirsh >= c1Hirsh:
+            Cmax_Hirsh.append(c2Hirsh)
+            Cmin_Hirsh.append(c1Hirsh)
+        else:
+            Cmax_Hirsh.append(c1Hirsh)
+            Cmin_Hirsh.append(c2Hirsh)
+
+        Hirsh_delta.append(abs(c1Hirsh-c2Hirsh))
+        Hirsh_mean.append(float(np.mean([c1Hirsh,c2Hirsh])))
+    finalHash = {}
+    finalHash["ID"] = logNameMAST
+    finalHash["SMILES"] = smiles
+    finalHash["Hirsch_mxAlk"] =weightedAvg(Cmin_Hirsh , list(weightsDF["boltzWeights"]))
+    finalHash["Hirsch_mnAlk"] =weightedAvg(Cmax_Hirsh , list(weightsDF["boltzWeights"]))
+    finalHash["Hirsch_Mean"] =weightedAvg(Hirsh_mean , list(weightsDF["boltzWeights"]))
+    finalHash["Hirsch_Delta"] =weightedAvg(Hirsh_delta , list(weightsDF["boltzWeights"]))
+    lowEidx = max
 
 def hCount(molec, wildCards):
     hydrogens = 0
@@ -430,7 +518,7 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
                         ] = vburLowE[center][quad][rad]
             hashList.append(vburOrangeSlices)
         if "%VburSemiCylinders" in featureList:
-            radList = [2.5,3.0,3.5]
+            radList = [2.5 , 3.0 , 3.5]
             segmentList = ["maxSemiPi" , "minSemiPi" , "maxSemiOrth" , "minSemiOrth" , "maxCap" , "minCap" , "CburrTot"]
             cappedSemis = {segment : {r : [] for r in radList} for segment in segmentList}
             g = Graph()
