@@ -19,7 +19,7 @@ from DFTWorkflow.ionComGenerator import locateinLog
 from DFTWorkflow.AlkeneFeatures.alkeneStericDougnut import alkeneSemiCylinders
 from DFTWorkflow.AlkeneFeatures.alkeneSlicedOranges import alkeneSlicedOranges
 from DFTWorkflow.AlkeneFeatures.alkeneSubstitution import eVszAlkenes
-from DFTWorkflow.dftFeatureExtractorMAST import compartmentalization , time_to_seconds , extractNBOOccupancies , getBoltzmannWeightsGauss , getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks , extractCHELPGCharges , extractHirshfeld
+from DFTWorkflow.dftFeatureExtractorMAST import compartmentalization , time_to_seconds , extractNBOOccupancies , getBoltzmannWeightsGauss , getAtomCoordsRobust , extractShiftsByIdx , getGlobalGreeks , extractCHELPGCharges , extractHirshfeldCharges , extractFullCharges
 from breadthFirstSearch.radialBasedCorrelation import getCC
 from topologicalStericEffects.alkeneTopologyCalc import calcSingle
 def weightedAvg(values, weights):
@@ -104,7 +104,7 @@ def getAlkeneNBOInfo(logList , C1 , C2 , energyStr , logNameMAST , smiles , nboS
         finalHash["antiPiBond"] ="Nan"
         finalHash["antiPiEnergy"] = "Nan"  
     return finalHash
-def getAlkeneCHELPGInfo(logList , CC , energyStr , logNameMAST , smiles , logEnergyStr , chelpgStr , charge):
+def getAlkeneCHELPGInfo(logList , CC , energyStr , logNameMAST , smiles , logEnergyStr , chelpgStr , endIdx):
     weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
     Cmin_CHELPG = []
     Cmax_CHELPG = []
@@ -118,25 +118,25 @@ def getAlkeneCHELPGInfo(logList , CC , energyStr , logNameMAST , smiles , logEne
         logFile = row["logID"]
         logPath = f"{logFile}.log"
         conformer  = next((f for f in logList if logPath in f.name), None)
-        chelpgHash = extractCHELPGCharges(conformer , chelpgStr , charge)
-        alkeneHash = {key: chelpgHash[key] for key in chelpgHash if key == CC[0]+1 or key == CC[1]+1}
-        c1CHELPG = float(alkeneHash[CC[0]+1][1])
-        c2CHELPG = float(alkeneHash[CC[1]+1][1])
+        chelpgHash = extractCHELPGCharges(conformer , chelpgStr , endIdx)
+        alkeneHash = {key: chelpgHash[key] for key in chelpgHash if key == CC[0] or key == CC[1]}
+        c1CHELPG = float(alkeneHash[CC[0]][1])
+        c2CHELPG = float(alkeneHash[CC[1]][1])
         if c2CHELPG >= c1CHELPG:
             Cmax_CHELPG.append(c2CHELPG)
             Cmin_CHELPG.append(c1CHELPG)
-            Cmin_chelpgElectro.append(float(alkeneHash[CC[0]+1][2]))
-            Cmax_chelpgElectro.append(float(alkeneHash[CC[1]+1][2]))
+            Cmin_chelpgElectro.append(float(alkeneHash[CC[0]][2]))
+            Cmax_chelpgElectro.append(float(alkeneHash[CC[1]][2]))
         else:
             Cmax_CHELPG.append(c1CHELPG)
             Cmin_CHELPG.append(c2CHELPG)
-            Cmin_chelpgElectro.append(float(alkeneHash[CC[1]+1][2]))
-            Cmax_chelpgElectro.append(float(alkeneHash[CC[0]+1][2]))
+            Cmin_chelpgElectro.append(float(alkeneHash[CC[1]][2]))
+            Cmax_chelpgElectro.append(float(alkeneHash[CC[0]][2]))
 
         CHELPG_delta.append(abs(c1CHELPG-c2CHELPG))
         CHELPG_mean.append(float(np.mean([c1CHELPG,c2CHELPG])))
-        electroDelta.append(abs(float(alkeneHash[CC[1]+1][2])-float(alkeneHash[CC[0]+1][2])))
-        electroMean.append(float(np.mean([float(alkeneHash[CC[0]+1][2]), float(alkeneHash[CC[1]+1][2])])))
+        electroDelta.append(abs(float(alkeneHash[CC[1]][2])-float(alkeneHash[CC[0]][2])))
+        electroMean.append(float(np.mean([float(alkeneHash[CC[0]][2]), float(alkeneHash[CC[1]][2])])))
     finalHash = {}
     finalHash["ID"] = logNameMAST
     finalHash["SMILES"] = smiles
@@ -153,47 +153,174 @@ def getAlkeneCHELPGInfo(logList , CC , energyStr , logNameMAST , smiles , logEne
     Cmax_CHELPG_lowE = Cmax_CHELPG[lowEidx]
     Cmin_chelpgElectro_lowE = Cmin_chelpgElectro[lowEidx]
     Cmax_chelpgElectro_lowE = Cmax_chelpgElectro[lowEidx]
-    finalHash["CHELPG_mxAlk_lowE"] = Cmin_CHELPG_lowE
-    finalHash["CHELPG_mnAlk_lowE"] =Cmax_CHELPG_lowE
+    finalHash["CHELPG_mxAlk_lowE"] = Cmax_CHELPG_lowE
+    finalHash["CHELPG_mnAlk_lowE"] =Cmin_CHELPG_lowE
     finalHash["CHELPG_Mean_lowE"] = np.mean([Cmin_CHELPG_lowE, Cmax_CHELPG_lowE])
     finalHash["CHELPG_Delta_lowE"] =abs(Cmin_CHELPG_lowE - Cmax_CHELPG_lowE)
-    finalHash["CHELPG_mxElectro_lowE"] = Cmin_chelpgElectro_lowE
-    finalHash["CHELPG_mnElectro_lowE"] = Cmax_chelpgElectro_lowE
+    finalHash["CHELPG_mxElectro_lowE"] = Cmax_chelpgElectro_lowE
+    finalHash["CHELPG_mnElectro_lowE"] = Cmin_chelpgElectro_lowE
     finalHash["CHELPG_ElectroMean_lowE"] = np.mean([Cmin_chelpgElectro_lowE, Cmax_chelpgElectro_lowE])
     finalHash["CHELPG_ElectroDelta_lowE"] =abs(Cmin_chelpgElectro_lowE - Cmax_chelpgElectro_lowE)
     return finalHash
-def getAlkeneHirshInfo(logList , CC , energyStr , logNameMAST , smiles , logEnergyStr , hirshStr , charge):
+def getAlkeneHirshInfo(logList , CC , energyStr , logNameMAST , smiles , logEnergyStr , hirshStr , endIdx):
     weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
     Cmin_Hirsh = []
     Cmax_Hirsh = []
     Hirsh_delta = []
     Hirsh_mean = []
+    Cmin_SpinUp = []    
+    Cmin_SpinDown = []
+    Cmax_SpinUp = []
+    Cmax_SpinDown = []
     for idx , row in weightsDF.iterrows():
         logFile = row["logID"]
         logPath = f"{logFile}.log"
         conformer  = next((f for f in logList if logPath in f.name), None)
-        hirshHash = extractHirshfeld(conformer , hirshStr)
-        alkeneHash = {key: hirshHash[key] for key in hirshHash if key == CC[0]+1 or key == CC[1]+1}
-        c1Hirsh = float(alkeneHash[CC[0]+1][3])
-        c2Hirsh = float(alkeneHash[CC[1]+1][3])
+        hirshHash = extractHirshfeldCharges(conformer , hirshStr ,endIdx)
+        alkeneHash = {key: hirshHash[key] for key in hirshHash if key == CC[0] or key == CC[1]}
+        c1Hirsh = float(alkeneHash[CC[0]][3])
+        c2Hirsh = float(alkeneHash[CC[1]][3])
         if c2Hirsh >= c1Hirsh:
             Cmax_Hirsh.append(c2Hirsh)
             Cmin_Hirsh.append(c1Hirsh)
+            Cmin_SpinUp.append(float(alkeneHash[CC[0]][1]))
+            Cmin_SpinDown.append(float(alkeneHash[CC[0]][2]))
+            Cmax_SpinUp.append(float(alkeneHash[CC[1]][1]))
+            Cmax_SpinDown.append(float(alkeneHash[CC[1]][2]))
         else:
             Cmax_Hirsh.append(c1Hirsh)
             Cmin_Hirsh.append(c2Hirsh)
+            Cmin_SpinUp.append(float(alkeneHash[CC[0]][1]))
+            Cmin_SpinDown.append(float(alkeneHash[CC[0]][2]))
+            Cmax_SpinUp.append(float(alkeneHash[CC[1]][1]))
+            Cmax_SpinDown.append(float(alkeneHash[CC[1]][2]))
 
         Hirsh_delta.append(abs(c1Hirsh-c2Hirsh))
         Hirsh_mean.append(float(np.mean([c1Hirsh,c2Hirsh])))
     finalHash = {}
     finalHash["ID"] = logNameMAST
     finalHash["SMILES"] = smiles
-    finalHash["Hirsch_mxAlk"] =weightedAvg(Cmin_Hirsh , list(weightsDF["boltzWeights"]))
-    finalHash["Hirsch_mnAlk"] =weightedAvg(Cmax_Hirsh , list(weightsDF["boltzWeights"]))
+    finalHash["Hirsch_mxAlk"] =weightedAvg(Cmax_Hirsh , list(weightsDF["boltzWeights"]))
+    finalHash["Hirsch_mnAlk"] =weightedAvg(Cmin_Hirsh , list(weightsDF["boltzWeights"]))
     finalHash["Hirsch_Mean"] =weightedAvg(Hirsh_mean , list(weightsDF["boltzWeights"]))
     finalHash["Hirsch_Delta"] =weightedAvg(Hirsh_delta , list(weightsDF["boltzWeights"]))
-    lowEidx = max
-
+    finalHash["Hirsch_mxSpinUp"] =weightedAvg(Cmax_SpinUp , list(weightsDF["boltzWeights"]))
+    finalHash["Hirsch_mnSpinUp"] =weightedAvg(Cmin_SpinUp , list(weightsDF["boltzWeights"]))
+    finalHash["Hirsch_mxSpinDown"] =weightedAvg(Cmax_SpinDown , list(weightsDF["boltzWeights"]))
+    finalHash["Hirsch_mnSpinDown"] =weightedAvg(Cmin_SpinDown , list(weightsDF["boltzWeights"]))
+    lowEidx = max(enumerate(list(weightsDF["boltzWeights"])), key=lambda x: x[1])[0]
+    Cmin_Hirsh_lowE = Cmin_Hirsh[lowEidx]
+    Cmax_Hirsh_lowE = Cmax_Hirsh[lowEidx]
+    Cmin_SpinUp_lowE = Cmin_SpinUp[lowEidx]
+    Cmax_SpinUp_lowE = Cmax_SpinUp[lowEidx]
+    Cmin_SpinDown_lowE = Cmin_SpinDown[lowEidx]
+    Cmax_SpinDown_lowE = Cmax_SpinDown[lowEidx]
+    finalHash["Hirsch_mxAlk_lowE"] = Cmax_Hirsh_lowE
+    finalHash["Hirsch_mnAlk_lowE"] =Cmin_Hirsh_lowE
+    finalHash["Hirsch_Mean_lowE"] = np.mean([Cmin_Hirsh_lowE, Cmax_Hirsh_lowE])
+    finalHash["Hirsch_Delta_lowE"] =abs(Cmin_Hirsh_lowE - Cmax_Hirsh_lowE)
+    finalHash["Hirsch_mxSpinUp_lowE"] = Cmax_SpinUp_lowE
+    finalHash["Hirsch_mnSpinUp_lowE"] = Cmin_SpinUp_lowE
+    finalHash["Hirsch_mxSpinDown_lowE"] = Cmax_SpinDown_lowE
+    finalHash["Hirsch_mnSpinDown_lowE"] = Cmin_SpinDown_lowE
+    return finalHash
+def getAlkeneFullInfo(logList , CC , energyStr , logNameMAST , smiles , logEnergyStr , endIdx , fullStr , charge ):
+    weightsDF = getBoltzmannWeightsGauss(logList , 298 , energyStr , logEnergyStr)
+    mullikenCmx = []
+    mullikenCmn = []
+    mullikenDelta = []
+    mullikenMean = []
+    cMxPx = []
+    cMnPx = []
+    cMxPy = []
+    cMnPy = []
+    cMxPz = []
+    cMnPz = []
+    cMxPxE = []
+    cMnPxE = []
+    cMxPyE = []
+    cMnPyE = []
+    cMxPzE = []
+    cMnPzE = []
+    for idx , row in weightsDF.iterrows():
+        logFile = row["logID"]
+        logPath = f"{logFile}.log"
+        conformer  = next((f for f in logList if logPath in f.name), None)
+        print(conformer)
+        fullHash = extractFullCharges(conformer , fullStr , endIdx , charge  )
+        alkeneHash = {key: fullHash[key] for key in fullHash if key == CC[0] or key == CC[1]}
+        c1Mulliken = float(alkeneHash[CC[0]]["mulliken"])
+        c2Mulliken = float(alkeneHash[CC[1]]["mulliken"])
+        if c2Mulliken >= c1Mulliken:
+            mullikenCmx.append(c2Mulliken)
+            mullikenCmn.append(c1Mulliken)
+            if charge == 0:
+                cMnP = alkeneHash[CC[0]]["twoOrbitals"]
+                cMnPIdx = list(cMnP.keys())
+                cMnPx.append(cMnP[cMnPIdx[0]][0])
+                cMnPy.append(cMnP[cMnPIdx[1]][0])
+                cMnPz.append(cMnP[cMnPIdx[2]][0])
+                cMnPxE.append(cMnP[cMnPIdx[0]][1])
+                cMnPyE.append(cMnP[cMnPIdx[1]][1])
+                cMnPzE.append(cMnP[cMnPIdx[2]][1])
+                CmxP = alkeneHash[CC[1]]["twoOrbitals"]
+                cMPIdx = list(CmxP.keys())
+                cMxPx.append(CmxP[cMPIdx[0]][0])
+                cMxPy.append(CmxP[cMPIdx[1]][0])
+                cMxPz.append(CmxP[cMPIdx[2]][0])
+                cMxPxE.append(CmxP[cMPIdx[0]][1])
+                cMxPyE.append(CmxP[cMPIdx[1]][1])
+                cMxPzE.append(CmxP[cMPIdx[2]][1])
+        else:
+            mullikenCmx.append(c1Mulliken)
+            mullikenCmn.append(c2Mulliken)
+            if charge == 0:
+                cMnP = alkeneHash[CC[1]]["twoOrbitals"]
+                cMnPIdx = list(cMnP.keys())
+                cMnPx.append(cMnP[cMnPIdx[0]][0])
+                cMnPy.append(cMnP[cMnPIdx[1]][0])
+                cMnPz.append(cMnP[cMnPIdx[2]][0])
+                cMnPxE.append(cMnP[cMnPIdx[0]][1])
+                cMnPyE.append(cMnP[cMnPIdx[1]][1])
+                cMnPzE.append(cMnP[cMnPIdx[2]][1])
+                CmxP = alkeneHash[CC[0]]["twoOrbitals"]
+                cMPIdx = list(CmxP.keys())
+                cMxPx.append(CmxP[cMPIdx[0]][0])
+                cMxPy.append(CmxP[cMPIdx[1]][0])
+                cMxPz.append(CmxP[cMPIdx[2]][0])
+                cMxPxE.append(CmxP[cMPIdx[0]][1])
+                cMxPyE.append(CmxP[cMPIdx[1]][1])
+                cMxPzE.append(CmxP[cMPIdx[2]][1])
+        mullikenDelta.append(abs(c1Mulliken-c2Mulliken))
+        mullikenMean.append(float(np.mean([c1Mulliken,c2Mulliken])))
+    finalHash = {}
+    finalHash["ID"] = logNameMAST
+    finalHash["SMILES"] = smiles
+    finalHash["Mulliken_mxAlk"] =weightedAvg(mullikenCmx , list(weightsDF["boltzWeights"]))
+    finalHash["Mulliken_mnAlk"] =weightedAvg(mullikenCmn , list(weightsDF["boltzWeights"]))
+    finalHash["Mulliken_Mean"] =weightedAvg(mullikenMean , list(weightsDF["boltzWeights"]))
+    finalHash["Mulliken_Delta"] =weightedAvg(mullikenDelta , list(weightsDF["boltzWeights"]))
+    if charge == 0:
+        finalHash["Mulliken_mxPx"] =weightedAvg(cMxPx , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mnPx"] =weightedAvg(cMnPx , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mxPy"] =weightedAvg(cMxPy , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mnPy"] =weightedAvg(cMnPy , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mxPz"] =weightedAvg(cMxPz , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mnPz"] =weightedAvg(cMnPz , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mxPxE"] =weightedAvg(cMxPxE , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mnPxE"] =weightedAvg(cMnPxE , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mxPyE"] =weightedAvg(cMxPyE , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mnPyE"] =weightedAvg(cMnPyE , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mxPzE"] =weightedAvg(cMxPzE , list(weightsDF["boltzWeights"]))
+        finalHash["Mulliken_mnPzE"] =weightedAvg(cMnPzE , list(weightsDF["boltzWeights"]))
+    lowEidx = max(enumerate(list(weightsDF["boltzWeights"])), key=lambda x: x[1])[0]
+    Cmin_Mulliken_lowE = mullikenCmn[lowEidx]
+    Cmax_Mulliken_lowE = mullikenCmx[lowEidx]
+    finalHash["Mulliken_mxAlk_lowE"] = Cmax_Mulliken_lowE
+    finalHash["Mulliken_mnAlk_lowE"] =Cmin_Mulliken_lowE
+    finalHash["Mulliken_Mean_lowE"] = np.mean([Cmin_Mulliken_lowE, Cmax_Mulliken_lowE])
+    finalHash["Mulliken_Delta_lowE"] =abs(Cmin_Mulliken_lowE - Cmax_Mulliken_lowE)
+    return finalHash
 def hCount(molec, wildCards):
     hydrogens = 0
     for wildcard in wildCards:
@@ -258,19 +385,66 @@ def getAlkenes(substratesHash , smilesHash , featureHash, logEnergyStr ):
             #print(C1,C2)
             neutralHash = getAlkeneNBOInfo(conformerFiles , C1 , C2, "electronic", id , smilesStr , nboNeutralStr , 0 , logEnergyStr)
             hashList.append(neutralHash)
+        if "CHELPG" in featureList:
+            chelpgStr = featureHash["CHELPG"][0]
+            chelpgHash = getAlkeneCHELPGInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , chelpgStr , 1)
+            hashList.append(chelpgHash)
+        if "Hirshfeld" in featureList:
+            hirshStr = featureHash["Hirshfeld"][0]
+            hirshHash = getAlkeneHirshInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , hirshStr , 1) 
+            hashList.append(hirshHash)
+        if "FullCharges" in featureList:
+            fullStr = featureHash["FullCharges"][0]
+            fullHash = getAlkeneFullInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , 1 , fullStr , 0) #(logList , CC , energyStr , logNameMAST , smiles , logEnergyStr , endIdx , fullStr)
+            hashList.append(fullHash)
         if "fukuiParameters" in featureList:
-            nboNeutralStr = featureHash["NBO7"][0]
-            nboCationStr = featureHash["fukuiParameters"][0]
-            nboAnionstr = featureHash["fukuiParameters"][1]
-            neutralHash = getAlkeneNBOInfo(conformerFiles ,  C1 , C2, "electronic", id , smilesStr , nboNeutralStr , 0, logEnergyStr)
-            cationHash = getAlkeneNBOInfo(conformerFiles ,  C1 , C2 , "electronic", id , smilesStr , nboCationStr , 1 , logEnergyStr)
-            anionHash = getAlkeneNBOInfo(conformerFiles ,  C1 , C2,"electronic", id , smilesStr, nboAnionstr , -1, logEnergyStr)
-            q0_mx = neutralHash["NBO_mxAlk"]
-            q1_mx = cationHash["NBO_mxAlk"]
-            q1__mx = anionHash["NBO_mxAlk"]
-            q0_mn = neutralHash["NBO_mnAlk"]
-            q1_mn = cationHash["NBO_mnAlk"]
-            q1__mn = anionHash["NBO_mnAlk"]
+            electroCationStr = featureHash["fukuiParameters"][0]
+            electroAnionstr = featureHash["fukuiParameters"][1]
+            electroNeutralStr = featureHash["fukuiParameters"][2]
+            if electroNeutralStr == "NBO7":
+                nboNeutralStr = featureHash[f"{electroNeutralStr}"][0]
+                neutralHash = getAlkeneNBOInfo(conformerFiles ,  C1 , C2, "electronic", id , smilesStr , nboNeutralStr , 0, logEnergyStr)
+                cationHash = getAlkeneNBOInfo(conformerFiles ,  C1 , C2 , "electronic", id , smilesStr , electroCationStr , 1 , logEnergyStr)
+                anionHash = getAlkeneNBOInfo(conformerFiles ,  C1 , C2,"electronic", id , smilesStr, electroAnionstr , -1, logEnergyStr)
+                q0_mx = neutralHash["NBO_mxAlk"]
+                q1_mx = cationHash["NBO_mxAlk"]
+                q1__mx = anionHash["NBO_mxAlk"]
+                q0_mn = neutralHash["NBO_mnAlk"]
+                q1_mn = cationHash["NBO_mnAlk"]
+                q1__mn = anionHash["NBO_mnAlk"]
+            elif electroNeutralStr == "CHELPG":
+                chelpgStr = featureHash[f"{electroNeutralStr}"][0]
+                neutralHash = getAlkeneCHELPGInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , chelpgStr , 1)
+                cationHash = getAlkeneCHELPGInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , electroCationStr , 2)
+                anionHash = getAlkeneCHELPGInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , electroAnionstr , 3)
+                q0_mx = neutralHash["CHELPG_mxAlk"]
+                q1_mx = cationHash["CHELPG_mxAlk"]
+                q1__mx = anionHash["CHELPG_mxAlk"]
+                q0_mn = neutralHash["CHELPG_mnAlk"]
+                q1_mn = cationHash["CHELPG_mnAlk"]
+                q1__mn = anionHash["CHELPG_mnAlk"]
+            elif electroNeutralStr == "Hirshfeld":
+                hirshStr = featureHash[f"{electroNeutralStr}"][0]
+                neutralHash = getAlkeneHirshInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , hirshStr , 1)
+                cationHash = getAlkeneHirshInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , electroCationStr , 2)
+                anionHash = getAlkeneHirshInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , electroAnionstr , 3)
+                q0_mx = neutralHash["Hirsch_mxAlk"]
+                q1_mx = cationHash["Hirsch_mxAlk"]
+                q1__mx = anionHash["Hirsch_mxAlk"]
+                q0_mn = neutralHash["Hirsch_mnAlk"]
+                q1_mn = cationHash["Hirsch_mnAlk"]
+                q1__mn = anionHash["Hirsch_mnAlk"]
+            elif electroNeutralStr == "FullCharges":
+                fullStr = featureHash[f"{electroNeutralStr}"][0]
+                neutralHash = getAlkeneFullInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , 1 , fullStr , 0)
+                cationHash = getAlkeneFullInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , 2 , electroCationStr , 1)
+                anionHash = getAlkeneFullInfo(conformerFiles , [C1,C2] , "electronic", id , smilesStr , logEnergyStr , 3 , electroAnionstr , -1)
+                q0_mx = neutralHash["Mulliken_mxAlk"]
+                q1_mx = cationHash["Mulliken_mxAlk"]
+                q1__mx = anionHash["Mulliken_mxAlk"]
+                q0_mn = neutralHash["Mulliken_mnAlk"]
+                q1_mn = cationHash["Mulliken_mnAlk"]
+                q1__mn = anionHash["Mulliken_mnAlk"]
             f_minus_Mx = float(q0_mx) - float(q1__mx)
             f_plus_Mx = float(q1_mx) - float(q0_mx)
             f_neut_Mx = 0.5 * ((q1_mx) - float(q1__mx))

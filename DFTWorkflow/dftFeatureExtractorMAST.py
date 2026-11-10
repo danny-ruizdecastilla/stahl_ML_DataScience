@@ -22,9 +22,10 @@ from breadthFirstSearch.radialBasedCorrelation import getCC
 from reaxysProcessing.reaxysSubstrateExtractorV2 import listInputs
 def regexLocateInLog(logFile, textStr, returnType: str):
     pattern = re.compile(textStr)
-
+    #print(pattern)
     with open(logFile) as f:
         matchingLines = [i for i, line in enumerate(f) if pattern.search(line)]
+        #print(matchingLines)
     if len(matchingLines) != 0:
         if returnType == "earliest":
             return matchingLines[0]
@@ -158,17 +159,18 @@ def getAtomCoordsRobust(logFile , xyzStr , commaSplit:int , locationIdx  ):
 def time_to_seconds(line):
     d, h, m, s = map(float, re.findall(r"\d+(?:\.\d+)?", line))
     return d*86400 + h*3600 + m*60 + s
-def extractCHELPGCharges(logFile , chelpgStr ):
+def extractCHELPGCharges(logFile , chelpgStr , endIdx ):
+    logName = str(logFile.name.split(".")[0])
     chelpgHash = {}
-    chelpgIdx = regexLocateInLog(logFile ,rf"{str(logFile.name)}_?{chelpgStr}" , 1 )
-    chelpgIdx2 = regexLocateInLog(logFile , rf"{str(logFile.name)}_?{chelpgStr}" , 2 )
+    chelpgIdx = regexLocateInLog(logFile ,rf"{logName}_?{chelpgStr}" , 0 )
+    chelpgIdx2 = regexLocateInLog(logFile , rf" Unable to Open any file for archive entry." , endIdx )
     with open(logFile, "r") as f:
         extractingCharges = False 
         extractingElectrostatics = False
         for i, line in enumerate(islice(f, chelpgIdx, chelpgIdx2), start=chelpgIdx):
             if " ESP charges:" in line:
                 extractingCharges = True
-            if extractingCharges:
+            elif extractingCharges:
                 if "Sum of ESP charges =" in line:
                     extractingCharges = False
                 else:
@@ -189,16 +191,18 @@ def extractCHELPGCharges(logFile , chelpgStr ):
                     atomElectro = float(atomSplits[1])
                     chelpgHash[atomid].append(atomElectro)
     return chelpgHash
-def extractHirshfeldCharges(logFile , hirshStr):
+def extractHirshfeldCharges(logFile , hirshStr , endIdx):
+    logName = str(logFile.name.split(".")[0])
     hirshHash = {}
-    hirshIdx = regexLocateInLog(logFile ,rf"{str(logFile.name)}_?{hirshStr}" , 1 )
-    hirshIdx2 = regexLocateInLog(logFile , rf"{str(logFile.name)}_?{hirshStr}" , 2 )
+    hirshIdx = regexLocateInLog(logFile ,rf"{logName}_?{hirshStr}" , 0 )
+    hirshIdx2 = regexLocateInLog(logFile , rf" Unable to Open any file for archive entry." , endIdx )
+    extractingPop = False
     with open(logFile, "r") as f:
         extractingPop = False
         for i, line in enumerate(islice(f, hirshIdx, hirshIdx2), start=hirshIdx):
             if "Hirshfeld populations at iteration   1 (CA, CB, DipXYZ):" in line:
                 extractingPop = True
-            if extractingPop:
+            elif extractingPop:
                 if "Tot  " in line:
                     extractingPop = False
                 else:
@@ -211,6 +215,102 @@ def extractHirshfeldCharges(logFile , hirshStr):
                         total = spinUp + spinDown
                         hirshHash[idx] = [atomSymbol, spinUp, spinDown, total]
     return hirshHash
+def extractFullCharges(logFile , chargeStr , endIdx , charge):
+    logName = str(logFile.name.split(".")[0])
+    fullHash = {}
+    fullIdx = regexLocateInLog(logFile ,rf"{logName}_?{chargeStr}" , 0 )
+    print(fullIdx)
+    fullIdx2 = regexLocateInLog(logFile , rf" Unable to Open any file for archive entry." , endIdx )
+    print(fullIdx2)
+    with open(logFile, "r") as f:
+        extractingPop = False
+        extractingCharges = False
+        extractingEnergies = False
+        idx = None
+        symbol = None
+        twoOrbitals = {}
+        if charge == 0:
+            for i, line in enumerate(islice(f, fullIdx, fullIdx2), start=fullIdx):
+                if "     Gross orbital populations:" in line:
+                    extractingPop = True
+                if extractingPop:
+                    if "          Condensed to atoms (all electrons):" in line:
+                        extractingPop = False
+                        fullHash[idx] = {"symbol" : symbol , "twoOrbitals" : twoOrbitals}
+                    else:
+                        lines = [part.strip() for part in line.split()]
+                        if len(lines) ==  5: #new atom 
+                            if idx is None:
+                                idx = int(lines[1])
+                                symbol = lines[2]
+                                twoOrbitals = {}
+                            else:
+                                fullHash[idx] = {"symbol" : symbol , "twoOrbitals" : twoOrbitals}
+                                idx = int(lines[1])
+                                symbol = lines[2]
+                                twoOrbitals = {}
+                        if len(lines) == 3 and ("2S" in line or "2P" in line):
+                            twoOrbitals[int(lines[0])] = [float(lines[2])] # index : [occupancy] 
+                elif " Mulliken charges:" in line:
+                    extractingCharges = True
+                if extractingCharges:
+                    if " Sum of Mulliken charges =" in line:
+                        extractingCharges = False
+                    else:
+                        splits = [part.strip() for part in line.split()]
+                        if len(splits) == 3 :
+                            idx = int(splits[0])
+                            mulliken = float(splits[2])
+                            fullHash[idx]["mulliken"] = mulliken
+                elif " Orbital energies and kinetic energies (alpha):" in line:
+                    extractingEnergies = True
+                if extractingEnergies:
+                    if " Total kinetic energy from orbitals" in line:
+                        extractingEnergies = False
+                    else:
+                        splits = [part.strip() for part in line.split()]
+                        if len(splits) == 4 :
+                                orbIdx = int(splits[0])
+                                energy = float(splits[2])
+                                #check which atomic index this orbIdx belongs to 
+                                for atomIdx, atomData in fullHash.items():
+                                    if orbIdx in atomData["twoOrbitals"].keys(): #checks keys 
+                                        fullHash[atomIdx]["twoOrbitals"][orbIdx].append(energy)
+                                        break
+        elif charge != 0:
+            for i, line in enumerate(islice(f, fullIdx, fullIdx2), start=fullIdx):
+                if "     Gross orbital populations:" in line:
+                    extractingPop = True
+                elif extractingPop:
+                    if "          Condensed to atoms (all electrons):" in line:
+                        extractingPop = False
+                        fullHash[idx] = {"symbol" : symbol , "twoOrbitals" : twoOrbitals}
+                    else:
+                        lines = [part.strip() for part in line.split()]
+                        if len(lines) == 8: #new atom 
+                            if idx is None:
+                                idx = int(lines[1])
+                                symbol = lines[2]
+                                twoOrbitals = {}
+                            else:
+                                fullHash[idx] = {"symbol" : symbol , "twoOrbitals" : twoOrbitals}
+                                idx = int(lines[1])
+                                symbol = lines[2]
+                                twoOrbitals = {}
+                        if len(lines) == 6 and ("2S" in line or "2P" in line):
+                            twoOrbitals[int(lines[0])] = [float(lines[4])] # index : [occupancy]
+                elif " Mulliken charges and spin densities:" in line:
+                    extractingCharges = True
+                elif extractingCharges:
+                    if " Sum of Mulliken charges =" in line:
+                        extractingCharges = False
+                    else:
+                        splits = [part.strip() for part in line.split()]
+                        if len(splits) == 4 :
+                            idx = int(splits[0])
+                            mulliken = float(splits[2])
+                            fullHash[idx]["mulliken"] = mulliken
+    return fullHash
 def extractNBOOccupancies(logFile , nboStr , charge:int):
     logName = str(logFile.name.split(".")[0])
     #print(logName)
@@ -550,7 +650,7 @@ def compartmentalization(logDir , outputDir , substrateFile):
                 continue
     extractNum = input(f"Enter the number corresponding to which substructre you want to extract information from:\n [0] Alkenes\n [1] Sulfides\n")
     if int(extractNum) == 0:
-        localStrs = ["C13_shift" , "NBO7" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburSemiCylinders" , "globalFeatures" , "Sterimol"  , "TSEI" , "orangeSlices" , "firstContactVbur"]
+        localStrs = ["C13_shift" , "NBO7" , "CHELPG" , "Hirshfeld" , "FullCharges" , "fukuiParameters" , "%Vbur" , "EvsZ" , "Dist.", "%VburSemiCylinders" , "globalFeatures" , "Sterimol"  , "TSEI" , "orangeSlices" , "firstContactVbur"]
         localDescriptorsInput = boxGen(localStrs)
         featureList = listInputs(f"Enter the indexes corresponding to the features you would like to extract\n{localDescriptorsInput}")
         featuresMAST = {}
@@ -559,10 +659,28 @@ def compartmentalization(logDir , outputDir , substrateFile):
             if feature == "fukuiParameters":
                 cationStr = input(f"Please enter the --link-- string for the cationic molecule: ")
                 anionStr = input(f"Please enter the --link-- string for the anionic molecule: ")
-                featuresMAST["fukuiParameters"] = [cationStr , anionStr]
+                chargeBox = boxGen(["NBO7" , "CHELPG" , "Hirshfeld" , "FullCharges"])
+                chargeType = listInputs(f"Please enter the index corresponding to the charge type you would like to extract for the Fukui parameters\n{chargeBox}")
+                if int(chargeType[0]) == 0:
+                    featuresMAST["fukuiParameters"] = [cationStr , anionStr , "NBO7"]
+                elif int(chargeType[0]) == 1:
+                    featuresMAST["fukuiParameters"] = [cationStr , anionStr , "CHELPG"]
+                elif int(chargeType[0]) == 2:
+                    featuresMAST["fukuiParameters"] = [cationStr , anionStr , "Hirshfeld"]
+                elif int(chargeType[0]) == 3:
+                    featuresMAST["fukuiParameters"] = [cationStr , anionStr , "FullCharges"]
             elif feature == "NBO7":
                 neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
                 featuresMAST["NBO7"] = [neutralStr]
+            elif feature == "CHELPG":
+                neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
+                featuresMAST["CHELPG"] = [neutralStr]
+            elif feature == "Hirshfeld":
+                neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
+                featuresMAST["Hirshfeld"] = [neutralStr]
+            elif feature == "FullCharges":
+                neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
+                featuresMAST["FullCharges"] = [neutralStr]
             elif feature == "globalFeatures":
                 neutralStr = input(f"Please enter the --link-- string for the neutral molecule: ")
                 featuresMAST["globalFeatures"] = [neutralStr]
