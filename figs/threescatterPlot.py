@@ -86,7 +86,7 @@ def htmlGenerator3D(jsonDict, axisList, chemStr, outputDir, partitionStr):
                             '<extra></extra>',
                         marker: {{
                             size: 8,
-                            color: 'rgba(188, 188, 188, 0.4)'
+                            color: 'rgba(153, 0, 0, 0.4)'
                         }}
                     }};
                     traces.push(trace);
